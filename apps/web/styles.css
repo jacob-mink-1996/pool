@@ -106,6 +106,31 @@ select {
   align-items: end;
 }
 
+.status-banner {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(64, 47, 30, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  box-shadow: 0 12px 30px rgba(103, 68, 28, 0.08);
+}
+
+.status-banner.is-success {
+  border-color: rgba(28, 125, 123, 0.24);
+  color: #155d5d;
+}
+
+.status-banner.is-error {
+  border-color: rgba(179, 71, 58, 0.24);
+  color: #8d3026;
+}
+
+.status-banner.is-loading {
+  border-color: rgba(214, 139, 54, 0.24);
+  color: #85531c;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 2.1fr) minmax(340px, 1fr);
@@ -127,7 +152,8 @@ select {
 
 .project-create-card,
 .ticket-create-form,
-.merge-queue-panel {
+.merge-queue-panel,
+.mission-snapshot {
   display: grid;
   gap: 0.9rem;
   padding: 1rem;
@@ -147,6 +173,111 @@ select {
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr);
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.snapshot-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.snapshot-metric,
+.snapshot-card {
+  border: 1px solid rgba(64, 47, 30, 0.09);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.snapshot-metric {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+}
+
+.snapshot-metric p,
+.snapshot-metric span,
+.snapshot-card-header h4,
+.snapshot-card-header p,
+.snapshot-list-item p {
+  margin: 0;
+}
+
+.snapshot-metric p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.snapshot-metric strong {
+  font-size: 2rem;
+  line-height: 1;
+  font-family: var(--font-serif);
+}
+
+.snapshot-metric span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.snapshot-card {
+  padding: 0.95rem 1rem;
+}
+
+.snapshot-card-header {
+  margin-bottom: 0.75rem;
+}
+
+.snapshot-card-header h4 {
+  font-size: 0.98rem;
+}
+
+.snapshot-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.snapshot-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(64, 47, 30, 0.08);
+}
+
+.snapshot-list-item:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.snapshot-list-item strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.snapshot-list-item span {
+  flex: 0 0 auto;
+  color: var(--teal);
+  font-weight: 700;
+}
+
+.tone-good strong {
+  color: var(--teal);
+}
+
+.tone-warn strong {
+  color: var(--warm);
+}
+
+.tone-danger strong {
+  color: var(--red);
 }
 
 .project-settings-form,
@@ -244,14 +375,32 @@ select {
 
 .ticket-card-title {
   display: block;
-  margin-top: 0.25rem;
+  margin-top: 0.1rem;
   font-size: 1rem;
 }
 
+.ticket-card-topline,
+.ticket-card-decision {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ticket-card-updated,
+.ticket-card-decision {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .ticket-card-summary {
-  margin: 0.6rem 0 0.8rem;
+  margin: 0.55rem 0 0.55rem;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.ticket-card-decision {
+  margin: 0 0 0.8rem;
+  line-height: 1.4;
 }
 
 .ticket-card-meta {
@@ -280,6 +429,56 @@ select {
 .detail-content {
   display: grid;
   gap: 1.1rem;
+}
+
+.detail-section {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(64, 47, 30, 0.09);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.detail-overview-section {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(246, 241, 232, 0.85));
+}
+
+.ticket-overview-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ticket-overview-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(64, 47, 30, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ticket-overview-card p,
+.ticket-overview-card strong,
+.ticket-overview-card span {
+  margin: 0;
+}
+
+.ticket-overview-card p {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.ticket-overview-card strong {
+  font-size: 0.98rem;
+}
+
+.ticket-overview-card span {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .empty-state {
@@ -587,6 +786,12 @@ select {
   gap: 0.55rem;
 }
 
+.merge-queue-panel:first-of-type {
+  position: sticky;
+  top: 1rem;
+  z-index: 2;
+}
+
 .dependency-item strong {
   display: block;
   margin-bottom: 0.28rem;
@@ -684,7 +889,9 @@ select {
   }
 
   .control-grid,
-  .board-columns {
+  .board-columns,
+  .snapshot-metrics,
+  .ticket-overview-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -703,7 +910,10 @@ select {
   .execution-action-form,
   .activity-filter-form,
   .detail-grid,
-  .board-columns {
+  .board-columns,
+  .snapshot-grid,
+  .snapshot-metrics,
+  .ticket-overview-cards {
     grid-template-columns: 1fr;
     display: grid;
   }

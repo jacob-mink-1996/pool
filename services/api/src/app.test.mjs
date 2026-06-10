@@ -46,6 +46,8 @@ test("root route serves the operator web app", async () => {
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     assert.match(html, /Pool Mission Control/);
+    assert.match(html, /status-banner/);
+    assert.match(html, /Operator Overview/);
     assert.match(html, /Create Project/);
     assert.match(html, /Project Settings/);
     assert.match(html, /Delivery Policy/);
@@ -57,6 +59,28 @@ test("root route serves the operator web app", async () => {
     assert.match(html, /Validations/);
     assert.match(html, /Merge Readiness/);
     assert.match(html, /Worktrees/);
+  });
+});
+
+test("web module assets are served with the correct content type", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/lib/helpers.js`);
+    const body = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /text\/javascript/);
+    assert.match(body, /export function prettyState/);
+  });
+});
+
+test("head requests succeed for web assets", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/app.js`, { method: "HEAD" });
+    const body = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /text\/javascript/);
+    assert.equal(body, "");
   });
 });
 

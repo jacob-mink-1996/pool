@@ -2,5 +2,9 @@
   "name": "@pool/product-web",
   "private": true,
   "version": "0.0.1",
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/run-web-workspace.mjs dev",
+    "start": "node ../../scripts/run-web-workspace.mjs start"
+  }
 }

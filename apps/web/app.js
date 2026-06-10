@@ -1,210 +1,52 @@
-const stateOptions = [
-  "PROPOSED",
-  "READY",
-  "WORKING",
-  "REVIEWING",
-  "VALIDATING",
-  "REWORK",
-  "BLOCKED",
-  "READY_TO_MERGE",
-  "DONE",
-];
-const policyTicketStateOptions = ["DRAFT", ...stateOptions];
-
-const roleOptions = [
-  "product_manager",
-  "architect",
-  "developer",
-  "reviewer",
-  "validator",
-  "integrator",
-];
-
-const priorityOptions = ["low", "medium", "high", "urgent"];
-const executionOutcomeOptions = [
-  "completed",
-  "needs_continue",
-  "blocked",
-  "followup_created",
-  "failed",
-];
-const activityEventTypes = [
-  "project.created",
-  "project.updated",
-  "repo.created",
-  "repo.updated",
-  "ticket.created",
-  "ticket.updated",
-  "ticket.transitioned",
-  "dependency.added",
-  "dependency.removed",
-  "execution.started",
-  "execution.completed",
-  "review.completed",
-  "validation.completed",
-  "worktree.created",
-  "worktree.cleaned",
-  "merge.started",
-  "merge.completed",
-];
-
-const stateClassMap = new Map(stateOptions.map((state) => [state, slugify(state)]));
-
-const dom = {
-  projectSelect: document.querySelector("#project-select"),
-  refreshButton: document.querySelector("#refresh-button"),
-  boardTitle: document.querySelector("#board-title"),
-  boardMeta: document.querySelector("#board-meta"),
-  projectCreateForm: document.querySelector("#project-create-form"),
-  createProjectNameInput: document.querySelector("#create-project-name-input"),
-  createProjectSlugInput: document.querySelector("#create-project-slug-input"),
-  createProjectBranchInput: document.querySelector("#create-project-branch-input"),
-  createProjectWorkspaceRootInput: document.querySelector("#create-project-workspace-root-input"),
-  createProjectDescriptionInput: document.querySelector("#create-project-description-input"),
-  projectEmpty: document.querySelector("#project-empty"),
-  projectWorkspace: document.querySelector("#project-workspace"),
-  projectSettingsForm: document.querySelector("#project-settings-form"),
-  projectNameInput: document.querySelector("#project-name-input"),
-  projectDefaultBranchInput: document.querySelector("#project-default-branch-input"),
-  projectWorkspaceRootInput: document.querySelector("#project-workspace-root-input"),
-  projectDescriptionInput: document.querySelector("#project-description-input"),
-  projectPolicyForm: document.querySelector("#project-policy-form"),
-  policyRequireReviewerInput: document.querySelector("#policy-require-reviewer-input"),
-  policyRequireValidatorInput: document.querySelector("#policy-require-validator-input"),
-  policyRequireHumanApprovalInput: document.querySelector("#policy-require-human-approval-input"),
-  policyAgentCreatedStateSelect: document.querySelector("#policy-agent-created-state-select"),
-  policyMaxParallelInput: document.querySelector("#policy-max-parallel-input"),
-  policyMaxContinueInput: document.querySelector("#policy-max-continue-input"),
-  repoCount: document.querySelector("#repo-count"),
-  repoCreateForm: document.querySelector("#repo-create-form"),
-  repoNameInput: document.querySelector("#repo-name-input"),
-  repoSlugInput: document.querySelector("#repo-slug-input"),
-  repoDefaultBranchInput: document.querySelector("#repo-default-branch-input"),
-  repoRemoteUrlInput: document.querySelector("#repo-remote-url-input"),
-  repoLocalPathInput: document.querySelector("#repo-local-path-input"),
-  repoIsPrimaryInput: document.querySelector("#repo-is-primary-input"),
-  repoList: document.querySelector("#repo-list"),
-  roleProfileList: document.querySelector("#role-profile-list"),
-  ticketCreateForm: document.querySelector("#ticket-create-form"),
-  createTitleInput: document.querySelector("#create-title-input"),
-  createStateSelect: document.querySelector("#create-state-select"),
-  createPrioritySelect: document.querySelector("#create-priority-select"),
-  createRoleSelect: document.querySelector("#create-role-select"),
-  createBriefInput: document.querySelector("#create-brief-input"),
-  createRepoSelect: document.querySelector("#create-repo-select"),
-  boardFilterForm: document.querySelector("#board-filter-form"),
-  boardSearchInput: document.querySelector("#board-search-input"),
-  boardStateSelect: document.querySelector("#board-state-select"),
-  boardRoleSelect: document.querySelector("#board-role-select"),
-  boardPrioritySelect: document.querySelector("#board-priority-select"),
-  boardFilterResetButton: document.querySelector("#board-filter-reset-button"),
-  mergeQueueCount: document.querySelector("#merge-queue-count"),
-  mergeQueue: document.querySelector("#merge-queue"),
-  activityCount: document.querySelector("#activity-count"),
-  activityFilterForm: document.querySelector("#activity-filter-form"),
-  activityTicketSelect: document.querySelector("#activity-ticket-select"),
-  activityTypeSelect: document.querySelector("#activity-type-select"),
-  activityLimitSelect: document.querySelector("#activity-limit-select"),
-  activityFilterResetButton: document.querySelector("#activity-filter-reset-button"),
-  activityFeed: document.querySelector("#activity-feed"),
-  boardColumns: document.querySelector("#board-columns"),
-  ticketTitle: document.querySelector("#ticket-title"),
-  ticketStateBadge: document.querySelector("#ticket-state-badge"),
-  ticketEmpty: document.querySelector("#ticket-empty"),
-  ticketDetail: document.querySelector("#ticket-detail"),
-  ticketBrief: document.querySelector("#ticket-brief"),
-  executionCreateForm: document.querySelector("#execution-create-form"),
-  executionRoleSelect: document.querySelector("#execution-role-select"),
-  executionReasonInput: document.querySelector("#execution-reason-input"),
-  executionActionEmpty: document.querySelector("#execution-action-empty"),
-  executionActionForm: document.querySelector("#execution-action-form"),
-  executionOutcomeSelect: document.querySelector("#execution-outcome-select"),
-  executionNoteInput: document.querySelector("#execution-note-input"),
-  executionContinueButton: document.querySelector("#execution-continue-button"),
-  executionCancelButton: document.querySelector("#execution-cancel-button"),
-  executionList: document.querySelector("#execution-list"),
-  reviewForm: document.querySelector("#review-form"),
-  reviewExecutionSelect: document.querySelector("#review-execution-select"),
-  reviewVerdictSelect: document.querySelector("#review-verdict-select"),
-  reviewSummaryInput: document.querySelector("#review-summary-input"),
-  reviewFindingTitleInput: document.querySelector("#review-finding-title-input"),
-  reviewFindingCategoryInput: document.querySelector("#review-finding-category-input"),
-  reviewFindingSeveritySelect: document.querySelector("#review-finding-severity-select"),
-  reviewFindingLocationInput: document.querySelector("#review-finding-location-input"),
-  reviewFindingDetailsInput: document.querySelector("#review-finding-details-input"),
-  reviewList: document.querySelector("#review-list"),
-  validationForm: document.querySelector("#validation-form"),
-  validationRepoSelect: document.querySelector("#validation-repo-select"),
-  validationVerdictSelect: document.querySelector("#validation-verdict-select"),
-  validationCommandProfileInput: document.querySelector("#validation-command-profile-input"),
-  validationCommandsInput: document.querySelector("#validation-commands-input"),
-  validationSummaryInput: document.querySelector("#validation-summary-input"),
-  validationList: document.querySelector("#validation-list"),
-  mergeStatusTitle: document.querySelector("#merge-status-title"),
-  mergeStatusCopy: document.querySelector("#merge-status-copy"),
-  mergeStatusBadge: document.querySelector("#merge-status-badge"),
-  mergeStatusMeta: document.querySelector("#merge-status-meta"),
-  mergeForm: document.querySelector("#merge-form"),
-  mergeStrategySelect: document.querySelector("#merge-strategy-select"),
-  mergeOutcomeSelect: document.querySelector("#merge-outcome-select"),
-  mergeApprovedByKindInput: document.querySelector("#merge-approved-by-kind-input"),
-  mergeApprovedByRefInput: document.querySelector("#merge-approved-by-ref-input"),
-  mergeSummaryInput: document.querySelector("#merge-summary-input"),
-  ticketEditForm: document.querySelector("#ticket-edit-form"),
-  ticketTitleInput: document.querySelector("#ticket-title-input"),
-  ticketPrioritySelect: document.querySelector("#ticket-priority-select"),
-  ticketRoleSelect: document.querySelector("#ticket-role-select"),
-  ticketSummaryInput: document.querySelector("#ticket-summary-input"),
-  ticketParentSelect: document.querySelector("#ticket-parent-select"),
-  ticketBriefInput: document.querySelector("#ticket-brief-input"),
-  stateForm: document.querySelector("#state-form"),
-  stateSelect: document.querySelector("#state-select"),
-  stateReason: document.querySelector("#state-reason"),
-  acceptanceCriteria: document.querySelector("#acceptance-criteria"),
-  acceptanceCriteriaInput: document.querySelector("#acceptance-criteria-input"),
-  definitionOfDone: document.querySelector("#definition-of-done"),
-  definitionOfDoneInput: document.querySelector("#definition-of-done-input"),
-  repoTargetForm: document.querySelector("#repo-target-form"),
-  repoTargetRepoSelect: document.querySelector("#repo-target-repo-select"),
-  repoTargetBaseRefInput: document.querySelector("#repo-target-base-ref-input"),
-  repoTargetBranchInput: document.querySelector("#repo-target-branch-input"),
-  repoTargetScopeInput: document.querySelector("#repo-target-scope-input"),
-  repoTargets: document.querySelector("#repo-targets"),
-  dependencyForm: document.querySelector("#dependency-form"),
-  blockingTicketSelect: document.querySelector("#blocking-ticket-select"),
-  dependencies: document.querySelector("#dependencies"),
-  worktrees: document.querySelector("#worktrees"),
-  eventTimeline: document.querySelector("#event-timeline"),
-  ticketCardTemplate: document.querySelector("#ticket-card-template"),
-};
-
-const state = {
-  projects: [],
-  project: null,
-  projectId: "",
-  board: null,
-  ticketDetail: null,
-  selectedTicketId: "",
-  tickets: [],
-  repos: [],
-  mergeQueue: [],
-  events: [],
-  activityFilters: {
-    ticketId: "",
-    type: "",
-    limit: 20,
-  },
-  boardFilters: {
-    search: "",
-    state: "",
-    assignedRole: "",
-    priority: "",
-  },
-};
+import {
+  activityEventTypes,
+  executionOutcomeOptions,
+  policyTicketStateOptions,
+  priorityOptions,
+  roleOptions,
+  stateClassMap,
+  stateOptions,
+} from "./lib/constants.js";
+import { dom } from "./lib/dom.js";
+import { state } from "./lib/state.js";
+import { buildActivityEventsUrl, buildBoardUrl, fetchJson } from "./lib/api.js";
+import {
+  createRepoField,
+  currentActiveExecution,
+  escapeHtml,
+  executionBadgeClass,
+  formatDate,
+  laneSnapshotNote,
+  mergeStatusClass,
+  parseLocation,
+  prettyDependencyType,
+  prettyEventType,
+  prettyRole,
+  prettyState,
+  repoDefaultBranch,
+  reviewVerdictClass,
+  roleLoadoutNote,
+  roleProfileForRole,
+  setFormControlsDisabled,
+  slugify,
+  splitLines,
+  validationVerdictClass,
+} from "./lib/helpers.js";
 
 bootstrap().catch((error) => {
   console.error(error);
   setBoardError(error instanceof Error ? error.message : String(error));
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const message = event.reason instanceof Error ? event.reason.message : String(event.reason);
+  showStatus(message, "error", { persist: true });
+});
+
+window.addEventListener("error", (event) => {
+  if (event.error) {
+    showStatus(event.error.message, "error", { persist: true });
+  }
 });
 
 async function bootstrap() {
@@ -445,7 +287,7 @@ function bindEvents() {
         state: dom.createStateSelect.value,
         priority: dom.createPrioritySelect.value,
         assignedRole: dom.createRoleSelect.value,
-        repoTargets: repoId ? [{ repoId, baseRef: repoDefaultBranch(repoId) }] : [],
+        repoTargets: repoId ? [{ repoId, baseRef: repoDefaultBranch(state, repoId) }] : [],
       }),
     });
 
@@ -586,7 +428,7 @@ function bindEvents() {
       ...currentTicketRepoTargets(),
       {
         repoId,
-        baseRef: dom.repoTargetBaseRefInput.value.trim() || repoDefaultBranch(repoId),
+        baseRef: dom.repoTargetBaseRefInput.value.trim() || repoDefaultBranch(state, repoId),
         branchName: dom.repoTargetBranchInput.value.trim(),
         targetScopeMd: dom.repoTargetScopeInput.value.trim(),
       },
@@ -608,7 +450,7 @@ function bindEvents() {
         target.repoId === repoId
           ? {
               repoId,
-              baseRef: form.elements.namedItem("baseRef").value.trim() || repoDefaultBranch(repoId),
+              baseRef: form.elements.namedItem("baseRef").value.trim() || repoDefaultBranch(state, repoId),
               branchName: form.elements.namedItem("branchName").value.trim(),
               targetScopeMd: form.elements.namedItem("targetScopeMd").value.trim(),
             }
@@ -625,6 +467,9 @@ function bindEvents() {
   dom.repoTargets.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-action='remove-repo-target']");
     if (!button || !state.projectId || !state.selectedTicketId) {
+      return;
+    }
+    if (!window.confirm("Remove this repo target from the ticket?")) {
       return;
     }
 
@@ -658,6 +503,9 @@ function bindEvents() {
     if (!button || !state.projectId || !state.selectedTicketId) {
       return;
     }
+    if (!window.confirm("Remove this dependency?")) {
+      return;
+    }
 
     await fetchJson(
       `/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/dependencies/${button.dataset.dependencyId}`,
@@ -672,6 +520,9 @@ function bindEvents() {
   dom.worktrees.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-action='clean-worktree']");
     if (!button || !state.projectId) {
+      return;
+    }
+    if (!window.confirm("Mark this worktree as cleaned?")) {
       return;
     }
 
@@ -699,7 +550,7 @@ function bindEvents() {
 
   dom.executionActionForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const activeExecution = currentActiveExecution();
+    const activeExecution = currentActiveExecution(state.ticketDetail);
     if (!state.projectId || !activeExecution) return;
 
     const note = dom.executionNoteInput.value.trim();
@@ -723,7 +574,7 @@ function bindEvents() {
   });
 
   dom.executionContinueButton.addEventListener("click", async () => {
-    const activeExecution = currentActiveExecution();
+    const activeExecution = currentActiveExecution(state.ticketDetail);
     if (!state.projectId || !activeExecution) return;
 
     const reason = dom.executionNoteInput.value.trim() || "Continue the bounded execution loop.";
@@ -738,8 +589,11 @@ function bindEvents() {
   });
 
   dom.executionCancelButton.addEventListener("click", async () => {
-    const activeExecution = currentActiveExecution();
+    const activeExecution = currentActiveExecution(state.ticketDetail);
     if (!state.projectId || !activeExecution) return;
+    if (!window.confirm("Cancel the active execution?")) {
+      return;
+    }
 
     const reason = dom.executionNoteInput.value.trim() || "Execution cancelled by operator.";
     await fetchJson(`/api/v1/projects/${state.projectId}/executions/${activeExecution.id}/cancel`, {
@@ -836,45 +690,54 @@ async function loadBoard(projectId, options = {}) {
   dom.boardMeta.textContent = "";
   dom.projectSelect.disabled = false;
   dom.refreshButton.disabled = false;
+  showStatus("Refreshing mission control…", "loading", { persist: true });
 
-  const [projectPayload, boardPayload, ticketsPayload, reposPayload, mergeQueuePayload, activityPayload] = await Promise.all([
-    fetchJson(`/api/v1/projects/${projectId}`),
-    fetchJson(buildBoardUrl(projectId)),
-    fetchJson(`/api/v1/projects/${projectId}/tickets`),
-    fetchJson(`/api/v1/projects/${projectId}/repos`),
-    fetchJson(`/api/v1/projects/${projectId}/merge-queue`),
-    fetchJson(buildActivityEventsUrl(projectId)),
-  ]);
-  state.project = projectPayload.project;
-  state.board = boardPayload.board;
-  state.tickets = ticketsPayload.tickets || [];
-  state.repos = reposPayload.repos || [];
-  state.mergeQueue = mergeQueuePayload.queue || [];
-  state.events = activityPayload.events || [];
-  syncProjectSummary(projectPayload.project);
-  renderProjectSettings();
-  renderProjectPolicy();
-  renderRepoRegistry();
-  renderRoleProfiles();
-  renderBoardFilters();
-  renderRepoTargetOptions();
-  renderMergeQueue();
-  renderActivityFilters();
-  renderActivityFeed();
-  renderBoard(boardPayload.board);
+  try {
+    const [projectPayload, boardPayload, ticketsPayload, reposPayload, mergeQueuePayload, activityPayload] = await Promise.all([
+      fetchJson(`/api/v1/projects/${projectId}`),
+      fetchJson(buildBoardUrl(state, projectId)),
+      fetchJson(`/api/v1/projects/${projectId}/tickets`),
+      fetchJson(`/api/v1/projects/${projectId}/repos`),
+      fetchJson(`/api/v1/projects/${projectId}/merge-queue`),
+      fetchJson(buildActivityEventsUrl(state, projectId)),
+    ]);
+    state.project = projectPayload.project;
+    state.board = boardPayload.board;
+    state.tickets = ticketsPayload.tickets || [];
+    state.repos = reposPayload.repos || [];
+    state.mergeQueue = mergeQueuePayload.queue || [];
+    state.events = activityPayload.events || [];
+    syncProjectSummary(projectPayload.project);
+    renderProjectSettings();
+    renderProjectPolicy();
+    renderMissionSnapshot();
+    renderRepoRegistry();
+    renderRoleProfiles();
+    renderBoardFilters();
+    renderRepoTargetOptions();
+    renderMergeQueue();
+    renderActivityFilters();
+    renderActivityFeed();
+    renderBoard(boardPayload.board);
 
-  const nextTicketId =
-    options.ticketId ||
-    (options.keepSelection ? state.selectedTicketId : "") ||
-    boardPayload.board.columns.flatMap((column) => column.tickets).at(0)?.id ||
-    "";
+    const nextTicketId =
+      options.ticketId ||
+      (options.keepSelection ? state.selectedTicketId : "") ||
+      boardPayload.board.columns.flatMap((column) => column.tickets).at(0)?.id ||
+      "";
 
-  if (nextTicketId) {
-    await loadTicket(nextTicketId);
-    return;
+    if (nextTicketId) {
+      await loadTicket(nextTicketId);
+    } else {
+      clearTicketDetail();
+    }
+
+    showStatus(`Loaded ${projectPayload.project.name}`, "success");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    showStatus(message, "error", { persist: true });
+    throw error;
   }
-
-  clearTicketDetail();
 }
 
 function renderBoard(board) {
@@ -1039,6 +902,101 @@ function renderProjectSettings() {
   dom.projectWorkspaceRootInput.value = project.workspaceRoot || "";
   dom.projectDescriptionInput.value = project.description || "";
   resetRepoCreateForm();
+}
+
+function renderMissionSnapshot() {
+  const boardColumns = state.board?.columns || [];
+  const openTickets = state.tickets.filter((ticket) => ticket.state !== "DONE");
+  const blockedTickets = state.tickets.filter((ticket) => ticket.state === "BLOCKED");
+  const activeExecutions = state.tickets
+    .flatMap((ticket) => ticket.executions || [])
+    .filter((execution) => execution.status === "running");
+  const readyToMergeCount = state.mergeQueue.length;
+  const staleWorktreeCount = state.tickets.reduce(
+    (count, ticket) =>
+      count +
+      (ticket.worktrees || []).filter((worktree) => worktree.status !== "active" && worktree.status !== "cleaned")
+        .length,
+    0,
+  );
+
+  const metrics = [
+    {
+      label: "Open tickets",
+      value: String(openTickets.length),
+      tone: "neutral",
+      note: `${state.tickets.length} total in project`,
+    },
+    {
+      label: "Active runs",
+      value: String(activeExecutions.length),
+      tone: activeExecutions.length ? "good" : "neutral",
+      note: activeExecutions.length ? "Execution lane is live" : "No execution currently running",
+    },
+    {
+      label: "Merge ready",
+      value: String(readyToMergeCount),
+      tone: readyToMergeCount ? "good" : "neutral",
+      note: readyToMergeCount ? "Tickets are waiting for integration" : "Nothing queued for merge",
+    },
+    {
+      label: "Blocked",
+      value: String(blockedTickets.length),
+      tone: blockedTickets.length ? "danger" : "neutral",
+      note: blockedTickets.length ? "Operator attention likely needed" : "No tickets blocked right now",
+    },
+    {
+      label: "Stale worktrees",
+      value: String(staleWorktreeCount),
+      tone: staleWorktreeCount ? "warn" : "neutral",
+      note: staleWorktreeCount ? "Finished trees still need cleanup" : "No stale worktrees hanging around",
+    },
+  ];
+
+  dom.snapshotMetrics.innerHTML = metrics
+    .map(
+      (metric) => `
+        <article class="snapshot-metric tone-${metric.tone}">
+          <p>${escapeHtml(metric.label)}</p>
+          <strong>${escapeHtml(metric.value)}</strong>
+          <span>${escapeHtml(metric.note)}</span>
+        </article>
+      `,
+    )
+    .join("");
+
+  const lanePressure = [...boardColumns]
+    .sort((left, right) => right.count - left.count)
+    .filter((column) => column.count > 0)
+    .slice(0, 4);
+  renderSnapshotList(
+    dom.snapshotLanes,
+    lanePressure.map((column) => ({
+      title: prettyState(column.state),
+      value: `${column.count} ticket${column.count === 1 ? "" : "s"}`,
+      note: laneSnapshotNote(column.state),
+    })),
+    "No lane pressure yet. Create or unpause tickets to start the board.",
+  );
+
+  const roleCounts = new Map();
+  for (const ticket of openTickets) {
+    const role = ticket.assignedRole || "unassigned";
+    roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
+  }
+  const roleLoadout = [...roleCounts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 4)
+    .map(([role, count]) => ({
+      title: role === "unassigned" ? "Unassigned" : prettyRole(role),
+      value: `${count} ticket${count === 1 ? "" : "s"}`,
+      note: roleLoadoutNote(role, count),
+    }));
+  renderSnapshotList(
+    dom.snapshotRoles,
+    roleLoadout,
+    "No active workload split yet. Assigned roles will show up here.",
+  );
 }
 
 function renderProjectPolicy() {
@@ -1206,8 +1164,10 @@ function renderTicketCard(ticket) {
   const card = dom.ticketCardTemplate.content.firstElementChild.cloneNode(true);
   card.dataset.ticketId = ticket.id;
   card.querySelector(".ticket-key").textContent = ticket.key;
+  card.querySelector(".ticket-card-updated").textContent = `Updated ${formatDate(ticket.updatedAt)}`;
   card.querySelector(".ticket-card-title").textContent = ticket.title;
   card.querySelector(".ticket-card-summary").textContent = ticket.latestSummary || ticket.brief;
+  card.querySelector(".ticket-card-decision").textContent = boardDecisionLabel(ticket);
   const evidenceBadges = [];
   if (ticket.latestReviewVerdict) {
     evidenceBadges.push(
@@ -1220,10 +1180,11 @@ function renderTicketCard(ticket) {
     );
   }
   card.querySelector(".ticket-card-meta").innerHTML = `
-    <span>${ticket.priority}</span>
-    <span>${ticket.assignedRole}</span>
+    <span>${prettyState(ticket.priority)}</span>
+    <span>${prettyRole(ticket.assignedRole)}</span>
     <span>${ticket.repoCount} repo</span>
     <span>${ticket.dependencyCount} dep</span>
+    <span>${ticket.eventCount} events</span>
     ${evidenceBadges.join("")}
   `;
   if (ticket.id === state.selectedTicketId) {
@@ -1259,6 +1220,7 @@ function renderTicketDetail(ticket) {
   dom.ticketPrioritySelect.value = ticket.priority || "medium";
   dom.ticketRoleSelect.value = ticket.assignedRole || "developer";
   dom.ticketSummaryInput.value = ticket.latestSummary || "";
+  renderTicketOverview(ticket);
   renderParentTicketOptions(ticket);
   dom.ticketParentSelect.value = ticket.parentTicketId || "";
   dom.ticketBriefInput.value = ticket.brief || "";
@@ -1291,6 +1253,60 @@ function renderTicketDetail(ticket) {
   }
 }
 
+function renderTicketOverview(ticket) {
+  const latestExecution = ticket.executions.at(-1) || null;
+  const latestReview = ticket.reviews.at(-1) || null;
+  const latestValidation = ticket.validations.at(-1) || null;
+  const cards = [
+    {
+      label: "Current lane",
+      value: prettyState(ticket.state),
+      note: `${prettyRole(ticket.assignedRole || "developer")} owns the next move.`,
+    },
+    {
+      label: "Latest summary",
+      value: ticket.latestSummary || "No summary recorded yet",
+      note: `Updated ${formatDate(ticket.updatedAt)}`,
+    },
+    {
+      label: "Evidence health",
+      value: latestReview ? `Review ${prettyState(latestReview.verdict)}` : "Review pending",
+      note: latestValidation
+        ? `Validation ${prettyState(latestValidation.verdict)}`
+        : latestExecution
+          ? "Validation evidence still pending"
+          : "No execution evidence yet",
+    },
+    {
+      label: "Dependencies",
+      value: ticket.dependencies.length ? `${ticket.dependencies.length} blocker${ticket.dependencies.length === 1 ? "" : "s"}` : "No blockers",
+      note: ticket.repoTargets.length
+        ? `${ticket.repoTargets.length} repo target${ticket.repoTargets.length === 1 ? "" : "s"} attached`
+        : "No repo targets attached",
+    },
+  ];
+
+  if (ticket.mergeStatus) {
+    cards.push({
+      label: "Merge readiness",
+      value: ticket.mergeStatus.canMerge ? "Ready to merge" : "Not ready",
+      note: ticket.mergeStatus.statusSummary || "Waiting on delivery evidence.",
+    });
+  }
+
+  dom.ticketOverviewCards.innerHTML = cards
+    .map(
+      (card) => `
+        <article class="ticket-overview-card">
+          <p>${escapeHtml(card.label)}</p>
+          <strong>${escapeHtml(card.value)}</strong>
+          <span>${escapeHtml(card.note)}</span>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function renderExecutions(ticket) {
   dom.executionList.innerHTML = "";
   const activeExecution = ticket.executions.find((execution) => execution.status === "running");
@@ -1307,7 +1323,7 @@ function renderExecutions(ticket) {
   }
 
   for (const execution of ticket.executions) {
-    const roleProfile = roleProfileForRole(execution.role);
+    const roleProfile = roleProfileForRole(state, execution.role);
     const profileLabel = roleProfile ? `${roleProfile.adapter} · ${roleProfile.model}` : "Unbound profile";
     const item = document.createElement("article");
     item.className = "collection-item execution-item";
@@ -1742,35 +1758,28 @@ function renderCollection(container, items, emptyText) {
   }
 }
 
-function buildBoardUrl(projectId) {
-  const params = new URLSearchParams();
-  if (state.boardFilters.search) {
-    params.set("search", state.boardFilters.search);
+function renderSnapshotList(container, items, emptyText) {
+  container.innerHTML = "";
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "collection-empty";
+    empty.textContent = emptyText;
+    container.append(empty);
+    return;
   }
-  if (state.boardFilters.state) {
-    params.set("state", state.boardFilters.state);
-  }
-  if (state.boardFilters.assignedRole) {
-    params.set("assignedRole", state.boardFilters.assignedRole);
-  }
-  if (state.boardFilters.priority) {
-    params.set("priority", state.boardFilters.priority);
-  }
-  const query = params.toString();
-  return query ? `/api/v1/projects/${projectId}/board?${query}` : `/api/v1/projects/${projectId}/board`;
-}
 
-function buildActivityEventsUrl(projectId) {
-  const params = new URLSearchParams();
-  params.set("order", "desc");
-  params.set("limit", String(state.activityFilters.limit || 20));
-  if (state.activityFilters.ticketId) {
-    params.set("ticketId", state.activityFilters.ticketId);
+  for (const item of items) {
+    const row = document.createElement("article");
+    row.className = "snapshot-list-item";
+    row.innerHTML = `
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <p>${escapeHtml(item.note)}</p>
+      </div>
+      <span>${escapeHtml(item.value)}</span>
+    `;
+    container.append(row);
   }
-  if (state.activityFilters.type) {
-    params.set("type", state.activityFilters.type);
-  }
-  return `/api/v1/projects/${projectId}/events?${params.toString()}`;
 }
 
 function clearTicketDetail() {
@@ -1786,6 +1795,7 @@ function clearTicketDetail() {
   dom.executionNoteInput.value = "";
   resetRepoTargetForm();
   dom.repoTargets.innerHTML = "";
+  dom.ticketOverviewCards.innerHTML = "";
   dom.executionActionForm.hidden = true;
   dom.executionActionEmpty.hidden = false;
   dom.reviewList.innerHTML = "";
@@ -1890,23 +1900,6 @@ function setBoardError(message) {
   clearTicketDetail();
 }
 
-async function fetchJson(url, options) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.message || payload.error || `Request failed: ${response.status}`);
-  }
-  return response.json();
-}
-
-function prettyState(value) {
-  return value.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function prettyRole(value) {
-  return prettyState(value);
-}
-
 function buildPrimaryReviewFinding() {
   const title = dom.reviewFindingTitleInput.value.trim();
   if (!title) {
@@ -1938,13 +1931,6 @@ function currentTicketRepoTargets() {
   }));
 }
 
-function splitLines(value) {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 async function saveTicketRepoTargets(repoTargets) {
   await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}`, {
     method: "PATCH",
@@ -1955,86 +1941,43 @@ async function saveTicketRepoTargets(repoTargets) {
   await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
 }
 
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
+function showStatus(message, tone = "info", options = {}) {
+  if (!message) {
+    dom.statusBanner.hidden = true;
+    dom.statusBanner.textContent = "";
+    dom.statusBanner.className = "status-banner";
+    return;
+  }
 
-function prettyDependencyType(value) {
-  return value.replace(/_/g, " ");
-}
+  dom.statusBanner.hidden = false;
+  dom.statusBanner.textContent = message;
+  dom.statusBanner.className = `status-banner${tone ? ` is-${tone}` : ""}`;
 
-function prettyEventType(value) {
-  return value.replace(/[._]/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function repoDefaultBranch(repoId) {
-  return state.repos.find((repo) => repo.id === repoId)?.defaultBranch || "main";
-}
-
-function roleProfileForRole(role) {
-  return state.project?.roleProfiles?.find((profile) => profile.role === role) || null;
-}
-
-function setFormControlsDisabled(form, disabled) {
-  for (const element of form.elements) {
-    element.disabled = disabled;
+  if (!options.persist && tone !== "loading") {
+    window.clearTimeout(showStatus.timeoutId);
+    showStatus.timeoutId = window.setTimeout(() => {
+      dom.statusBanner.hidden = true;
+    }, 2200);
   }
 }
 
-function createRepoField(labelText, name, value) {
-  const label = document.createElement("label");
-  label.className = "field";
-
-  const title = document.createElement("span");
-  title.textContent = labelText;
-  label.append(title);
-
-  const input = document.createElement("input");
-  input.name = name;
-  input.type = "text";
-  input.value = value || "";
-  label.append(input);
-
-  return label;
-}
-
-function currentActiveExecution() {
-  return state.ticketDetail?.executions?.find((execution) => execution.status === "running") || null;
-}
-
-function reviewVerdictClass(verdict) {
-  if (verdict === "passed") return "ready-to-merge";
-  if (verdict === "blocked") return "blocked";
-  return "rework";
-}
-
-function validationVerdictClass(verdict) {
-  if (verdict === "passed") return "ready-to-merge";
-  if (verdict === "blocked") return "blocked";
-  return "rework";
-}
-
-function executionBadgeClass(execution) {
-  if (execution.status === "running") return "working";
-  if (execution.status === "cancelled") return "blocked";
-  if (execution.outcome === "completed") return "reviewing";
-  if (execution.outcome === "needs_continue") return "working";
-  if (execution.outcome === "blocked" || execution.outcome === "failed") return "blocked";
-  if (execution.outcome === "followup_created") return "ready";
-  return "subtle";
-}
-
-function mergeStatusClass(ticket, mergeStatus) {
-  const latestRun = mergeStatus?.latestRun;
-  if (latestRun?.status === "completed" || ticket.state === "DONE") return "done";
-  if (latestRun?.status === "blocked") return "blocked";
-  if (latestRun?.status === "rework") return "rework";
-  if (mergeStatus?.canMerge) return "ready-to-merge";
-  return "subtle";
+function boardDecisionLabel(ticket) {
+  if (ticket.state === "READY_TO_MERGE") {
+    return "Decision: inspect evidence and either merge or bounce it back.";
+  }
+  if (ticket.state === "BLOCKED") {
+    return "Decision: unblock the lane before the backlog stalls further.";
+  }
+  if (ticket.state === "REWORK") {
+    return "Decision: route the follow-up work and keep the loop moving.";
+  }
+  if (ticket.state === "WORKING") {
+    return "Decision: watch the active lane and check for continuation needs.";
+  }
+  if (ticket.state === "REVIEWING" || ticket.state === "VALIDATING") {
+    return "Decision: confirm the evidence needed to advance this ticket.";
+  }
+  return "Decision: shape scope, ownership, and readiness for the next lane.";
 }
 
 function syncProjectSummary(project) {
@@ -2052,34 +1995,4 @@ function syncProjectSummary(project) {
   };
   renderProjectOptions();
   dom.projectSelect.value = project.id;
-}
-
-function slugify(value) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function parseLocation(value) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return { filePath: "", lineNumber: null };
-  }
-
-  const match = trimmed.match(/^(.*?):(\d+)$/);
-  if (!match) {
-    return { filePath: trimmed, lineNumber: null };
-  }
-
-  return {
-    filePath: match[1],
-    lineNumber: Number.parseInt(match[2], 10),
-  };
-}
-
-function formatDate(value) {
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
