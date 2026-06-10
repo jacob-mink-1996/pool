@@ -14,7 +14,7 @@
         <div class="project-rail-header">
           <div>
             <p class="panel-kicker">Pool</p>
-            <h2>Projects</h2>
+            <h2>Mission Control</h2>
           </div>
           <button id="sidebar-close-button" class="ghost-button sidebar-close-button" type="button">Close</button>
         </div>
@@ -34,11 +34,10 @@
       </aside>
 
       <div class="workspace-shell">
-      <header class="panel workspace-header">
+      <header class="workspace-header">
         <button id="sidebar-toggle-button" class="ghost-button sidebar-toggle-button" type="button">Projects</button>
         <div class="workspace-header-brand">
-          <p class="eyebrow">Pool</p>
-          <h1>Mission Control</h1>
+          <h1>Pool</h1>
         </div>
       </header>
       <div id="status-banner" class="status-banner" hidden></div>
@@ -48,7 +47,6 @@
         <section class="panel board-panel">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Board</p>
               <h2 id="board-title">Loading project...</h2>
             </div>
             <p id="board-meta" class="panel-meta"></p>
@@ -57,7 +55,6 @@
             <div class="section-toolbar">
               <div>
                 <h3>Create Project</h3>
-                <p class="section-copy">Open a fresh Pool space without leaving mission control.</p>
               </div>
             </div>
             <form id="project-create-form" class="project-create-form">
@@ -90,9 +87,7 @@
           </section>
 
           <div id="project-empty" class="empty-state project-empty" hidden>
-            Create a project to register repos, build backlog, and start moving tickets through delivery lanes.
-            If you already have a local repo, use <code>npm run bootstrap:project -- --repo-path /abs/path/to/repo</code>
-            to stand up the first Pool space faster.
+            Create a project to start running tickets through Pool.
           </div>
 
           <div id="project-workspace" hidden>
@@ -105,7 +100,6 @@
           <section id="settings-drawer" class="settings-drawer" hidden>
             <div class="settings-drawer-header">
               <div>
-                <p class="panel-kicker">Controls</p>
                 <h3>Project Settings</h3>
               </div>
               <button id="settings-close-button" class="ghost-button" type="button">Close</button>
@@ -220,7 +214,6 @@
             <div class="section-toolbar">
               <div>
                 <h3>Agent Profiles</h3>
-                <p class="section-copy">Tune adapters, models, and per-role execution config without leaving mission control.</p>
               </div>
             </div>
             <div id="role-profile-list" class="repo-list"></div>
@@ -231,24 +224,19 @@
           <section class="workspace-panel" data-workspace-panel="ops" hidden>
           <section class="mission-snapshot">
             <div class="section-toolbar">
-              <div>
-                <h3>Mission Snapshot</h3>
-                <p class="section-copy">Quick throughput, blockers, and load without crowding the board.</p>
-              </div>
+              <div><h3>Snapshot</h3></div>
             </div>
             <div id="snapshot-metrics" class="snapshot-metrics"></div>
             <div class="snapshot-grid">
               <article class="snapshot-card">
                 <div class="snapshot-card-header">
                   <h4>Lane Pressure</h4>
-                  <p class="section-copy">Queues that are backing up right now.</p>
                 </div>
                 <div id="snapshot-lanes" class="snapshot-list"></div>
               </article>
               <article class="snapshot-card">
                 <div class="snapshot-card-header">
                   <h4>Role Loadout</h4>
-                  <p class="section-copy">Where the current backlog is leaning.</p>
                 </div>
                 <div id="snapshot-roles" class="snapshot-list"></div>
               </article>
@@ -256,10 +244,7 @@
           </section>
           <section class="merge-queue-panel">
             <div class="section-toolbar">
-              <div>
-                <h3>Board Filters</h3>
-                <p class="section-copy">Apply board filters without crowding the main kanban view.</p>
-              </div>
+              <div><h3>Board Filters</h3></div>
             </div>
             <form id="board-filter-form" class="activity-filter-form">
               <label class="field compact-field">
@@ -286,20 +271,14 @@
           </section>
           <section class="merge-queue-panel">
             <div class="section-toolbar">
-              <div>
-                <h3>Merge Queue</h3>
-                <p class="section-copy">Tickets waiting on final approval or integration, surfaced as a dedicated operator queue.</p>
-              </div>
+              <div><h3>Merge Queue</h3></div>
               <p id="merge-queue-count" class="section-meta"></p>
             </div>
             <div id="merge-queue" class="collection"></div>
           </section>
           <section class="merge-queue-panel">
             <div class="section-toolbar">
-              <div>
-                <h3>Activity Feed</h3>
-                <p class="section-copy">Recent project-wide delivery events, so you can see movement without drilling into a ticket first.</p>
-              </div>
+              <div><h3>Activity Feed</h3></div>
               <p id="activity-count" class="section-meta"></p>
             </div>
             <form id="activity-filter-form" class="activity-filter-form">
@@ -328,10 +307,7 @@
           </section>
           <section class="merge-queue-panel">
             <div class="section-toolbar">
-              <div>
-                <h3>Recent Artifacts</h3>
-                <p class="section-copy">Latest durable evidence captured anywhere in the project.</p>
-              </div>
+              <div><h3>Recent Artifacts</h3></div>
               <p id="recent-artifacts-count" class="section-meta"></p>
             </div>
             <div id="recent-artifacts" class="collection"></div>
