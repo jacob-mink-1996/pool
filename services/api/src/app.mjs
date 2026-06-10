@@ -251,14 +251,31 @@ function handleRoute(route, url, body, store) {
       if (route.method === "GET") {
         return respondMaybe(store.getMergeStatus(route.params.projectId, route.params.ticketId), "merge");
       }
-      return respondMaybe(
-        store.mergeTicket(
-          route.params.projectId,
-          route.params.ticketId,
-          parseMergeTicketInput(body),
-        ),
-        "merge",
-      );
+      try {
+        return respondMaybe(
+          store.mergeTicket(
+            route.params.projectId,
+            route.params.ticketId,
+            parseMergeTicketInput(body),
+          ),
+          "merge",
+        );
+      } catch (error) {
+        const status = inferErrorStatus(error);
+        if (status === 409) {
+          const mergeStatus = store.getMergeStatus(route.params.projectId, route.params.ticketId);
+          return {
+            status,
+            body: {
+              error: "conflict",
+              message: error instanceof Error ? error.message : String(error),
+              reasonCode: currentMergeReasonCode(mergeStatus),
+              merge: mergeStatus,
+            },
+          };
+        }
+        throw error;
+      }
     case "execution":
       return respondMaybe(store.getExecution(route.params.projectId, route.params.executionId), "execution");
     case "executionComplete":
@@ -540,6 +557,22 @@ function sendText(response, status, body, contentType, method = "GET") {
 function writeSseEvent(response, event, payload) {
   response.write(`event: ${event}\n`);
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function currentMergeReasonCode(mergeStatus) {
+  if (!mergeStatus) {
+    return "merge_conflict";
+  }
+  if (mergeStatus.blockingReasons?.length) {
+    return mergeStatus.blockingReasons[0].code;
+  }
+  if (mergeStatus.approval?.required && !mergeStatus.approval?.satisfied) {
+    return "human_approval_required";
+  }
+  if (mergeStatus.readiness) {
+    return `merge_${mergeStatus.readiness}`;
+  }
+  return "merge_conflict";
 }
 
 function corsHeaders() {

@@ -1518,6 +1518,29 @@ export function createSqliteStore(options = {}) {
         .filter(Boolean);
     },
 
+    reconcileActiveExecutions(input = {}) {
+      const activeExecutions = this.listActiveExecutions();
+      const summaryMd = optionalText(
+        input.summaryMd,
+        "Pool recovered after restart before this lane reported a final result.",
+      );
+      const remainingWorkMd = optionalText(
+        input.remainingWorkMd,
+        "Retry or continue this lane now that the control plane is back online.",
+      );
+
+      return activeExecutions
+        .map((execution) =>
+          this.completeExecution(execution.projectId, execution.id, {
+            outcome: "failed",
+            summaryMd,
+            remainingWorkMd,
+            failureKind: "interrupted",
+          }),
+        )
+        .filter(Boolean);
+    },
+
     createExecution(projectId, ticketId, input) {
       const ticket = getTicketRow(database, projectId, ticketId);
       if (!ticket) {
@@ -1934,8 +1957,9 @@ export function createSqliteStore(options = {}) {
 
       return database
         .prepare(
-           `select
+          `select
              e.*,
+             e.rowid as event_sequence,
              r.slug as repo_slug,
              r.name as repo_name,
              t.key as ticket_key,
@@ -2801,8 +2825,11 @@ function mapTicket(row) {
 }
 
 function mapEvent(row) {
+  const family = String(row.type || "").split(".", 1)[0] || "";
   return {
     id: row.id,
+    sequence: Number(row.event_sequence || 0),
+    cursor: row.created_at ? `${row.created_at}:${Number(row.event_sequence || 0)}` : row.id,
     projectId: row.project_id,
     repoId: row.repo_id,
     repoSlug: row.repo_slug,
@@ -2811,6 +2838,7 @@ function mapEvent(row) {
     ticketKey: row.ticket_key,
     ticketTitle: row.ticket_title,
     type: row.type,
+    lane: deriveEventLane(family),
     summary: row.summary,
     detail: row.detail,
     createdAt: row.created_at,
@@ -2928,6 +2956,31 @@ function mapWorktree(row) {
   };
 }
 
+function deriveEventLane(family) {
+  switch (family) {
+    case "execution":
+      return "execution";
+    case "review":
+      return "review";
+    case "validation":
+      return "validation";
+    case "merge":
+      return "merge";
+    case "worktree":
+      return "worktree";
+    case "ticket":
+      return "ticket";
+    case "dependency":
+      return "dependency";
+    case "repo":
+      return "repo";
+    case "project":
+      return "project";
+    default:
+      return "system";
+  }
+}
+
 function buildBoardSummary(tickets) {
   const summary = {};
   for (const ticket of tickets) {
@@ -2949,9 +3002,20 @@ function buildMergeStatus(database, ticket, worktrees = []) {
     "requireHumanApprovalBeforeMerge",
     "require_human_approval_before_merge",
   );
-  const mergePolicyBlock = describeMergePolicyBlock(policy, latestReview, latestValidation);
+  const mergePolicyBlocks = buildMergePolicyBlocks(policy, latestReview, latestValidation);
+  const mergePolicyBlock = mergePolicyBlocks[0]?.message || "";
   const mergeable = ticket.state === "READY_TO_MERGE" && !mergePolicyBlock;
   const uncleanedWorktreeCount = worktrees.filter((worktree) => worktree.status !== "cleaned").length;
+  const approval = {
+    required: requiresHumanApproval,
+    satisfied: !requiresHumanApproval,
+    approvedByKind: latestRun?.approved_by_kind || "",
+    approvedByRef: latestRun?.approved_by_ref || "",
+  };
+
+  if (approval.required && approval.approvedByKind && approval.approvedByRef) {
+    approval.satisfied = true;
+  }
 
   if (latestRun?.status === "completed" || ticket.state === "DONE") {
     return {
@@ -2961,8 +3025,11 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       ticketTitle: ticket.title,
       ticketState: ticket.state,
       requiresHumanApproval,
+      approval,
       canMerge: false,
+      readiness: "closed",
       statusSummary: "Merge recorded and ticket closed.",
+      blockingReasons: [],
       uncleanedWorktreeCount,
       latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
     };
@@ -2976,8 +3043,11 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       ticketTitle: ticket.title,
       ticketState: ticket.state,
       requiresHumanApproval,
+      approval,
       canMerge: mergeable,
+      readiness: "blocked",
       statusSummary: latestRun.summary_md || "Latest merge attempt is blocked.",
+      blockingReasons: [],
       uncleanedWorktreeCount,
       latestRun: mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }),
     };
@@ -2991,12 +3061,25 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       ticketTitle: ticket.title,
       ticketState: ticket.state,
       requiresHumanApproval,
+      approval,
       canMerge: mergeable,
+      readiness: "rework",
       statusSummary: latestRun.summary_md || "Latest merge attempt requires rework.",
+      blockingReasons: [],
       uncleanedWorktreeCount,
       latestRun: mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }),
     };
   }
+
+  const blockingReasons = [];
+  if (ticket.state !== "READY_TO_MERGE") {
+    blockingReasons.push({
+      code: "ticket_not_ready",
+      source: "ticket",
+      message: "Ticket must reach READY_TO_MERGE before merge can start.",
+    });
+  }
+  blockingReasons.push(...mergePolicyBlocks);
 
   return {
     projectId: ticket.projectId,
@@ -3005,12 +3088,15 @@ function buildMergeStatus(database, ticket, worktrees = []) {
     ticketTitle: ticket.title,
     ticketState: ticket.state,
     requiresHumanApproval,
+    approval,
     canMerge: mergeable,
+    readiness: mergeable ? (requiresHumanApproval ? "approval_required" : "ready") : "waiting",
     statusSummary: mergeable
       ? requiresHumanApproval
         ? "Ready to merge after operator approval is recorded."
         : "Ready to merge."
       : mergePolicyBlock || "Ticket must reach READY_TO_MERGE before merge can start.",
+    blockingReasons,
     uncleanedWorktreeCount,
     latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
   };
@@ -3097,23 +3183,42 @@ function deriveTicketStateForMergeStatus(status) {
 }
 
 function describeMergePolicyBlock(policy, latestReview, latestValidation) {
+  return buildMergePolicyBlocks(policy, latestReview, latestValidation)[0]?.message || "";
+}
+
+function buildMergePolicyBlocks(policy, latestReview, latestValidation) {
   const requireReviewer = readPolicyBoolean(policy, "requireReviewer", "require_reviewer");
   const requireValidator = readPolicyBoolean(policy, "requireValidator", "require_validator");
   const requiredValidationCommandProfile = optionalText(
     policy.requiredValidationCommandProfileForMerge || policy.required_validation_command_profile_for_merge,
   );
+  const blocks = [];
 
   if (requireReviewer && latestReview?.verdict !== "passed") {
-    return "Latest review must pass before merge";
+    blocks.push({
+      code: "review_required",
+      source: "review",
+      message: "Latest review must pass before merge",
+    });
   }
   if (requireValidator && latestValidation?.verdict !== "passed") {
-    return "Latest validation must pass before merge";
+    blocks.push({
+      code: "validation_required",
+      source: "validation",
+      message: "Latest validation must pass before merge",
+    });
   }
   if (requiredValidationCommandProfile && latestValidation?.command_profile !== requiredValidationCommandProfile) {
-    return `Latest validation must use ${requiredValidationCommandProfile} profile before merge`;
+    blocks.push({
+      code: "validation_profile_required",
+      source: "validation",
+      message: `Latest validation must use ${requiredValidationCommandProfile} profile before merge`,
+      requiredCommandProfile: requiredValidationCommandProfile,
+      actualCommandProfile: latestValidation?.command_profile || "",
+    });
   }
 
-  return "";
+  return blocks;
 }
 
 function deriveWorktreeStatusForOutcome(outcome) {

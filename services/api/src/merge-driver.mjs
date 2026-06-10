@@ -31,6 +31,10 @@ class MergeDriver {
       return;
     }
 
+    this.pollOnce().catch((error) => {
+      this.logger.error?.("[pool-merge-driver] startup poll failed", error);
+    });
+
     this.timer = setInterval(() => {
       this.pollOnce().catch((error) => {
         this.logger.error?.("[pool-merge-driver] poll failed", error);
