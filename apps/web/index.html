@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#5cc8ff" />
+    <meta name="theme-color" content="#dbe8ea" />
     <title>Pool Mission Control</title>
-    <link rel="stylesheet" href="/styles.css?v=20260610c" />
+    <link rel="stylesheet" href="/shoelace/cdn/themes/light.css" />
+    <link rel="stylesheet" href="/styles.css?v=20260610m" />
   </head>
   <body>
     <div id="sidebar-scrim" class="sidebar-scrim" hidden></div>
@@ -13,13 +14,15 @@
       <aside id="project-rail" class="panel project-rail">
         <div class="project-rail-header">
           <div>
-            <p class="panel-kicker">Pool</p>
-            <h2>Mission Control</h2>
+            <p class="panel-kicker">Mission Control</p>
+            <h2>Pool</h2>
           </div>
-          <button id="sidebar-close-button" class="ghost-button sidebar-close-button" type="button">Close</button>
+          <sl-button id="sidebar-close-button" class="sidebar-close-button" size="small" variant="text">Close</sl-button>
         </div>
+        <p class="rail-section-heading">Projects</p>
         <div id="project-sidebar-list" class="project-sidebar-list"></div>
         <div class="project-rail-footer">
+          <p class="rail-section-heading rail-section-heading-muted">Workspace</p>
           <label class="field project-picker legacy-project-picker">
             <span>Project</span>
             <select id="project-select" aria-label="Select project"></select>
@@ -28,28 +31,31 @@
             <span id="live-indicator-badge" class="state-badge subtle">Live idle</span>
             <span id="live-indicator-meta" class="live-indicator-meta">Waiting for a project stream.</span>
           </div>
-          <button id="refresh-button" class="ghost-button rail-action-button" type="button">Refresh board</button>
-          <button id="settings-toggle-button" class="ghost-button rail-action-button" type="button">Settings</button>
+          <sl-button id="refresh-button" class="rail-action-button" variant="neutral">Refresh board</sl-button>
+          <sl-button id="settings-toggle-button" class="rail-action-button" variant="text">Settings</sl-button>
         </div>
       </aside>
 
       <div class="workspace-shell">
       <header class="workspace-header">
-        <button id="sidebar-toggle-button" class="ghost-button sidebar-toggle-button" type="button">Projects</button>
+        <sl-button id="sidebar-toggle-button" class="sidebar-toggle-button" variant="text" size="small">Projects</sl-button>
         <div class="workspace-header-brand">
           <h1>Pool</h1>
         </div>
       </header>
       <div id="status-banner" class="status-banner" hidden></div>
-      <div id="settings-scrim" class="settings-scrim" hidden></div>
 
       <main class="layout">
         <section class="panel board-panel">
           <div class="panel-header">
             <div>
+              <p class="panel-kicker">Board</p>
               <h2 id="board-title">Loading project...</h2>
             </div>
-            <p id="board-meta" class="panel-meta"></p>
+            <div class="board-header-actions">
+              <p id="board-meta" class="panel-meta"></p>
+              <sl-button id="new-ticket-toggle-button" class="new-ticket-toggle-button" variant="primary" size="small">New Ticket</sl-button>
+            </div>
           </div>
           <section id="project-create-card" class="project-create-card" hidden>
             <div class="section-toolbar">
@@ -87,265 +93,292 @@
           </section>
 
           <div id="project-empty" class="empty-state project-empty" hidden>
-            Create a project to start running tickets through Pool.
+            Create a project, then start routing delivery through the board.
           </div>
 
           <div id="project-workspace" hidden>
-          <div class="workspace-tabs">
-            <button class="workspace-tab-button is-active" type="button" data-workspace-tab="board">Kanban</button>
-            <button class="workspace-tab-button" type="button" data-workspace-tab="ops">Ops</button>
-            <button class="workspace-tab-button" type="button" data-workspace-tab="create">New Ticket</button>
-          </div>
-          <section class="workspace-panel" data-workspace-panel="board">
-          <section id="settings-drawer" class="settings-drawer" hidden>
-            <div class="settings-drawer-header">
-              <div>
-                <h3>Project Settings</h3>
-              </div>
-              <button id="settings-close-button" class="ghost-button" type="button">Close</button>
-            </div>
-          <div class="control-grid">
-            <form id="project-settings-form" class="project-settings-form">
-              <div class="section-toolbar">
-                <h3>Project Settings</h3>
-                <button class="ghost-button" type="submit">Save project</button>
-              </div>
-              <div class="detail-grid">
-                <label class="field">
-                  <span>Name</span>
-                  <input id="project-name-input" type="text" maxlength="120" />
-                </label>
-                <label class="field">
-                  <span>Default Base Branch</span>
-                  <input id="project-default-branch-input" type="text" maxlength="120" />
-                </label>
-              </div>
-              <label class="field">
-                <span>Workspace Root</span>
-                <input id="project-workspace-root-input" type="text" />
-              </label>
-              <label class="field">
-                <span>Description</span>
-                <textarea id="project-description-input" rows="3"></textarea>
-              </label>
-            </form>
+            <section class="workspace-panel" data-workspace-panel="board">
+              <section id="ticket-create-panel" class="ticket-create-panel" hidden>
+                <form id="ticket-create-form" class="ticket-create-form">
+                  <div class="section-toolbar">
+                    <div>
+                      <h3>New Ticket</h3>
+                    </div>
+                    <sl-button id="new-ticket-close-button" variant="text" size="small">Hide</sl-button>
+                  </div>
+                  <div class="detail-grid">
+                    <label class="field">
+                      <span>Title</span>
+                      <input id="create-title-input" type="text" maxlength="120" />
+                    </label>
+                    <label class="field">
+                      <span>Initial State</span>
+                      <select id="create-state-select" aria-label="New ticket initial state"></select>
+                    </label>
+                    <label class="field">
+                      <span>Priority</span>
+                      <select id="create-priority-select" aria-label="New ticket priority"></select>
+                    </label>
+                    <label class="field">
+                      <span>Assigned Role</span>
+                      <select id="create-role-select" aria-label="New ticket role"></select>
+                    </label>
+                  </div>
+                  <label class="field">
+                    <span>Brief</span>
+                    <textarea id="create-brief-input" rows="3"></textarea>
+                  </label>
+                  <div class="ticket-create-actions">
+                    <label class="field compact-field">
+                      <span>Repo Target</span>
+                      <select id="create-repo-select" aria-label="New ticket repo target"></select>
+                    </label>
+                    <button class="primary-button" type="submit">Create ticket</button>
+                  </div>
+                </form>
+              </section>
 
-            <form id="project-policy-form" class="project-settings-form">
-              <div class="section-toolbar">
-                <h3>Delivery Policy</h3>
-                <button class="ghost-button" type="submit">Save policy</button>
-              </div>
-              <div class="detail-grid">
-                <label class="field">
-                  <span>Validation Profile Required For Merge</span>
-                  <input id="policy-required-validation-profile-input" type="text" maxlength="120" />
-                </label>
-                <label class="repo-primary-toggle">
-                  <input id="policy-require-reviewer-input" type="checkbox" />
-                  <span>Require reviewer lane</span>
-                </label>
-                <label class="repo-primary-toggle">
-                  <input id="policy-require-validator-input" type="checkbox" />
-                  <span>Require validator lane</span>
-                </label>
-                <label class="repo-primary-toggle">
-                  <input id="policy-require-human-approval-input" type="checkbox" />
-                  <span>Human approval before merge</span>
-                </label>
-                <label class="field">
-                  <span>Agent-Created Ticket State</span>
-                  <select id="policy-agent-created-state-select" aria-label="Agent created ticket default state"></select>
-                </label>
-                <label class="field">
-                  <span>Max Parallel Executions</span>
-                  <input id="policy-max-parallel-input" type="number" min="1" step="1" />
-                </label>
-                <label class="field">
-                  <span>Max Parallel Merges</span>
-                  <input id="policy-max-parallel-merges-input" type="number" min="1" step="1" />
-                </label>
-                <label class="field">
-                  <span>Max Auto-Continue Iterations</span>
-                  <input id="policy-max-continue-input" type="number" min="1" step="1" />
-                </label>
-              </div>
-            </form>
+              <sl-drawer id="settings-drawer" class="settings-drawer" label="Project Settings" placement="end" contained>
+                <div class="settings-drawer-header">
+                  <div>
+                    <h3>Project Settings</h3>
+                  </div>
+                  <sl-button id="settings-close-button" variant="text" size="small">Close</sl-button>
+                </div>
+                <div class="control-grid">
+                  <form id="project-settings-form" class="project-settings-form">
+                    <div class="section-toolbar">
+                      <h3>Project Settings</h3>
+                      <button class="ghost-button" type="submit">Save project</button>
+                    </div>
+                    <div class="detail-grid">
+                      <label class="field">
+                        <span>Name</span>
+                        <input id="project-name-input" type="text" maxlength="120" />
+                      </label>
+                      <label class="field">
+                        <span>Default Base Branch</span>
+                        <input id="project-default-branch-input" type="text" maxlength="120" />
+                      </label>
+                    </div>
+                    <label class="field">
+                      <span>Workspace Root</span>
+                      <input id="project-workspace-root-input" type="text" />
+                    </label>
+                    <label class="field">
+                      <span>Description</span>
+                      <textarea id="project-description-input" rows="3"></textarea>
+                    </label>
+                  </form>
 
-            <section class="repo-registry">
-              <div class="section-toolbar">
-                <h3>Repositories</h3>
-                <p id="repo-count" class="section-meta"></p>
-              </div>
-              <form id="repo-create-form" class="repo-create-form">
-                <div class="detail-grid">
-                  <label class="field">
-                    <span>Name</span>
-                    <input id="repo-name-input" type="text" maxlength="120" />
-                  </label>
-                  <label class="field">
-                    <span>Slug</span>
-                    <input id="repo-slug-input" type="text" maxlength="120" />
-                  </label>
-                  <label class="field">
-                    <span>Default Branch</span>
-                    <input id="repo-default-branch-input" type="text" maxlength="120" />
-                  </label>
-                  <label class="field">
-                    <span>Remote URL</span>
-                    <input id="repo-remote-url-input" type="text" />
-                  </label>
+                  <form id="project-policy-form" class="project-settings-form">
+                    <div class="section-toolbar">
+                      <h3>Delivery Policy</h3>
+                      <button class="ghost-button" type="submit">Save policy</button>
+                    </div>
+                    <div class="detail-grid">
+                      <label class="field">
+                        <span>Validation Profile Required For Merge</span>
+                        <input id="policy-required-validation-profile-input" type="text" maxlength="120" />
+                      </label>
+                      <label class="repo-primary-toggle">
+                        <input id="policy-require-reviewer-input" type="checkbox" />
+                        <span>Require reviewer lane</span>
+                      </label>
+                      <label class="repo-primary-toggle">
+                        <input id="policy-require-validator-input" type="checkbox" />
+                        <span>Require validator lane</span>
+                      </label>
+                      <label class="repo-primary-toggle">
+                        <input id="policy-require-human-approval-input" type="checkbox" />
+                        <span>Human approval before merge</span>
+                      </label>
+                      <label class="field">
+                        <span>Agent-Created Ticket State</span>
+                        <select id="policy-agent-created-state-select" aria-label="Agent created ticket default state"></select>
+                      </label>
+                      <label class="field">
+                        <span>Max Parallel Executions</span>
+                        <input id="policy-max-parallel-input" type="number" min="1" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Max Parallel Merges</span>
+                        <input id="policy-max-parallel-merges-input" type="number" min="1" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Max Auto-Continue Iterations</span>
+                        <input id="policy-max-continue-input" type="number" min="1" step="1" />
+                      </label>
+                    </div>
+                  </form>
+
+                  <section class="repo-registry">
+                    <div class="section-toolbar">
+                      <h3>Repositories</h3>
+                      <p id="repo-count" class="section-meta"></p>
+                    </div>
+                    <form id="repo-create-form" class="repo-create-form">
+                      <div class="detail-grid">
+                        <label class="field">
+                          <span>Name</span>
+                          <input id="repo-name-input" type="text" maxlength="120" />
+                        </label>
+                        <label class="field">
+                          <span>Slug</span>
+                          <input id="repo-slug-input" type="text" maxlength="120" />
+                        </label>
+                        <label class="field">
+                          <span>Default Branch</span>
+                          <input id="repo-default-branch-input" type="text" maxlength="120" />
+                        </label>
+                        <label class="field">
+                          <span>Remote URL</span>
+                          <input id="repo-remote-url-input" type="text" />
+                        </label>
+                      </div>
+                      <label class="field">
+                        <span>Local Path</span>
+                        <input id="repo-local-path-input" type="text" />
+                      </label>
+                      <label class="repo-primary-toggle">
+                        <input id="repo-is-primary-input" type="checkbox" />
+                        <span>Set as primary repo</span>
+                      </label>
+                      <div class="form-actions">
+                        <button class="primary-button" type="submit">Register repo</button>
+                      </div>
+                    </form>
+                    <div id="repo-list" class="repo-list"></div>
+                  </section>
                 </div>
-                <label class="field">
-                  <span>Local Path</span>
-                  <input id="repo-local-path-input" type="text" />
-                </label>
-                <label class="repo-primary-toggle">
-                  <input id="repo-is-primary-input" type="checkbox" />
-                  <span>Set as primary repo</span>
-                </label>
-                <div class="form-actions">
-                  <button class="primary-button" type="submit">Register repo</button>
+
+                <section class="repo-registry">
+                  <div class="section-toolbar">
+                    <div>
+                      <h3>Agent Profiles</h3>
+                    </div>
+                  </div>
+                  <div id="role-profile-list" class="repo-list"></div>
+                </section>
+              </sl-drawer>
+
+              <section class="merge-queue-panel">
+                <div class="section-toolbar">
+                  <div><h3>Board Filters</h3></div>
                 </div>
-              </form>
-              <div id="repo-list" class="repo-list"></div>
+                <form id="board-filter-form" class="activity-filter-form">
+                  <label class="field compact-field">
+                    <span>Search</span>
+                    <input id="board-search-input" type="text" maxlength="120" placeholder="Search title, brief, or summary" />
+                  </label>
+                  <label class="field compact-field">
+                    <span>State</span>
+                    <select id="board-state-select" aria-label="Filter board by state"></select>
+                  </label>
+                  <label class="field compact-field">
+                    <span>Role</span>
+                    <select id="board-role-select" aria-label="Filter board by role"></select>
+                  </label>
+                  <label class="field compact-field">
+                    <span>Priority</span>
+                    <select id="board-priority-select" aria-label="Filter board by priority"></select>
+                  </label>
+                  <div class="activity-filter-actions">
+                    <button class="ghost-button" type="button" id="board-filter-reset-button">Reset</button>
+                    <button class="primary-button" type="submit">Apply filters</button>
+                  </div>
+                </form>
+              </section>
+
+              <div id="board-columns" class="board-columns" aria-live="polite"></div>
             </section>
-          </div>
-          <section class="repo-registry">
-            <div class="section-toolbar">
-              <div>
-                <h3>Agent Profiles</h3>
-              </div>
-            </div>
-            <div id="role-profile-list" class="repo-list"></div>
-          </section>
-          </section>
-          <div id="board-columns" class="board-columns" aria-live="polite"></div>
-          </section>
-          <section class="workspace-panel" data-workspace-panel="ops" hidden>
-          <section class="mission-snapshot">
-            <div class="section-toolbar">
-              <div><h3>Snapshot</h3></div>
-            </div>
-            <div id="snapshot-metrics" class="snapshot-metrics"></div>
-            <div class="snapshot-grid">
-              <article class="snapshot-card">
-                <div class="snapshot-card-header">
-                  <h4>Lane Pressure</h4>
-                </div>
-                <div id="snapshot-lanes" class="snapshot-list"></div>
-              </article>
-              <article class="snapshot-card">
-                <div class="snapshot-card-header">
-                  <h4>Role Loadout</h4>
-                </div>
-                <div id="snapshot-roles" class="snapshot-list"></div>
-              </article>
-            </div>
-          </section>
-          <section class="merge-queue-panel">
-            <div class="section-toolbar">
-              <div><h3>Board Filters</h3></div>
-            </div>
-            <form id="board-filter-form" class="activity-filter-form">
-              <label class="field compact-field">
-                <span>Search</span>
-                <input id="board-search-input" type="text" maxlength="120" placeholder="Search title, brief, or summary" />
-              </label>
-              <label class="field compact-field">
-                <span>State</span>
-                <select id="board-state-select" aria-label="Filter board by state"></select>
-              </label>
-              <label class="field compact-field">
-                <span>Role</span>
-                <select id="board-role-select" aria-label="Filter board by role"></select>
-              </label>
-              <label class="field compact-field">
-                <span>Priority</span>
-                <select id="board-priority-select" aria-label="Filter board by priority"></select>
-              </label>
-              <div class="activity-filter-actions">
-                <button class="ghost-button" type="button" id="board-filter-reset-button">Reset</button>
-                <button class="primary-button" type="submit">Apply filters</button>
-              </div>
-            </form>
-          </section>
-          <section class="merge-queue-panel">
-            <div class="section-toolbar">
-              <div><h3>Merge Queue</h3></div>
-              <p id="merge-queue-count" class="section-meta"></p>
-            </div>
-            <div id="merge-queue" class="collection"></div>
-          </section>
-          <section class="merge-queue-panel">
-            <div class="section-toolbar">
-              <div><h3>Activity Feed</h3></div>
-              <p id="activity-count" class="section-meta"></p>
-            </div>
-            <form id="activity-filter-form" class="activity-filter-form">
-              <label class="field compact-field">
-                <span>Ticket</span>
-                <select id="activity-ticket-select" aria-label="Filter activity by ticket"></select>
-              </label>
-              <label class="field compact-field">
-                <span>Event Type</span>
-                <select id="activity-type-select" aria-label="Filter activity by event type"></select>
-              </label>
-              <label class="field compact-field">
-                <span>Recent Events</span>
-                <select id="activity-limit-select" aria-label="Activity event limit">
-                  <option value="10">10</option>
-                  <option value="20" selected>20</option>
-                  <option value="40">40</option>
-                </select>
-              </label>
-              <div class="activity-filter-actions">
-                <button class="ghost-button" type="button" id="activity-filter-reset-button">Reset</button>
-                <button class="primary-button" type="submit">Apply filters</button>
-              </div>
-            </form>
-            <div id="activity-feed" class="collection"></div>
-          </section>
-          <section class="merge-queue-panel">
-            <div class="section-toolbar">
-              <div><h3>Recent Artifacts</h3></div>
-              <p id="recent-artifacts-count" class="section-meta"></p>
-            </div>
-            <div id="recent-artifacts" class="collection"></div>
-          </section>
-          </section>
-          <section class="workspace-panel" data-workspace-panel="create" hidden>
-          <form id="ticket-create-form" class="ticket-create-form">
-            <div class="detail-grid">
-              <label class="field">
-                <span>New Ticket Title</span>
-                <input id="create-title-input" type="text" maxlength="120" />
-              </label>
-              <label class="field">
-                <span>Initial State</span>
-                <select id="create-state-select" aria-label="New ticket initial state"></select>
-              </label>
-              <label class="field">
-                <span>Priority</span>
-                <select id="create-priority-select" aria-label="New ticket priority"></select>
-              </label>
-              <label class="field">
-                <span>Assigned Role</span>
-                <select id="create-role-select" aria-label="New ticket role"></select>
-              </label>
-            </div>
-            <label class="field">
-              <span>Brief</span>
-              <textarea id="create-brief-input" rows="3"></textarea>
-            </label>
-            <div class="ticket-create-actions">
-              <label class="field compact-field">
-                <span>Repo Target</span>
-                <select id="create-repo-select" aria-label="New ticket repo target"></select>
-              </label>
-              <button class="primary-button" type="submit">Create ticket</button>
-            </div>
-          </form>
-          </section>
+
+            <section class="workspace-panel" data-workspace-panel="ops" hidden>
+              <sl-tab-group id="ops-tab-group" class="ops-tab-group">
+                <sl-tab slot="nav" panel="overview">Overview</sl-tab>
+                <sl-tab slot="nav" panel="board">Board</sl-tab>
+                <sl-tab slot="nav" panel="history">History</sl-tab>
+
+                <sl-tab-panel name="overview">
+                  <section class="mission-snapshot">
+                    <div class="section-toolbar">
+                      <div><h3>Snapshot</h3></div>
+                    </div>
+                    <div id="snapshot-metrics" class="snapshot-metrics"></div>
+                    <div class="snapshot-grid">
+                      <article class="snapshot-card">
+                        <div class="snapshot-card-header">
+                          <h4>Lane Pressure</h4>
+                        </div>
+                        <div id="snapshot-lanes" class="snapshot-list"></div>
+                      </article>
+                      <article class="snapshot-card">
+                        <div class="snapshot-card-header">
+                          <h4>Role Loadout</h4>
+                        </div>
+                        <div id="snapshot-roles" class="snapshot-list"></div>
+                      </article>
+                    </div>
+                  </section>
+                  <section class="merge-queue-panel">
+                    <div class="section-toolbar">
+                      <div><h3>Merge Queue</h3></div>
+                      <p id="merge-queue-count" class="section-meta"></p>
+                    </div>
+                    <div id="merge-queue" class="collection"></div>
+                  </section>
+                </sl-tab-panel>
+
+                <sl-tab-panel name="board">
+                  <section class="merge-queue-panel">
+                    <div class="section-toolbar">
+                      <div><h3>Board View</h3></div>
+                    </div>
+                    <p class="section-copy">Use the main Kanban view for live lane movement and ticket routing. This tab keeps board-related operational context grouped with Ops.</p>
+                  </section>
+                </sl-tab-panel>
+
+                <sl-tab-panel name="history">
+                  <section class="merge-queue-panel">
+                    <div class="section-toolbar">
+                      <div><h3>Activity Feed</h3></div>
+                      <p id="activity-count" class="section-meta"></p>
+                    </div>
+                    <form id="activity-filter-form" class="activity-filter-form">
+                      <label class="field compact-field">
+                        <span>Ticket</span>
+                        <select id="activity-ticket-select" aria-label="Filter activity by ticket"></select>
+                      </label>
+                      <label class="field compact-field">
+                        <span>Event Type</span>
+                        <select id="activity-type-select" aria-label="Filter activity by event type"></select>
+                      </label>
+                      <label class="field compact-field">
+                        <span>Recent Events</span>
+                        <select id="activity-limit-select" aria-label="Activity event limit">
+                          <option value="10">10</option>
+                          <option value="20" selected>20</option>
+                          <option value="40">40</option>
+                        </select>
+                      </label>
+                      <div class="activity-filter-actions">
+                        <button class="ghost-button" type="button" id="activity-filter-reset-button">Reset</button>
+                        <button class="primary-button" type="submit">Apply filters</button>
+                      </div>
+                    </form>
+                    <div id="activity-feed" class="collection"></div>
+                  </section>
+
+                  <section class="merge-queue-panel">
+                    <div class="section-toolbar">
+                      <div><h3>Recent Artifacts</h3></div>
+                      <p id="recent-artifacts-count" class="section-meta"></p>
+                    </div>
+                    <div id="recent-artifacts" class="collection"></div>
+                  </section>
+                </sl-tab-panel>
+              </sl-tab-group>
+            </section>
           </div>
         </section>
 
@@ -364,13 +397,12 @@
           </div>
 
           <div id="ticket-detail" class="detail-content" hidden>
-            <div class="detail-tabs">
-              <button class="detail-tab-button is-active" type="button" data-detail-tab="overview">Overview</button>
-              <button class="detail-tab-button" type="button" data-detail-tab="work">Work</button>
-              <button class="detail-tab-button" type="button" data-detail-tab="evidence">Evidence</button>
-              <button class="detail-tab-button" type="button" data-detail-tab="merge">Merge</button>
-            </div>
-            <section class="detail-tab-panel" data-detail-panel="overview">
+            <sl-tab-group id="detail-tab-group" class="detail-tab-group">
+            <sl-tab slot="nav" panel="overview">Overview</sl-tab>
+            <sl-tab slot="nav" panel="work">Work</sl-tab>
+            <sl-tab slot="nav" panel="evidence">Evidence</sl-tab>
+            <sl-tab slot="nav" panel="merge">Merge</sl-tab>
+            <sl-tab-panel name="overview">
             <p id="ticket-brief" class="ticket-brief"></p>
             <section class="detail-section detail-overview-section">
               <div class="section-toolbar">
@@ -463,9 +495,9 @@
                 </section>
               </div>
             </section>
-            </section>
+            </sl-tab-panel>
 
-            <section class="detail-tab-panel" data-detail-panel="work" hidden>
+            <sl-tab-panel name="work">
             <section class="detail-section execution-section">
               <div class="section-toolbar">
                 <div>
@@ -660,9 +692,9 @@
 
               <div id="validation-list" class="collection"></div>
             </section>
-            </section>
+            </sl-tab-panel>
 
-            <section class="detail-tab-panel" data-detail-panel="merge" hidden>
+            <sl-tab-panel name="merge">
             <section class="detail-section">
               <div class="section-toolbar">
                 <div>
@@ -731,9 +763,9 @@
                 ></textarea>
               </label>
             </section>
-            </section>
+            </sl-tab-panel>
 
-            <section class="detail-tab-panel" data-detail-panel="evidence" hidden>
+            <sl-tab-panel name="evidence">
             <section class="detail-section">
               <div class="section-toolbar">
                 <div>
@@ -815,7 +847,8 @@
               <h3>Timeline</h3>
               <div id="event-timeline" class="timeline"></div>
             </section>
-            </section>
+            </sl-tab-panel>
+            </sl-tab-group>
           </div>
         </aside>
       </main>
@@ -835,6 +868,7 @@
       </button>
     </template>
 
-    <script type="module" src="/app.js?v=20260610c"></script>
+    <script type="module" src="/shoelace/cdn/shoelace-autoloader.js"></script>
+    <script type="module" src="/app.js?v=20260610m"></script>
   </body>
 </html>

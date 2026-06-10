@@ -4,6 +4,7 @@ import {
   roleNames,
   eventTypes,
 } from "../packages/domain/src/index.mjs";
+import "./check-web-shell.mjs";
 
 console.log("Pool product type check");
 console.log("=======================");

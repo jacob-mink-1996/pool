@@ -1,6 +1,6 @@
 import http from "node:http";
 import { readdirSync, readFileSync } from "node:fs";
-import { extname } from "node:path";
+import { extname, resolve } from "node:path";
 import { isTicketState } from "../../../packages/domain/src/index.mjs";
 import {
   parseAddDependencyInput,
@@ -615,6 +615,10 @@ function serveWebSurface(request, response, url) {
     return false;
   }
 
+  if (serveShoelaceAsset(response, url, method)) {
+    return true;
+  }
+
   const assetPath = url.pathname === "/" ? "/index.html" : url.pathname;
   const asset = webAssets.get(assetPath);
   if (asset) {
@@ -625,6 +629,35 @@ function serveWebSurface(request, response, url) {
   }
 
   return false;
+}
+
+function serveShoelaceAsset(response, url, method) {
+  if (!url.pathname.startsWith("/shoelace/")) {
+    return false;
+  }
+
+  const packageRoot = new URL("../../../node_modules/@shoelace-style/shoelace/", import.meta.url);
+  const packageRootPath = resolve(packageRoot.pathname);
+  const requestedPath = resolve(packageRootPath, `.${url.pathname.slice("/shoelace".length)}`);
+  if (!requestedPath.startsWith(packageRootPath)) {
+    sendText(response, 404, "Not found", "text/plain; charset=utf-8", method, {
+      "cache-control": "no-store",
+    });
+    return true;
+  }
+
+  try {
+    const body = readFileSync(requestedPath, "utf8");
+    sendText(response, 200, body, contentTypeForExtension(extname(requestedPath)), method, {
+      "cache-control": "no-store",
+    });
+    return true;
+  } catch {
+    sendText(response, 404, "Not found", "text/plain; charset=utf-8", method, {
+      "cache-control": "no-store",
+    });
+    return true;
+  }
 }
 
 function loadWebAssets() {

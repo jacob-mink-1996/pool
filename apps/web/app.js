@@ -53,13 +53,16 @@ window.addEventListener("error", (event) => {
 
 const uiState = {
   workspaceTab: "board",
+  opsTab: "overview",
   detailTab: "overview",
   sidebarOpen: false,
   settingsDrawerOpen: false,
+  ticketComposerOpen: false,
 };
 
 async function bootstrap() {
   await loadMeta();
+  await waitForShoelace();
   renderStateOptions();
   renderRoleOptions();
   renderPriorityOptions();
@@ -69,9 +72,11 @@ async function bootstrap() {
   renderBoardFilterOptions();
   bindEvents();
   setWorkspaceTab(uiState.workspaceTab);
+  setOpsTab(uiState.opsTab);
   setDetailTab(uiState.detailTab);
   setSidebarOpen(false);
   setSettingsDrawerOpen(false);
+  setTicketComposerOpen(false);
   resetProjectCreateForm();
   resetReviewForm();
   resetValidationForm();
@@ -80,14 +85,39 @@ async function bootstrap() {
   await refreshProjects();
 }
 
+async function waitForShoelace() {
+  if (!window.customElements?.whenDefined) {
+    return;
+  }
+
+  await Promise.all(
+    ["sl-button", "sl-drawer", "sl-tab", "sl-tab-group", "sl-tab-panel"].map((tagName) =>
+      window.customElements.whenDefined(tagName),
+    ),
+  );
+}
+
 function bindEvents() {
   dom.projectSidebarList.addEventListener("click", async (event) => {
-    const button = event.target.closest("button[data-project-id]");
-    if (!button) {
+    const actionTarget = event.target.closest("[data-project-action]");
+    if (!actionTarget) {
       return;
     }
-    await selectProject(button.dataset.projectId);
-    setSidebarOpen(false);
+    event.preventDefault();
+    const projectId = actionTarget.dataset.projectId || "";
+    if (!projectId) {
+      return;
+    }
+    if (actionTarget.dataset.projectAction === "open-project") {
+      await selectProject(projectId);
+      return;
+    }
+    if (actionTarget.dataset.projectAction === "open-panel") {
+      await selectProject(projectId, {
+        workspaceTab: actionTarget.dataset.projectPanel || "board",
+        closeSidebar: true,
+      });
+    }
   });
 
   dom.projectSelect.addEventListener("change", async (event) => {
@@ -125,20 +155,36 @@ function bindEvents() {
     setSettingsDrawerOpen(false);
   });
 
-  dom.settingsScrim?.addEventListener("click", () => {
-    setSettingsDrawerOpen(false);
+  dom.settingsDrawer?.addEventListener("sl-after-hide", () => {
+    uiState.settingsDrawerOpen = false;
+    dom.settingsToggleButton?.classList.remove("is-active");
   });
 
-  dom.workspaceTabButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      setWorkspaceTab(button.dataset.workspaceTab || "board");
-    });
+  dom.settingsDrawer?.addEventListener("sl-after-show", () => {
+    uiState.settingsDrawerOpen = true;
+    dom.settingsToggleButton?.classList.add("is-active");
   });
 
-  dom.detailTabButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      setDetailTab(button.dataset.detailTab || "overview");
-    });
+  dom.newTicketToggleButton?.addEventListener("click", () => {
+    setTicketComposerOpen(!uiState.ticketComposerOpen);
+  });
+
+  dom.newTicketCloseButton?.addEventListener("click", () => {
+    setTicketComposerOpen(false);
+  });
+
+  dom.opsTabGroup?.addEventListener("sl-tab-show", (event) => {
+    const nextTab = event.detail?.name || event.target?.activeTab?.panel || "overview";
+    if (nextTab !== uiState.opsTab) {
+      setOpsTab(nextTab);
+    }
+  });
+
+  dom.detailTabGroup?.addEventListener("sl-tab-show", (event) => {
+    const nextTab = event.detail?.name || event.target?.activeTab?.panel || "overview";
+    if (nextTab !== uiState.detailTab) {
+      setDetailTab(nextTab);
+    }
   });
 
   window.addEventListener("keydown", (event) => {
@@ -393,6 +439,7 @@ function bindEvents() {
     dom.ticketCreateForm.reset();
     resetCreateFormDefaults();
     setWorkspaceTab("board");
+    setTicketComposerOpen(false);
     await loadBoard(state.projectId, { keepSelection: false, ticketId: payload.ticket.id });
   });
 
@@ -751,7 +798,7 @@ function bindEvents() {
   });
 }
 
-async function selectProject(projectId) {
+async function selectProject(projectId, options = {}) {
   const nextProjectId = projectId?.trim();
   if (!nextProjectId) {
     closeLiveStream();
@@ -762,8 +809,9 @@ async function selectProject(projectId) {
 
   location.hash = nextProjectId;
   dom.projectSelect.value = nextProjectId;
-  setWorkspaceTab("board");
-  setSidebarOpen(false);
+  setWorkspaceTab(options.workspaceTab || "board");
+  setSidebarOpen(options.closeSidebar ?? false);
+  setTicketComposerOpen(false);
   await loadBoard(nextProjectId);
 }
 
@@ -852,13 +900,51 @@ function renderProjectOptions() {
     option.textContent = project.name;
     dom.projectSelect.append(option);
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.projectId = project.id;
-    button.className = `project-rail-button${project.id === state.projectId ? " is-active" : ""}`;
-    button.textContent = project.name;
-    button.title = project.name;
-    dom.projectSidebarList.append(button);
+    const isActive = project.id === state.projectId;
+    const item = document.createElement("section");
+    item.className = `project-nav-item${isActive ? " is-active" : ""}`;
+
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "project-rail-button";
+    header.dataset.projectAction = "open-project";
+    header.dataset.projectId = project.id;
+    header.title = project.name;
+    header.innerHTML = `
+      <span class="project-rail-title">${escapeHtml(project.name)}</span>
+      <span class="project-rail-meta">${isActive ? "Open" : "View"}</span>
+    `;
+
+    item.append(header);
+
+    if (isActive) {
+      const menu = document.createElement("nav");
+      menu.className = "project-view-menu";
+      menu.setAttribute("aria-label", `${project.name} views`);
+      menu.innerHTML = `
+        <a
+          href="#${project.id}"
+          class="project-view-link${uiState.workspaceTab === "board" ? " is-active" : ""}"
+          data-project-action="open-panel"
+          data-project-id="${project.id}"
+          data-project-panel="board"
+        >
+          Kanban
+        </a>
+        <a
+          href="#${project.id}"
+          class="project-view-link${uiState.workspaceTab === "ops" ? " is-active" : ""}"
+          data-project-action="open-panel"
+          data-project-id="${project.id}"
+          data-project-panel="ops"
+        >
+          Ops
+        </a>
+      `;
+      item.append(menu);
+    }
+
+    dom.projectSidebarList.append(item);
   }
 }
 
@@ -1264,6 +1350,7 @@ function renderNoProjectState() {
   closeLiveStream();
   setSidebarOpen(false);
   setSettingsDrawerOpen(false);
+  setTicketComposerOpen(false);
   state.ticketDetail = null;
   state.project = null;
   state.projectId = "";
@@ -2310,22 +2397,29 @@ function setProjectWorkspaceVisible(isVisible) {
 
 function setWorkspaceTab(tab) {
   uiState.workspaceTab = tab;
-  dom.workspaceTabButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.workspaceTab === tab);
-  });
   dom.workspacePanels.forEach((panel) => {
     panel.hidden = panel.dataset.workspacePanel !== tab;
   });
+  if (tab !== "board") {
+    setTicketComposerOpen(false);
+  }
+  renderProjectOptions();
+}
+
+function setOpsTab(tab) {
+  uiState.opsTab = tab;
+  dom.opsTabGroup?.show(tab);
+}
+
+function setTicketComposerOpen(isOpen) {
+  uiState.ticketComposerOpen = isOpen;
+  dom.ticketCreatePanel.hidden = !isOpen;
+  dom.newTicketToggleButton?.classList.toggle("is-active", isOpen);
 }
 
 function setDetailTab(tab) {
   uiState.detailTab = tab;
-  dom.detailTabButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.detailTab === tab);
-  });
-  dom.detailTabPanels.forEach((panel) => {
-    panel.hidden = panel.dataset.detailPanel !== tab;
-  });
+  dom.detailTabGroup?.show(tab);
 }
 
 function setSidebarOpen(isOpen) {
@@ -2337,8 +2431,9 @@ function setSidebarOpen(isOpen) {
 
 function setSettingsDrawerOpen(isOpen) {
   uiState.settingsDrawerOpen = isOpen;
-  dom.settingsDrawer.hidden = !isOpen;
-  dom.settingsScrim.hidden = !isOpen;
+  if (dom.settingsDrawer) {
+    dom.settingsDrawer.open = isOpen;
+  }
   dom.settingsToggleButton?.classList.toggle("is-active", isOpen);
 }
 

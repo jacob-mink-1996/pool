@@ -2,3 +2,4 @@
 node_modules/
 .pool/
 services/api/.pool/
+.pool/*

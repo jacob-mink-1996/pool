@@ -18,5 +18,8 @@
     "start:web": "npm --workspace apps/web run start",
     "check": "node scripts/check-types.mjs",
     "test": "node --test"
+  },
+  "dependencies": {
+    "@shoelace-style/shoelace": "^2.20.1"
   }
 }
