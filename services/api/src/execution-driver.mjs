@@ -530,6 +530,7 @@ async function buildCompletionPayload(result, runtime, execution) {
       failureKind: normalized.failureKind || "adapter_command_failed",
       blockedKind: normalized.blockedKind || "",
       artifacts,
+      followupTickets: normalized.followupTickets,
     };
   }
 
@@ -543,6 +544,7 @@ async function buildCompletionPayload(result, runtime, execution) {
     artifacts,
     review: normalized.review,
     validation: normalized.validation,
+    followupTickets: normalized.followupTickets,
   };
 }
 
@@ -575,6 +577,7 @@ function normalizeCompletionResult(result, execution = null) {
       artifacts: [],
       review: undefined,
       validation: undefined,
+      followupTickets: [],
     };
   }
 
@@ -594,7 +597,47 @@ function normalizeCompletionResult(result, execution = null) {
     artifacts: normalizeArtifacts(result.artifacts),
     review: normalizeEmbeddedReviewResult(result.review),
     validation: normalizeEmbeddedValidationResult(result.validation),
+    followupTickets: normalizeFollowupTickets(result.followupTickets),
   };
+}
+
+function normalizeFollowupTickets(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((ticket) => ticket && typeof ticket === "object" && !Array.isArray(ticket))
+    .map((ticket) => ({
+      title: typeof ticket.title === "string" ? ticket.title : "",
+      brief: typeof ticket.brief === "string" ? ticket.brief : "",
+      acceptanceCriteriaMd:
+        typeof ticket.acceptanceCriteriaMd === "string" ? ticket.acceptanceCriteriaMd : "",
+      definitionOfDoneMd:
+        typeof ticket.definitionOfDoneMd === "string" ? ticket.definitionOfDoneMd : "",
+      latestSummary: typeof ticket.latestSummary === "string" ? ticket.latestSummary : "",
+      state: typeof ticket.state === "string" ? ticket.state : "",
+      priority: typeof ticket.priority === "string" ? ticket.priority : "",
+      assignedRole: typeof ticket.assignedRole === "string" ? ticket.assignedRole : "",
+      repoTargets: normalizeRepoTargets(ticket.repoTargets),
+    }))
+    .filter((ticket) => ticket.title && ticket.brief);
+}
+
+function normalizeRepoTargets(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((target) => target && typeof target === "object" && !Array.isArray(target))
+    .map((target) => ({
+      repoId: typeof target.repoId === "string" ? target.repoId : "",
+      baseRef: typeof target.baseRef === "string" ? target.baseRef : "",
+      branchName: typeof target.branchName === "string" ? target.branchName : "",
+      targetScopeMd: typeof target.targetScopeMd === "string" ? target.targetScopeMd : "",
+    }))
+    .filter((target) => target.repoId);
 }
 
 function normalizeEmbeddedReviewResult(review) {
@@ -802,6 +845,7 @@ function buildCodexResultContract(role, resultPath) {
     `   - failureKind: optional short string`,
     `   - blockedKind: optional short string`,
     `   - artifacts: optional array of { kind, label, uri, metadata } for execution-level evidence`,
+    `   - followupTickets: optional array of child tickets { title, brief, acceptanceCriteriaMd?, definitionOfDoneMd?, state?, priority?, assignedRole?, repoTargets? }`,
   ];
 
   if (role === "reviewer") {

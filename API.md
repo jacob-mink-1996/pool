@@ -222,6 +222,28 @@ List executions for a ticket.
 
 Get execution detail, including artifacts and live state.
 
+### `POST /api/v1/projects/:projectId/executions/:executionId/complete`
+
+Record a lane result. Adapter drivers write this same shape to their
+execution result file.
+
+Expected fields:
+
+- `outcome`
+- `summaryMd`
+- `remainingWorkMd`
+- `expectedNextEvidenceMd`
+- `artifacts[]`
+- `review`
+- `validation`
+- `followupTickets[]`
+
+`followupTickets[]` uses the normal ticket creation fields, excluding
+`parentTicketId`. Pool persists these as child tickets of the completed
+execution's ticket and defaults missing `state` to the project's
+`agentCreatedTicketDefaultState`. This is the bounded mechanism for a goal or
+refinement lane to extend itself into runnable tickets.
+
 ### `POST /api/v1/projects/:projectId/executions/:executionId/continue`
 
 Trigger a bounded continuation for a run or generate the next iteration.

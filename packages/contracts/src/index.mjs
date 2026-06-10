@@ -582,6 +582,7 @@ export function parseCompleteExecutionInput(body) {
     artifacts: parseArtifacts(body.artifacts),
     review: parseEmbeddedReviewResult(body.review),
     validation: parseEmbeddedValidationResult(body.validation),
+    followupTickets: parseFollowupTickets(body.followupTickets),
   });
 }
 
@@ -665,6 +666,45 @@ function parseRepoTargets(value) {
       baseRef: optionalString(target, "baseRef"),
       branchName: optionalString(target, "branchName"),
       targetScopeMd: optionalString(target, "targetScopeMd"),
+    });
+  });
+}
+
+function parseFollowupTickets(value) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error("Field followupTickets must be an array");
+  }
+
+  return value.map((ticket, index) => {
+    assertObject(ticket, `followupTickets[${index}]`);
+    const state = optionalNestedString(ticket, "state");
+    if (state && !isTicketState(state)) {
+      throw new Error(`Invalid ticket state: ${state}`);
+    }
+
+    const priority = optionalNestedString(ticket, "priority");
+    if (priority && !isTicketPriority(priority)) {
+      throw new Error(`Invalid ticket priority: ${priority}`);
+    }
+
+    const assignedRole = optionalNestedString(ticket, "assignedRole");
+    if (assignedRole && !isRoleName(assignedRole)) {
+      throw new Error(`Invalid assigned role: ${assignedRole}`);
+    }
+
+    return compactObject({
+      title: requiredFieldString(ticket, "title", `followupTickets[${index}].title`),
+      brief: requiredFieldString(ticket, "brief", `followupTickets[${index}].brief`),
+      acceptanceCriteriaMd: optionalNestedString(ticket, "acceptanceCriteriaMd"),
+      definitionOfDoneMd: optionalNestedString(ticket, "definitionOfDoneMd"),
+      latestSummary: optionalNestedString(ticket, "latestSummary"),
+      state,
+      priority,
+      assignedRole,
+      repoTargets: parseRepoTargets(ticket.repoTargets),
     });
   });
 }

@@ -436,6 +436,22 @@ test("execution parsers normalize execution payloads", () => {
       commands: [" npm test "],
       artifacts: [{ kind: "log", label: "CI output", uri: "file:///tmp/ci.txt" }],
     },
+    followupTickets: [
+      {
+        title: " Add calculator division ",
+        brief: " Extend the CLI calculator with division. ",
+        assignedRole: " developer ",
+        priority: " high ",
+        repoTargets: [
+          {
+            repoId: " repo_project_pool_pool ",
+            baseRef: " main ",
+            branchName: " calc-division ",
+            targetScopeMd: " CLI behavior ",
+          },
+        ],
+      },
+    ],
   });
   const review = parseCreateReviewInput({
     executionId: " execution_1 ",
@@ -495,6 +511,22 @@ test("execution parsers normalize execution payloads", () => {
       commands: ["npm test"],
       artifacts: [{ kind: "log", label: "CI output", uri: "file:///tmp/ci.txt" }],
     },
+    followupTickets: [
+      {
+        title: "Add calculator division",
+        brief: "Extend the CLI calculator with division.",
+        priority: "high",
+        assignedRole: "developer",
+        repoTargets: [
+          {
+            repoId: "repo_project_pool_pool",
+            baseRef: "main",
+            branchName: "calc-division",
+            targetScopeMd: "CLI behavior",
+          },
+        ],
+      },
+    ],
   });
   assert.deepEqual(review, {
     executionId: "execution_1",

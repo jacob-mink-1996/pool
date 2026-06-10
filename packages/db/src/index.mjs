@@ -1977,6 +1977,7 @@ export function createSqliteStore(options = {}) {
       const artifacts = input.artifacts || [];
       const embeddedReview = input.review || null;
       const embeddedValidation = input.validation || null;
+      const followupTickets = input.followupTickets || [];
       const nextState = deriveTicketStateForExecutionOutcome(
         ticket.state,
         outcome,
@@ -2042,6 +2043,14 @@ export function createSqliteStore(options = {}) {
           ...deriveExecutionEventReason({ outcome, failureKind, blockedKind }),
         });
       });
+
+      for (const followupTicket of followupTickets) {
+        this.createTicket(projectId, {
+          ...followupTicket,
+          parentTicketId: execution.ticket_id,
+          state: followupTicket.state || policy.agent_created_ticket_default_state,
+        });
+      }
 
       if (outcome === "completed" && execution.role === "developer") {
         startAutoRoutedLaneExecution({
