@@ -88,6 +88,7 @@ function handleRoute(route, url, body, store) {
           version: "0.0.1",
           mode: "mvp",
           product: true,
+          workspaceRoot: process.cwd(),
         },
       };
     case "projects":

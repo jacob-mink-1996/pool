@@ -1,4 +1,5 @@
 export const state = {
+  meta: null,
   projects: [],
   project: null,
   projectId: "",

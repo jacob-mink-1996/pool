@@ -77,6 +77,8 @@
 
           <div id="project-empty" class="empty-state project-empty" hidden>
             Create a project to register repos, build backlog, and start moving tickets through delivery lanes.
+            If you already have a local repo, use <code>npm run bootstrap:project -- --repo-path /abs/path/to/repo</code>
+            to stand up the first Pool space faster.
           </div>
 
           <div id="project-workspace">
@@ -137,6 +139,10 @@
                 <button class="ghost-button" type="submit">Save policy</button>
               </div>
               <div class="detail-grid">
+                <label class="field">
+                  <span>Validation Profile Required For Merge</span>
+                  <input id="policy-required-validation-profile-input" type="text" maxlength="120" />
+                </label>
                 <label class="repo-primary-toggle">
                   <input id="policy-require-reviewer-input" type="checkbox" />
                   <span>Require reviewer lane</span>

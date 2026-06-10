@@ -52,6 +52,7 @@ window.addEventListener("error", (event) => {
 });
 
 async function bootstrap() {
+  await loadMeta();
   renderStateOptions();
   renderRoleOptions();
   renderPriorityOptions();
@@ -161,6 +162,7 @@ function bindEvents() {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        requiredValidationCommandProfileForMerge: dom.policyRequiredValidationProfileInput.value.trim(),
         requireReviewer: dom.policyRequireReviewerInput.checked,
         requireValidator: dom.policyRequireValidatorInput.checked,
         requireHumanApprovalBeforeMerge: dom.policyRequireHumanApprovalInput.checked,
@@ -177,6 +179,17 @@ function bindEvents() {
   dom.createProjectNameInput.addEventListener("input", () => {
     if (!dom.createProjectSlugInput.value.trim()) {
       dom.createProjectSlugInput.value = slugify(dom.createProjectNameInput.value);
+    }
+    if (!dom.createProjectWorkspaceRootInput.value.trim()) {
+      dom.createProjectWorkspaceRootInput.value = buildProjectWorkspaceDraft(
+        dom.createProjectSlugInput.value || slugify(dom.createProjectNameInput.value),
+      );
+    }
+  });
+
+  dom.createProjectSlugInput.addEventListener("input", () => {
+    if (!dom.createProjectWorkspaceRootInput.value.trim()) {
+      dom.createProjectWorkspaceRootInput.value = buildProjectWorkspaceDraft(dom.createProjectSlugInput.value);
     }
   });
 
@@ -204,6 +217,21 @@ function bindEvents() {
   dom.repoNameInput.addEventListener("input", () => {
     if (!dom.repoSlugInput.value.trim()) {
       dom.repoSlugInput.value = slugify(dom.repoNameInput.value);
+    }
+    if (!dom.repoLocalPathInput.value.trim()) {
+      dom.repoLocalPathInput.value = buildRepoLocalPathDraft(
+        state.project?.workspaceRoot || dom.createProjectWorkspaceRootInput.value,
+        dom.repoSlugInput.value || slugify(dom.repoNameInput.value),
+      );
+    }
+  });
+
+  dom.repoSlugInput.addEventListener("input", () => {
+    if (!dom.repoLocalPathInput.value.trim()) {
+      dom.repoLocalPathInput.value = buildRepoLocalPathDraft(
+        state.project?.workspaceRoot || dom.createProjectWorkspaceRootInput.value,
+        dom.repoSlugInput.value,
+      );
     }
   });
 
@@ -1119,6 +1147,7 @@ function renderProjectPolicy() {
     return;
   }
 
+  dom.policyRequiredValidationProfileInput.value = policy.requiredValidationCommandProfileForMerge || "";
   dom.policyRequireReviewerInput.checked = Boolean(policy.requireReviewer);
   dom.policyRequireValidatorInput.checked = Boolean(policy.requireValidator);
   dom.policyRequireHumanApprovalInput.checked = Boolean(policy.requireHumanApprovalBeforeMerge);
@@ -1130,6 +1159,7 @@ function renderProjectPolicy() {
 
 function renderNoProjectState() {
   closeLiveStream();
+  state.ticketDetail = null;
   state.project = null;
   state.projectId = "";
   state.board = null;
@@ -2125,11 +2155,13 @@ function resetCreateFormDefaults() {
 
 function resetRepoCreateForm() {
   dom.repoDefaultBranchInput.value = state.project?.defaultBaseBranch || "main";
+  dom.repoLocalPathInput.value = buildRepoLocalPathDraft(state.project?.workspaceRoot, dom.repoSlugInput.value);
   dom.repoIsPrimaryInput.checked = state.repos.length === 0;
 }
 
 function resetProjectCreateForm() {
   dom.createProjectBranchInput.value = "main";
+  dom.createProjectWorkspaceRootInput.value = buildProjectWorkspaceDraft(dom.createProjectSlugInput.value);
 }
 
 function resetRepoTargetForm() {
@@ -2165,6 +2197,15 @@ function resetMergeForm() {
 function setProjectWorkspaceVisible(isVisible) {
   dom.projectWorkspace.hidden = !isVisible;
   dom.projectEmpty.hidden = isVisible;
+}
+
+async function loadMeta() {
+  try {
+    state.meta = await fetchJson("/api/v1/meta");
+  } catch (error) {
+    console.warn("Could not load Pool runtime metadata", error);
+    state.meta = null;
+  }
 }
 
 function setBoardError(message) {
@@ -2217,6 +2258,24 @@ function parseArtifactLines(value) {
       uri: parts[2],
     };
   });
+}
+
+function buildProjectWorkspaceDraft(projectSlug) {
+  const slug = slugify(projectSlug || "");
+  const root = state.meta?.workspaceRoot || "";
+  if (!root) {
+    return "";
+  }
+  return slug ? `${root}/${slug}` : root;
+}
+
+function buildRepoLocalPathDraft(workspaceRoot, repoSlug) {
+  const root = (workspaceRoot || "").trim();
+  const slug = slugify(repoSlug || "");
+  if (!root) {
+    return "";
+  }
+  return slug ? `${root}/${slug}` : root;
 }
 
 function currentTicketRepoTargets() {

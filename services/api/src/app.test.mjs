@@ -38,6 +38,19 @@ test("health endpoint responds successfully", async () => {
   });
 });
 
+test("meta endpoint exposes runtime defaults for the web app", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/meta`);
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.name, "Pool");
+    assert.equal(body.product, true);
+    assert.equal(typeof body.workspaceRoot, "string");
+    assert.equal(body.workspaceRoot.length > 0, true);
+  });
+});
+
 test("root route serves the operator web app", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl);
@@ -194,6 +207,7 @@ test("project policy and role profiles can be patched through the API", async ()
         requireReviewer: false,
         requireValidator: false,
         requireHumanApprovalBeforeMerge: false,
+        requiredValidationCommandProfileForMerge: "ci",
         maxParallelExecutions: 6,
         maxParallelMerges: 2,
         maxAutoContinueIterations: 9,
@@ -226,7 +240,7 @@ test("project policy and role profiles can be patched through the API", async ()
     assert.equal(updatePolicyBody.policy.maxParallelExecutions, 6);
     assert.equal(updatePolicyBody.policy.maxParallelMerges, 2);
     assert.equal(updatePolicyBody.policy.requireReviewer, false);
-    assert.equal(updatePolicyBody.policy.requiredValidationCommandProfileForMerge, "");
+    assert.equal(updatePolicyBody.policy.requiredValidationCommandProfileForMerge, "ci");
     assert.equal(updateProfileResponse.status, 200);
     assert.equal(updateProfileBody.profile.role, "developer");
     assert.equal(updateProfileBody.profile.adapter, "codex-cli");
@@ -236,6 +250,7 @@ test("project policy and role profiles can be patched through the API", async ()
     assert.equal(projectResponse.status, 200);
     assert.equal(projectBody.project.policy.maxAutoContinueIterations, 9);
     assert.equal(projectBody.project.policy.maxParallelMerges, 2);
+    assert.equal(projectBody.project.policy.requiredValidationCommandProfileForMerge, "ci");
     assert.equal(
       projectBody.project.roleProfiles.find((profile) => profile.role === "developer").adapter,
       "codex-cli",

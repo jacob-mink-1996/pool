@@ -23,6 +23,7 @@ export const dom = {
   projectWorkspaceRootInput: document.querySelector("#project-workspace-root-input"),
   projectDescriptionInput: document.querySelector("#project-description-input"),
   projectPolicyForm: document.querySelector("#project-policy-form"),
+  policyRequiredValidationProfileInput: document.querySelector("#policy-required-validation-profile-input"),
   policyRequireReviewerInput: document.querySelector("#policy-require-reviewer-input"),
   policyRequireValidatorInput: document.querySelector("#policy-require-validator-input"),
   policyRequireHumanApprovalInput: document.querySelector("#policy-require-human-approval-input"),
