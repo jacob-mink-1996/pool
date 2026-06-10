@@ -9,7 +9,7 @@ import {
 } from "./lib/constants.js";
 import { dom } from "./lib/dom.js";
 import { state } from "./lib/state.js";
-import { buildActivityEventsUrl, buildBoardUrl, fetchJson } from "./lib/api.js";
+import { ApiError, buildActivityEventsUrl, buildBoardUrl, buildEventsStreamUrl, fetchJson } from "./lib/api.js";
 import {
   createRepoField,
   currentActiveExecution,
@@ -62,6 +62,7 @@ async function bootstrap() {
   resetReviewForm();
   resetValidationForm();
   resetMergeForm();
+  renderLiveIndicator();
   await refreshProjects();
 }
 
@@ -69,6 +70,7 @@ function bindEvents() {
   dom.projectSelect.addEventListener("change", async (event) => {
     const nextProjectId = event.target.value;
     if (!nextProjectId) {
+      closeLiveStream();
       renderNoProjectState();
       return;
     }
@@ -78,7 +80,9 @@ function bindEvents() {
 
   dom.refreshButton.addEventListener("click", async () => {
     if (!state.projectId) return;
-    await loadBoard(state.projectId, { keepSelection: true });
+    await withBusyState([dom.refreshButton], "Refreshing…", async () => {
+      await loadBoard(state.projectId, { keepSelection: true });
+    });
   });
 
   dom.boardFilterForm.addEventListener("submit", async (event) => {
@@ -300,86 +304,102 @@ function bindEvents() {
     event.preventDefault();
     if (!state.projectId || !state.selectedTicketId) return;
 
-    await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/executions`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        role: dom.executionRoleSelect.value,
-        reason: dom.executionReasonInput.value,
-      }),
-    });
+    await withBusyState([dom.executionCreateForm], "Starting execution…", async () => {
+      await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/executions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          role: dom.executionRoleSelect.value,
+          reason: dom.executionReasonInput.value,
+        }),
+      });
 
-    dom.executionReasonInput.value = "";
-    await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+      dom.executionReasonInput.value = "";
+      await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+    });
   });
 
   dom.reviewForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!state.projectId || !state.selectedTicketId || !dom.reviewExecutionSelect.value) return;
 
-    const finding = buildPrimaryReviewFinding();
-    await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/reviews`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        executionId: dom.reviewExecutionSelect.value,
-        verdict: dom.reviewVerdictSelect.value,
-        summaryMd: dom.reviewSummaryInput.value,
-        artifacts: parseArtifactLines(dom.reviewArtifactsInput.value),
-        findings: finding ? [finding] : [],
-      }),
-    });
+    await withBusyState([dom.reviewForm], "Recording review…", async () => {
+      const finding = buildPrimaryReviewFinding();
+      await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/reviews`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          executionId: dom.reviewExecutionSelect.value,
+          verdict: dom.reviewVerdictSelect.value,
+          summaryMd: dom.reviewSummaryInput.value,
+          artifacts: parseArtifactLines(dom.reviewArtifactsInput.value),
+          findings: finding ? [finding] : [],
+        }),
+      });
 
-    resetReviewForm();
-    await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+      resetReviewForm();
+      await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+    });
   });
 
   dom.validationForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!state.projectId || !state.selectedTicketId) return;
 
-    const repoId = dom.validationRepoSelect.value;
-    await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/validations`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        repoIds: repoId ? [repoId] : [],
-        commandProfile: dom.validationCommandProfileInput.value,
-        commands: splitLines(dom.validationCommandsInput.value),
-        verdict: dom.validationVerdictSelect.value,
-        summaryMd: dom.validationSummaryInput.value,
-        artifacts: parseArtifactLines(dom.validationArtifactsInput.value),
-      }),
-    });
+    await withBusyState([dom.validationForm], "Recording validation…", async () => {
+      const repoId = dom.validationRepoSelect.value;
+      await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/validations`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          repoIds: repoId ? [repoId] : [],
+          commandProfile: dom.validationCommandProfileInput.value,
+          commands: splitLines(dom.validationCommandsInput.value),
+          verdict: dom.validationVerdictSelect.value,
+          summaryMd: dom.validationSummaryInput.value,
+          artifacts: parseArtifactLines(dom.validationArtifactsInput.value),
+        }),
+      });
 
-    resetValidationForm();
-    await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+      resetValidationForm();
+      await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+    });
   });
 
   dom.mergeForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!state.projectId || !state.selectedTicketId) return;
 
-    const outcome = dom.mergeOutcomeSelect.value;
-    const payload = {
-      strategy: dom.mergeStrategySelect.value,
-      status: outcome,
-      summaryMd: dom.mergeSummaryInput.value.trim(),
-      artifacts: parseArtifactLines(dom.mergeArtifactsInput.value),
-    };
-    if (outcome === "completed" || dom.mergeApprovedByRefInput.value.trim()) {
-      payload.approvedByKind = dom.mergeApprovedByKindInput.value.trim() || "human";
-      payload.approvedByRef = dom.mergeApprovedByRefInput.value.trim();
-    }
+    await withBusyState([dom.mergeForm], "Recording merge…", async () => {
+      const outcome = dom.mergeOutcomeSelect.value;
+      const payload = {
+        strategy: dom.mergeStrategySelect.value,
+        status: outcome,
+        summaryMd: dom.mergeSummaryInput.value.trim(),
+        artifacts: parseArtifactLines(dom.mergeArtifactsInput.value),
+      };
+      if (outcome === "completed" || dom.mergeApprovedByRefInput.value.trim()) {
+        payload.approvedByKind = dom.mergeApprovedByKindInput.value.trim() || "human";
+        payload.approvedByRef = dom.mergeApprovedByRefInput.value.trim();
+      }
 
-    await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/merge`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      try {
+        await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${state.selectedTicketId}/merge`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          applyMergeConflict(error.payload);
+          throw new Error(describeMergeConflict(error.payload));
+        }
+        throw error;
+      }
+
+      resetMergeForm();
+      await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
     });
-
-    resetMergeForm();
-    await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
   });
 
   dom.stateForm.addEventListener("submit", async (event) => {
@@ -567,31 +587,43 @@ function bindEvents() {
       payload.remainingWorkMd = note;
     }
 
-    await fetchJson(`/api/v1/projects/${state.projectId}/executions/${activeExecution.id}/complete`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    await withBusyState(
+      [dom.executionActionForm, dom.executionContinueButton, dom.executionCancelButton],
+      "Completing run…",
+      async () => {
+        await fetchJson(`/api/v1/projects/${state.projectId}/executions/${activeExecution.id}/complete`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-    dom.executionNoteInput.value = "";
-    dom.executionArtifactsInput.value = "";
-    await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+        dom.executionNoteInput.value = "";
+        dom.executionArtifactsInput.value = "";
+        await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+      },
+    );
   });
 
   dom.executionContinueButton.addEventListener("click", async () => {
     const activeExecution = currentActiveExecution(state.ticketDetail);
     if (!state.projectId || !activeExecution) return;
 
-    const reason = dom.executionNoteInput.value.trim() || "Continue the bounded execution loop.";
-    await fetchJson(`/api/v1/projects/${state.projectId}/executions/${activeExecution.id}/continue`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reason }),
-    });
+    await withBusyState(
+      [dom.executionActionForm, dom.executionContinueButton, dom.executionCancelButton],
+      "Continuing run…",
+      async () => {
+        const reason = dom.executionNoteInput.value.trim() || "Continue the bounded execution loop.";
+        await fetchJson(`/api/v1/projects/${state.projectId}/executions/${activeExecution.id}/continue`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ reason }),
+        });
 
-    dom.executionNoteInput.value = "";
-    dom.executionArtifactsInput.value = "";
-    await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+        dom.executionNoteInput.value = "";
+        dom.executionArtifactsInput.value = "";
+        await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+      },
+    );
   });
 
   dom.executionCancelButton.addEventListener("click", async () => {
@@ -601,16 +633,22 @@ function bindEvents() {
       return;
     }
 
-    const reason = dom.executionNoteInput.value.trim() || "Execution cancelled by operator.";
-    await fetchJson(`/api/v1/projects/${state.projectId}/executions/${activeExecution.id}/cancel`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reason }),
-    });
+    await withBusyState(
+      [dom.executionActionForm, dom.executionContinueButton, dom.executionCancelButton],
+      "Cancelling run…",
+      async () => {
+        const reason = dom.executionNoteInput.value.trim() || "Execution cancelled by operator.";
+        await fetchJson(`/api/v1/projects/${state.projectId}/executions/${activeExecution.id}/cancel`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ reason }),
+        });
 
-    dom.executionNoteInput.value = "";
-    dom.executionArtifactsInput.value = "";
-    await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+        dom.executionNoteInput.value = "";
+        dom.executionArtifactsInput.value = "";
+        await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
+      },
+    );
   });
 }
 
@@ -697,7 +735,9 @@ async function loadBoard(projectId, options = {}) {
   dom.boardMeta.textContent = "";
   dom.projectSelect.disabled = false;
   dom.refreshButton.disabled = false;
-  showStatus("Refreshing mission control…", "loading", { persist: true });
+  if (!options.silent) {
+    showStatus("Refreshing mission control…", "loading", { persist: true });
+  }
 
   try {
     const [projectPayload, boardPayload, ticketsPayload, reposPayload, mergeQueuePayload, activityPayload, artifactsPayload] = await Promise.all([
@@ -729,6 +769,7 @@ async function loadBoard(projectId, options = {}) {
     renderActivityFeed();
     renderRecentArtifacts();
     renderBoard(boardPayload.board);
+    ensureLiveStream(projectId);
 
     const nextTicketId =
       options.ticketId ||
@@ -742,7 +783,9 @@ async function loadBoard(projectId, options = {}) {
       clearTicketDetail();
     }
 
-    showStatus(`Loaded ${projectPayload.project.name}`, "success");
+    if (!options.silent) {
+      showStatus(`Loaded ${projectPayload.project.name}`, "success");
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     showStatus(message, "error", { persist: true });
@@ -807,11 +850,12 @@ function renderMergeQueue() {
     card.innerHTML = `
       <p class="ticket-key">${escapeHtml(item.key)}</p>
       <strong class="ticket-card-title">${escapeHtml(item.title)}</strong>
-      <p class="ticket-card-summary">${escapeHtml(item.latestSummary || item.mergeStatus?.statusSummary || "Ready for merge.")}</p>
+      <p class="ticket-card-summary">${escapeHtml(item.latestSummary || mergeSummaryText(item.mergeStatus) || "Ready for merge.")}</p>
       <div class="ticket-card-meta">
         <span>${escapeHtml(item.priority)}</span>
         <span>${escapeHtml(item.assignedRole)}</span>
-        <span>${item.mergeStatus?.requiresHumanApproval ? "Approval required" : "Approval optional"}</span>
+        <span>${escapeHtml(mergeApprovalLabel(item.mergeStatus))}</span>
+        <span>${escapeHtml(mergeReadinessLabel(item.mergeStatus))}</span>
         <span>${item.mergeStatus?.uncleanedWorktreeCount || 0} worktree</span>
       </div>
     `;
@@ -878,12 +922,15 @@ function renderActivityFeed() {
     if (event.repoName) {
       contextBadges.push(`<span>${escapeHtml(event.repoName)}</span>`);
     }
+    if (event.lane) {
+      contextBadges.push(`<span>${escapeHtml(prettyState(event.lane))}</span>`);
+    }
 
     item.innerHTML = `
       <div class="activity-item-header">
         <div>
-          <p class="timeline-type">${escapeHtml(prettyEventType(event.type))}</p>
-          <strong>${escapeHtml(event.summary)}</strong>
+          <p class="timeline-type">${escapeHtml(eventTypeLabel(event))}</p>
+          <strong>${escapeHtml(event.summary || event.detail || "Project activity updated")}</strong>
         </div>
         <time>${formatDate(event.createdAt)}</time>
       </div>
@@ -1061,6 +1108,7 @@ function renderProjectPolicy() {
 }
 
 function renderNoProjectState() {
+  closeLiveStream();
   state.project = null;
   state.projectId = "";
   state.board = null;
@@ -1082,6 +1130,7 @@ function renderNoProjectState() {
   dom.recentArtifactsCount.textContent = "";
   dom.recentArtifacts.innerHTML = "";
   renderBoardFilters();
+  renderLiveIndicator();
   setProjectWorkspaceVisible(false);
   clearTicketDetail();
 }
@@ -1340,8 +1389,8 @@ function renderTicketOverview(ticket) {
   if (ticket.mergeStatus) {
     cards.push({
       label: "Merge readiness",
-      value: ticket.mergeStatus.canMerge ? "Ready to merge" : "Not ready",
-      note: ticket.mergeStatus.statusSummary || "Waiting on delivery evidence.",
+      value: mergeReadinessLabel(ticket.mergeStatus),
+      note: mergeSummaryText(ticket.mergeStatus) || "Waiting on delivery evidence.",
     });
   }
 
@@ -1533,21 +1582,24 @@ function renderMergeStatus(ticket) {
   dom.mergeStatusTitle.textContent = latestRun
     ? `Latest merge ${prettyState(latestRun.status)}`
     : mergeStatus?.canMerge
-      ? "Ready to record merge"
+      ? mergeStatus?.requiresHumanApproval
+        ? "Approval is the final gate"
+        : "Ready to record merge"
       : "Waiting on merge readiness";
   dom.mergeStatusCopy.textContent =
-    mergeStatus?.statusSummary || "Ticket must reach merge readiness before the operator can close the loop.";
+    mergeSummaryText(mergeStatus) || "Ticket must reach merge readiness before the operator can close the loop.";
   dom.mergeStatusBadge.textContent = latestRun
     ? prettyState(latestRun.status)
-    : mergeStatus?.canMerge
-      ? "Ready"
-      : "Waiting";
+    : mergeReadinessLabel(mergeStatus);
   dom.mergeStatusBadge.className = `state-badge ${mergeStatusClass(ticket, mergeStatus)}`;
 
   const meta = [];
   if (mergeStatus) {
     meta.push(`State ${prettyState(mergeStatus.ticketState)}`);
-    meta.push(mergeStatus.requiresHumanApproval ? "Approval required" : "Approval optional");
+    meta.push(mergeApprovalLabel(mergeStatus));
+    if (mergeStatus.readiness) {
+      meta.push(`Readiness ${prettyState(mergeStatus.readiness)}`);
+    }
     meta.push(
       `${mergeStatus.uncleanedWorktreeCount} worktree${mergeStatus.uncleanedWorktreeCount === 1 ? "" : "s"} not cleaned`,
     );
@@ -1563,6 +1615,9 @@ function renderMergeStatus(ticket) {
     meta.push(`Recorded ${formatDate(latestRun.finishedAt)}`);
   }
   dom.mergeStatusMeta.innerHTML = meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
+  dom.mergeBlockingReasons.innerHTML = normalizeBlockingReasons(mergeStatus)
+    .map((reason) => `<span>${escapeHtml(reason)}</span>`)
+    .join("");
 
   const mergeEnabled = Boolean(mergeStatus?.canMerge);
   setFormControlsDisabled(dom.mergeForm, !mergeEnabled);
@@ -1896,6 +1951,7 @@ function clearTicketDetail() {
   dom.mergeStatusBadge.textContent = "Waiting";
   dom.mergeStatusBadge.className = "state-badge subtle";
   dom.mergeStatusMeta.innerHTML = "";
+  dom.mergeBlockingReasons.innerHTML = "";
   resetMergeForm();
   setFormControlsDisabled(dom.mergeForm, true);
   dom.mergeApprovedByKindInput.disabled = true;
@@ -2053,6 +2109,277 @@ async function saveTicketRepoTargets(repoTargets) {
   await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
 }
 
+function ensureLiveStream(projectId) {
+  if (!projectId) {
+    closeLiveStream();
+    renderLiveIndicator();
+    return;
+  }
+
+  if (typeof window.EventSource !== "function") {
+    state.live.status = "unsupported";
+    state.live.isConnected = false;
+    renderLiveIndicator();
+    return;
+  }
+
+  const url = buildEventsStreamUrl(state, projectId);
+  if (state.live.eventSource && state.live.projectId === projectId && state.live.url === url) {
+    return;
+  }
+
+  closeLiveStream({ keepIndicator: true });
+  state.live.projectId = projectId;
+  state.live.url = url;
+  state.live.status = "connecting";
+  state.live.isConnected = false;
+  state.live.lastEventAt = "";
+  renderLiveIndicator();
+
+  const source = new EventSource(url);
+  state.live.eventSource = source;
+
+  source.addEventListener("open", () => {
+    state.live.status = "connected";
+    state.live.isConnected = true;
+    renderLiveIndicator();
+  });
+
+  source.addEventListener("snapshot", () => {
+    state.live.status = "connected";
+    state.live.isConnected = true;
+    renderLiveIndicator();
+  });
+
+  source.addEventListener("event", (browserEvent) => {
+    state.live.status = "connected";
+    state.live.isConnected = true;
+    state.live.lastEventAt = new Date().toISOString();
+    renderLiveIndicator();
+    handleLiveEvent(browserEvent);
+  });
+
+  source.addEventListener("error", () => {
+    if (state.live.projectId !== projectId) {
+      return;
+    }
+    state.live.status = "reconnecting";
+    state.live.isConnected = false;
+    renderLiveIndicator();
+    closeLiveStream({ keepIndicator: true });
+    window.clearTimeout(state.live.reconnectTimerId);
+    state.live.reconnectTimerId = window.setTimeout(() => {
+      ensureLiveStream(projectId);
+    }, 1800);
+  });
+}
+
+function closeLiveStream(options = {}) {
+  if (state.live.eventSource) {
+    state.live.eventSource.close();
+  }
+  state.live.eventSource = null;
+  window.clearTimeout(state.live.reconnectTimerId);
+  window.clearTimeout(state.live.refreshTimerId);
+  state.live.reconnectTimerId = 0;
+  state.live.refreshTimerId = 0;
+  state.live.isConnected = false;
+  state.live.projectId = options.keepIndicator ? state.live.projectId : "";
+  state.live.url = options.keepIndicator ? state.live.url : "";
+  if (!options.keepIndicator) {
+    state.live.status = state.projectId ? "idle" : "offline";
+    state.live.lastEventAt = "";
+  }
+}
+
+function handleLiveEvent(browserEvent) {
+  try {
+    if (browserEvent.data) {
+      JSON.parse(browserEvent.data);
+    }
+  } catch (error) {
+    console.warn("Failed to parse live event payload", error);
+  }
+  scheduleLiveRefresh();
+}
+
+function scheduleLiveRefresh() {
+  if (!state.projectId) {
+    return;
+  }
+
+  if (state.live.isRefreshing) {
+    state.live.needsRefresh = true;
+    return;
+  }
+
+  window.clearTimeout(state.live.refreshTimerId);
+  state.live.refreshTimerId = window.setTimeout(async () => {
+    if (state.live.isRefreshing || !state.projectId) {
+      return;
+    }
+    state.live.isRefreshing = true;
+    try {
+      await loadBoard(state.projectId, {
+        keepSelection: true,
+        ticketId: state.selectedTicketId,
+        silent: true,
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      state.live.isRefreshing = false;
+      if (state.live.needsRefresh) {
+        state.live.needsRefresh = false;
+        scheduleLiveRefresh();
+      }
+    }
+  }, 300);
+}
+
+function renderLiveIndicator() {
+  let badge = "Live idle";
+  let badgeClass = "state-badge subtle";
+  let meta = "Waiting for a project stream.";
+
+  if (!state.projectId) {
+    badge = "Live offline";
+    meta = "Select or create a project to start streaming updates.";
+  } else if (state.live.status === "unsupported") {
+    badge = "Live fallback";
+    badgeClass = "state-badge live-polling";
+    meta = "This browser cannot open the event stream. Manual refresh still works.";
+  } else if (state.live.status === "connecting") {
+    badge = "Live connecting";
+    badgeClass = "state-badge live-polling";
+    meta = "Opening the Mission Control event stream.";
+  } else if (state.live.status === "connected") {
+    badge = "Live connected";
+    badgeClass = "state-badge live";
+    meta = state.live.lastEventAt
+      ? `Last update ${formatDate(state.live.lastEventAt)}. Selection and filters stay pinned.`
+      : "Watching project activity and refreshing mission control automatically.";
+  } else if (state.live.status === "reconnecting") {
+    badge = "Live reconnecting";
+    badgeClass = "state-badge live-error";
+    meta = "Stream dropped. Reconnecting automatically while manual refresh stays available.";
+  }
+
+  dom.liveIndicatorBadge.textContent = badge;
+  dom.liveIndicatorBadge.className = badgeClass;
+  dom.liveIndicatorMeta.textContent = meta;
+}
+
+async function withBusyState(controls, busyLabel, work) {
+  const snapshots = snapshotControls(controls);
+  setControlsBusy(snapshots, busyLabel, true);
+  try {
+    return await work();
+  } finally {
+    setControlsBusy(snapshots, busyLabel, false);
+  }
+}
+
+function snapshotControls(controls) {
+  const elements = controls.flatMap((control) => {
+    if (!control) {
+      return [];
+    }
+    if (typeof HTMLFormElement !== "undefined" && control instanceof HTMLFormElement) {
+      return [...control.elements];
+    }
+    return [control];
+  });
+
+  return elements
+    .filter((element, index) => element && elements.indexOf(element) === index)
+    .map((element) => ({
+      element,
+      disabled: element.disabled,
+      textContent: element instanceof HTMLButtonElement ? element.textContent : "",
+    }));
+}
+
+function setControlsBusy(snapshots, busyLabel, isBusy) {
+  for (const snapshot of snapshots) {
+    snapshot.element.disabled = isBusy ? true : snapshot.disabled;
+    if (snapshot.element instanceof HTMLButtonElement && busyLabel) {
+      snapshot.element.textContent = isBusy ? busyLabel : snapshot.textContent;
+    }
+  }
+}
+
+function mergeReadinessLabel(mergeStatus) {
+  if (!mergeStatus) {
+    return "Waiting";
+  }
+  if (mergeStatus.readiness) {
+    return prettyState(mergeStatus.readiness);
+  }
+  if (mergeStatus.canMerge) {
+    return mergeStatus.requiresHumanApproval ? "Approval needed" : "Auto-merge ready";
+  }
+  return "Blocked";
+}
+
+function mergeApprovalLabel(mergeStatus) {
+  if (!mergeStatus) {
+    return "Approval unknown";
+  }
+  if (mergeStatus.approval?.required != null) {
+    return mergeStatus.approval.required
+      ? mergeStatus.approval.satisfied
+        ? "Approval satisfied"
+        : "Approval required"
+      : "Approval optional";
+  }
+  return mergeStatus.requiresHumanApproval ? "Approval required" : "Approval optional";
+}
+
+function mergeSummaryText(mergeStatus) {
+  if (!mergeStatus) {
+    return "";
+  }
+  if (mergeStatus.statusSummary) {
+    return mergeStatus.statusSummary;
+  }
+  const blockingReasons = normalizeBlockingReasons(mergeStatus);
+  if (blockingReasons.length) {
+    return blockingReasons[0];
+  }
+  return "";
+}
+
+function normalizeBlockingReasons(mergeStatus) {
+  const blockingReasons = mergeStatus?.blockingReasons || [];
+  return blockingReasons
+    .map((reason) => {
+      if (!reason) {
+        return "";
+      }
+      if (typeof reason === "string") {
+        return reason;
+      }
+      return reason.message || reason.summary || reason.code || "";
+    })
+    .filter(Boolean);
+}
+
+function describeMergeConflict(payload = {}) {
+  const merge = payload.merge || {};
+  return payload.message || mergeSummaryText(merge) || "Merge policy blocked this action.";
+}
+
+function applyMergeConflict(payload = {}) {
+  const merge = payload.merge || null;
+  if (merge) {
+    dom.mergeStatusCopy.textContent = mergeSummaryText(merge) || "Merge policy blocked this action.";
+    dom.mergeBlockingReasons.innerHTML = normalizeBlockingReasons(merge)
+      .map((reason) => `<span>${escapeHtml(reason)}</span>`)
+      .join("");
+  }
+}
+
 function showStatus(message, tone = "info", options = {}) {
   if (!message) {
     dom.statusBanner.hidden = true;
@@ -2079,6 +2406,14 @@ function renderArtifactSummary(artifacts = []) {
   }
 
   return `<span>${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}</span>`;
+}
+
+function eventTypeLabel(event) {
+  if (event.type) {
+    return prettyEventType(event.type);
+  }
+  const compact = [event.family, event.action].filter(Boolean).join(".");
+  return compact ? prettyEventType(compact) : "Project Event";
 }
 
 function artifactSourceLabel(artifact) {

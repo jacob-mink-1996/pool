@@ -1,6 +1,8 @@
 export const dom = {
   projectSelect: document.querySelector("#project-select"),
   refreshButton: document.querySelector("#refresh-button"),
+  liveIndicatorBadge: document.querySelector("#live-indicator-badge"),
+  liveIndicatorMeta: document.querySelector("#live-indicator-meta"),
   statusBanner: document.querySelector("#status-banner"),
   boardTitle: document.querySelector("#board-title"),
   boardMeta: document.querySelector("#board-meta"),
@@ -102,6 +104,7 @@ export const dom = {
   mergeStatusCopy: document.querySelector("#merge-status-copy"),
   mergeStatusBadge: document.querySelector("#merge-status-badge"),
   mergeStatusMeta: document.querySelector("#merge-status-meta"),
+  mergeBlockingReasons: document.querySelector("#merge-blocking-reasons"),
   mergeForm: document.querySelector("#merge-form"),
   mergeStrategySelect: document.querySelector("#merge-strategy-select"),
   mergeOutcomeSelect: document.querySelector("#merge-outcome-select"),

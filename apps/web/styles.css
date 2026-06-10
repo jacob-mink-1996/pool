@@ -106,6 +106,17 @@ select {
   align-items: end;
 }
 
+.live-indicator {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 12.5rem;
+}
+
+.live-indicator-meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 .status-banner {
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;
@@ -426,6 +437,21 @@ select {
   color: var(--muted);
 }
 
+.state-badge.live {
+  background: rgba(28, 125, 123, 0.14);
+  color: var(--teal);
+}
+
+.state-badge.live-polling {
+  background: rgba(214, 139, 54, 0.16);
+  color: #85531c;
+}
+
+.state-badge.live-error {
+  background: rgba(179, 71, 58, 0.14);
+  color: #8d3026;
+}
+
 .detail-content {
   display: grid;
   gap: 1.1rem;
@@ -520,6 +546,15 @@ select {
 .primary-button {
   cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.ghost-button:disabled,
+.primary-button:disabled,
+.field select:disabled,
+.field input:disabled,
+.field textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.66;
 }
 
 .primary-button {
@@ -697,6 +732,10 @@ select {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 600;
+}
+
+.merge-blocking-reasons:empty {
+  display: none;
 }
 
 .repo-pill.is-primary {

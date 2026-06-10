@@ -21,4 +21,12 @@ export const state = {
     assignedRole: "",
     priority: "",
   },
+  live: {
+    eventSource: null,
+    reconnectTimerId: 0,
+    refreshTimerId: 0,
+    isConnected: false,
+    status: "idle",
+    lastEventAt: "",
+  },
 };

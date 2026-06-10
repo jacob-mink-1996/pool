@@ -21,6 +21,10 @@
             <span>Project</span>
             <select id="project-select" aria-label="Select project"></select>
           </label>
+          <div class="live-indicator" aria-live="polite">
+            <span id="live-indicator-badge" class="state-badge subtle">Live idle</span>
+            <span id="live-indicator-meta" class="live-indicator-meta">Waiting for a project stream.</span>
+          </div>
           <button id="refresh-button" class="ghost-button" type="button">Refresh board</button>
         </div>
       </header>
@@ -644,6 +648,7 @@
                   <span id="merge-status-badge" class="state-badge subtle">Waiting</span>
                 </div>
                 <div id="merge-status-meta" class="ticket-card-meta execution-meta"></div>
+                <div id="merge-blocking-reasons" class="ticket-card-meta merge-blocking-reasons"></div>
               </article>
 
               <form id="merge-form" class="execution-create-form">
