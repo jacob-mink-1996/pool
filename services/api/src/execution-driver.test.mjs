@@ -382,6 +382,44 @@ test("execution driver claim discipline prevents duplicate worker execution", as
   }
 });
 
+test("execution driver retries transient adapter failures before succeeding", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-retry-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const attemptPath = join(fixtureDir, "attempts.txt");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    writeFileSync(attemptPath, "0", "utf8");
+    store.updateRoleProfile("project_pool", "developer", {
+      adapter: "shell",
+      model: "fixture",
+      config: {
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const attemptsPath='${attemptPath}'; const attempts=Number(fs.readFileSync(attemptsPath,'utf8')) + 1; fs.writeFileSync(attemptsPath, String(attempts)); if (attempts < 2) { fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'failed', summaryMd: 'Temporary adapter failure.', failureKind: 'transient' })); process.exit(1); } fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Succeeded after retry.' }));"`,
+      },
+    });
+
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Retry a transient adapter failure.",
+    });
+    const driver = createExecutionDriver({ store, logger: silentLogger(), retryBackoffMs: 1 });
+
+    await driver.pollOnce();
+
+    const completed = store.getExecution("project_pool", execution.id);
+    assert.equal(completed.outcome, "completed");
+    assert.equal(completed.summaryMd, "Succeeded after retry.");
+    assert.equal(readFileSync(attemptPath, "utf8"), "2");
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 function silentLogger() {
   return {
     error() {},

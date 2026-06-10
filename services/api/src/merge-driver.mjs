@@ -6,6 +6,8 @@ import { pathToFileURL } from "node:url";
 
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_LEASE_MS = 30_000;
+const DEFAULT_MAX_ATTEMPTS = 3;
+const DEFAULT_RETRY_BACKOFF_MS = 250;
 
 export function createMergeDriver(options = {}) {
   if (!options.store) {
@@ -16,15 +18,19 @@ export function createMergeDriver(options = {}) {
     store: options.store,
     pollIntervalMs: options.pollIntervalMs || DEFAULT_POLL_INTERVAL_MS,
     leaseMs: options.leaseMs || DEFAULT_LEASE_MS,
+    maxAttempts: options.maxAttempts || DEFAULT_MAX_ATTEMPTS,
+    retryBackoffMs: options.retryBackoffMs || DEFAULT_RETRY_BACKOFF_MS,
     logger: options.logger || console,
   });
 }
 
 class MergeDriver {
-  constructor({ store, pollIntervalMs, leaseMs, logger }) {
+  constructor({ store, pollIntervalMs, leaseMs, maxAttempts, retryBackoffMs, logger }) {
     this.store = store;
     this.pollIntervalMs = pollIntervalMs;
     this.leaseMs = leaseMs;
+    this.maxAttempts = maxAttempts;
+    this.retryBackoffMs = retryBackoffMs;
     this.logger = logger;
     this.timer = null;
     this.inFlight = new Map();
@@ -114,7 +120,7 @@ class MergeDriver {
     const mergeRuntime = await prepareMergeRuntime(project, ticket);
 
     try {
-      const mergeOutcome = await mergeTicketRepos(ticket, repos, mergeRuntime);
+      const mergeOutcome = await this.runMergeAttempts(ticket, repos, mergeRuntime);
       this.store.completeMergeRun(queueItem.projectId, startedRun.id, {
         status: mergeOutcome.status,
         summaryMd: mergeOutcome.summaryMd,
@@ -131,6 +137,23 @@ class MergeDriver {
       });
       throw error;
     }
+  }
+
+  async runMergeAttempts(ticket, repos, mergeRuntime) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+      try {
+        return await mergeTicketRepos(ticket, repos, mergeRuntime);
+      } catch (error) {
+        lastError = error;
+        if (isRetryableMergeError(error) && attempt < this.maxAttempts) {
+          await sleep(backoffForAttempt(this.retryBackoffMs, attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError || new Error("Merge driver exhausted retries");
   }
 }
 
@@ -269,6 +292,9 @@ async function materializeMergeCandidate({ ticket, repo, sourceWorktree, baseRef
     await writeFile(runtime.stdoutPath, merge.stdout || "", "utf8");
     await writeFile(runtime.stderrPath, merge.stderr || "", "utf8");
     if (merge.exitCode !== 0) {
+      if (isRetryableGitFailure(merge)) {
+        throw createRetryableError(`Temporary git merge failure for ${repo.slug}: ${merge.stderr || merge.stdout}`.trim());
+      }
       const detail = await buildConflictSummary(runtime.mergeWorktreePath);
       await writeFile(
         runtime.summaryPath,
@@ -320,6 +346,9 @@ async function materializeMergeCandidate({ ticket, repo, sourceWorktree, baseRef
     await writeFile(runtime.stdoutPath, `${merge.stdout || ""}${commit.stdout || ""}`, "utf8");
     await writeFile(runtime.stderrPath, `${merge.stderr || ""}${commit.stderr || ""}`, "utf8");
     if (commit.exitCode !== 0) {
+      if (isRetryableGitFailure(commit)) {
+        throw createRetryableError(`Temporary git commit failure for ${repo.slug}: ${commit.stderr || commit.stdout}`.trim());
+      }
       throw new Error(`Failed to commit merge candidate for ${repo.slug}: ${commit.stderr || commit.stdout}`.trim());
     }
 
@@ -465,4 +494,34 @@ function runProcess(command, args, { cwd, env, shell = false, stdin = "" }) {
       });
     });
   });
+}
+
+function createRetryableError(message) {
+  const error = new Error(message);
+  error.retryable = true;
+  return error;
+}
+
+function isRetryableGitFailure(result) {
+  const output = `${result.stderr || ""}\n${result.stdout || ""}`;
+  return /TRANSIENT:|temporary|timed out|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EMFILE|ENFILE|EBUSY/i.test(output);
+}
+
+function isRetryableMergeError(error) {
+  if (!error) {
+    return false;
+  }
+  if (error.retryable === true) {
+    return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /temporary|timed out|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EMFILE|ENFILE|EBUSY/i.test(message);
+}
+
+function backoffForAttempt(baseMs, attempt) {
+  return baseMs * 2 ** Math.max(0, attempt - 1);
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }

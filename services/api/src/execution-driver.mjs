@@ -6,6 +6,8 @@ import { pathToFileURL } from "node:url";
 
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_LEASE_MS = 30_000;
+const DEFAULT_MAX_ATTEMPTS = 3;
+const DEFAULT_RETRY_BACKOFF_MS = 250;
 
 export function createExecutionDriver(options = {}) {
   if (!options.store) {
@@ -16,15 +18,19 @@ export function createExecutionDriver(options = {}) {
     store: options.store,
     pollIntervalMs: options.pollIntervalMs || DEFAULT_POLL_INTERVAL_MS,
     leaseMs: options.leaseMs || DEFAULT_LEASE_MS,
+    maxAttempts: options.maxAttempts || DEFAULT_MAX_ATTEMPTS,
+    retryBackoffMs: options.retryBackoffMs || DEFAULT_RETRY_BACKOFF_MS,
     logger: options.logger || console,
   });
 }
 
 class ExecutionDriver {
-  constructor({ store, pollIntervalMs, leaseMs, logger }) {
+  constructor({ store, pollIntervalMs, leaseMs, maxAttempts, retryBackoffMs, logger }) {
     this.store = store;
     this.pollIntervalMs = pollIntervalMs;
     this.leaseMs = leaseMs;
+    this.maxAttempts = maxAttempts;
+    this.retryBackoffMs = retryBackoffMs;
     this.logger = logger;
     this.timer = null;
     this.inFlight = new Map();
@@ -115,18 +121,7 @@ class ExecutionDriver {
     }
 
     try {
-      await materializeWorktrees(ticket, freshExecution);
-      const runtime = await prepareRuntimeArtifacts(project, ticket, freshExecution);
-      const result = await executeAdapterRun(adapterRun, {
-        project,
-        ticket,
-        execution: freshExecution,
-        runtime,
-        cwd: freshExecution.worktrees[0]?.path || project.workspaceRoot,
-        env: buildExecutionEnv(project, ticket, freshExecution, runtime),
-      });
-      const completion = await buildCompletionPayload(result, runtime, freshExecution);
-      this.store.completeExecution(freshExecution.projectId, freshExecution.id, completion);
+      await this.runExecutionAttempts({ execution: freshExecution, ticket, project, adapterRun });
     } catch (error) {
       const failureSummary = error instanceof Error ? error.message : String(error);
       const latestExecution = this.store.getExecution(execution.projectId, execution.id);
@@ -147,6 +142,82 @@ class ExecutionDriver {
       }
     }
   }
+
+  async runExecutionAttempts({ execution, ticket, project, adapterRun }) {
+    let lastCompletion = null;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+      try {
+        await materializeWorktrees(ticket, execution);
+        const runtime = await prepareRuntimeArtifacts(project, ticket, execution);
+        const result = await executeAdapterRun(adapterRun, {
+          project,
+          ticket,
+          execution,
+          runtime,
+          cwd: execution.worktrees[0]?.path || project.workspaceRoot,
+          env: buildExecutionEnv(project, ticket, execution, runtime),
+        });
+        const completion = await buildCompletionPayload(result, runtime, execution);
+        lastCompletion = completion;
+
+        if (completion.outcome === "failed" && isRetryableExecutionFailure(completion.failureKind) && attempt < this.maxAttempts) {
+          await sleep(backoffForAttempt(this.retryBackoffMs, attempt));
+          continue;
+        }
+
+        if (
+          completion.outcome === "failed" &&
+          isRetryableExecutionFailure(completion.failureKind) &&
+          attempt === this.maxAttempts
+        ) {
+          completion.summaryMd = `${completion.summaryMd}\n\nPool exhausted ${this.maxAttempts} retry attempt(s) before failing this lane.`;
+          completion.failureKind = "driver_retries_exhausted";
+        }
+
+        this.store.completeExecution(execution.projectId, execution.id, completion);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (isRetryableExecutionError(error) && attempt < this.maxAttempts) {
+          await sleep(backoffForAttempt(this.retryBackoffMs, attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (lastCompletion) {
+      this.store.completeExecution(execution.projectId, execution.id, lastCompletion);
+      return;
+    }
+
+    throw lastError || new Error("Execution driver exhausted retries");
+  }
+}
+
+function isRetryableExecutionFailure(failureKind) {
+  return failureKind === "transient" || failureKind === "temporary" || failureKind === "driver_error";
+}
+
+function isRetryableExecutionError(error) {
+  if (!error) {
+    return false;
+  }
+  if (error.retryable === true) {
+    return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /temporary|timed out|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EMFILE|ENFILE|EBUSY/i.test(message);
+}
+
+function backoffForAttempt(baseMs, attempt) {
+  return baseMs * 2 ** Math.max(0, attempt - 1);
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
 function selectAdapterRun(profile, execution) {

@@ -125,6 +125,106 @@ test("merge driver reconciles interrupted active merge runs on startup", async (
   }
 });
 
+test("merge driver retries transient git failures before succeeding", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-retry-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const repoRoot = join(fixtureDir, "repo");
+  const counterPath = join(fixtureDir, "git-merge-attempts.txt");
+  const wrapperDir = join(fixtureDir, "bin");
+  const wrapperPath = join(wrapperDir, "git");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    execFileSync("mkdir", ["-p", wrapperDir]);
+    writeFileSync(counterPath, "0", "utf8");
+    writeFileSync(
+      wrapperPath,
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const realGit = process.env.POOL_REAL_GIT;
+const counterPath = process.env.POOL_GIT_RETRY_COUNTER;
+if (args.includes("merge") && args.includes("--squash")) {
+  const attempts = Number(fs.readFileSync(counterPath, "utf8")) + 1;
+  fs.writeFileSync(counterPath, String(attempts));
+  if (attempts === 1) {
+    process.stderr.write("TRANSIENT: temporary git merge failure\\n");
+    process.exit(1);
+  }
+}
+const result = spawnSync(realGit, args, { stdio: "inherit", env: process.env });
+process.exit(result.status ?? 1);
+`,
+      { encoding: "utf8", mode: 0o755 },
+    );
+
+    execFileSync("git", ["init", "-b", "main", repoRoot]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
+    execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
+
+    store.updateRepo("project_pool", "repo_project_pool_pool", {
+      name: "pool",
+      localPath: repoRoot,
+      remoteUrl: "",
+      defaultBranch: "main",
+      isPrimary: true,
+    });
+    store.updateProjectPolicy("project_pool", {
+      requireReviewer: false,
+      requireValidator: false,
+      requireHumanApprovalBeforeMerge: false,
+    });
+    store.updateRoleProfile("project_pool", "developer", {
+      adapter: "shell",
+      model: "fixture",
+      config: {
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+      },
+    });
+
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Prepare merge-ready implementation.",
+    });
+
+    const executionDriver = createExecutionDriver({ store, logger: silentLogger() });
+    await executionDriver.pollOnce();
+
+    const originalPath = process.env.PATH || "";
+    process.env.POOL_REAL_GIT = execFileSync("bash", ["-lc", "command -v git"], { encoding: "utf8" }).trim();
+    process.env.POOL_GIT_RETRY_COUNTER = counterPath;
+    process.env.PATH = `${wrapperDir}:${originalPath}`;
+
+    try {
+      const mergeDriver = createMergeDriver({ store, logger: silentLogger(), retryBackoffMs: 1 });
+      await mergeDriver.pollOnce();
+    } finally {
+      process.env.PATH = originalPath;
+      delete process.env.POOL_REAL_GIT;
+      delete process.env.POOL_GIT_RETRY_COUNTER;
+    }
+
+    const mergedTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    assert.equal(mergedTicket.state, "DONE");
+    assert.equal(readFileSync(counterPath, "utf8"), "2");
+    assert.equal(mergedTicket.mergeStatus.latestRun.status, "completed");
+    assert.equal(mergedTicket.mergeStatus.latestRun.approvedByRef, "pool-auto");
+    assert.equal(execution.worktrees[0].branchName.includes("pool-2"), true);
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 function silentLogger() {
   return {
     error() {},
