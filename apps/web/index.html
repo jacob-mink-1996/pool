@@ -311,6 +311,16 @@
             </form>
             <div id="activity-feed" class="collection"></div>
           </section>
+          <section class="merge-queue-panel">
+            <div class="section-toolbar">
+              <div>
+                <h3>Recent Artifacts</h3>
+                <p class="section-copy">Latest durable evidence captured anywhere in the project.</p>
+              </div>
+              <p id="recent-artifacts-count" class="section-meta"></p>
+            </div>
+            <div id="recent-artifacts" class="collection"></div>
+          </section>
           <div id="board-columns" class="board-columns" aria-live="polite"></div>
           </div>
         </section>
@@ -464,6 +474,14 @@
                     placeholder="Summarize what happened or what remains."
                   ></textarea>
                 </label>
+                <label class="field execution-note-field">
+                  <span>Artifacts</span>
+                  <textarea
+                    id="execution-artifacts-input"
+                    rows="3"
+                    placeholder="One per line: kind | label | uri"
+                  ></textarea>
+                </label>
                 <div class="execution-action-buttons">
                   <button class="ghost-button" type="submit">Record outcome</button>
                   <button id="execution-continue-button" class="ghost-button" type="button">Continue run</button>
@@ -516,6 +534,14 @@
                   ></textarea>
                 </label>
               </div>
+              <label class="field">
+                <span>Artifacts</span>
+                <textarea
+                  id="review-artifacts-input"
+                  rows="3"
+                  placeholder="One per line: kind | label | uri"
+                ></textarea>
+              </label>
 
               <div class="detail-grid">
                 <label class="field">
@@ -589,6 +615,14 @@
                   ></textarea>
                 </label>
               </div>
+              <label class="field">
+                <span>Artifacts</span>
+                <textarea
+                  id="validation-artifacts-input"
+                  rows="3"
+                  placeholder="One per line: kind | label | uri"
+                ></textarea>
+              </label>
 
               <div id="validation-list" class="collection"></div>
             </section>
@@ -649,6 +683,14 @@
                   id="merge-summary-input"
                   rows="3"
                   placeholder="Describe the merge result or what blocked it."
+                ></textarea>
+              </label>
+              <label class="field">
+                <span>Artifacts</span>
+                <textarea
+                  id="merge-artifacts-input"
+                  rows="3"
+                  placeholder="One per line: kind | label | uri"
                 ></textarea>
               </label>
             </section>
@@ -718,6 +760,16 @@
                 </div>
               </div>
               <div id="worktrees" class="collection"></div>
+            </section>
+
+            <section class="detail-section">
+              <div class="section-toolbar">
+                <div>
+                  <h3>Artifacts</h3>
+                  <p class="section-copy">Durable evidence links captured from execution, review, validation, and merge lanes.</p>
+                </div>
+              </div>
+              <div id="artifact-list" class="collection"></div>
             </section>
 
             <section class="detail-section">

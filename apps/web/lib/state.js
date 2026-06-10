@@ -9,6 +9,7 @@ export const state = {
   repos: [],
   mergeQueue: [],
   events: [],
+  artifacts: [],
   activityFilters: {
     ticketId: "",
     type: "",

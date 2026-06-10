@@ -325,6 +325,7 @@ function bindEvents() {
         executionId: dom.reviewExecutionSelect.value,
         verdict: dom.reviewVerdictSelect.value,
         summaryMd: dom.reviewSummaryInput.value,
+        artifacts: parseArtifactLines(dom.reviewArtifactsInput.value),
         findings: finding ? [finding] : [],
       }),
     });
@@ -347,6 +348,7 @@ function bindEvents() {
         commands: splitLines(dom.validationCommandsInput.value),
         verdict: dom.validationVerdictSelect.value,
         summaryMd: dom.validationSummaryInput.value,
+        artifacts: parseArtifactLines(dom.validationArtifactsInput.value),
       }),
     });
 
@@ -363,6 +365,7 @@ function bindEvents() {
       strategy: dom.mergeStrategySelect.value,
       status: outcome,
       summaryMd: dom.mergeSummaryInput.value.trim(),
+      artifacts: parseArtifactLines(dom.mergeArtifactsInput.value),
     };
     if (outcome === "completed" || dom.mergeApprovedByRefInput.value.trim()) {
       payload.approvedByKind = dom.mergeApprovedByKindInput.value.trim() || "human";
@@ -558,6 +561,7 @@ function bindEvents() {
     const payload = {
       outcome,
       summaryMd: note,
+      artifacts: parseArtifactLines(dom.executionArtifactsInput.value),
     };
     if (outcome === "needs_continue") {
       payload.remainingWorkMd = note;
@@ -570,6 +574,7 @@ function bindEvents() {
     });
 
     dom.executionNoteInput.value = "";
+    dom.executionArtifactsInput.value = "";
     await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
   });
 
@@ -585,6 +590,7 @@ function bindEvents() {
     });
 
     dom.executionNoteInput.value = "";
+    dom.executionArtifactsInput.value = "";
     await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
   });
 
@@ -603,6 +609,7 @@ function bindEvents() {
     });
 
     dom.executionNoteInput.value = "";
+    dom.executionArtifactsInput.value = "";
     await loadBoard(state.projectId, { keepSelection: true, ticketId: state.selectedTicketId });
   });
 }
@@ -693,13 +700,14 @@ async function loadBoard(projectId, options = {}) {
   showStatus("Refreshing mission control…", "loading", { persist: true });
 
   try {
-    const [projectPayload, boardPayload, ticketsPayload, reposPayload, mergeQueuePayload, activityPayload] = await Promise.all([
+    const [projectPayload, boardPayload, ticketsPayload, reposPayload, mergeQueuePayload, activityPayload, artifactsPayload] = await Promise.all([
       fetchJson(`/api/v1/projects/${projectId}`),
       fetchJson(buildBoardUrl(state, projectId)),
       fetchJson(`/api/v1/projects/${projectId}/tickets`),
       fetchJson(`/api/v1/projects/${projectId}/repos`),
       fetchJson(`/api/v1/projects/${projectId}/merge-queue`),
       fetchJson(buildActivityEventsUrl(state, projectId)),
+      fetchJson(`/api/v1/projects/${projectId}/artifacts?limit=10`),
     ]);
     state.project = projectPayload.project;
     state.board = boardPayload.board;
@@ -707,6 +715,7 @@ async function loadBoard(projectId, options = {}) {
     state.repos = reposPayload.repos || [];
     state.mergeQueue = mergeQueuePayload.queue || [];
     state.events = activityPayload.events || [];
+    state.artifacts = artifactsPayload.artifacts || [];
     syncProjectSummary(projectPayload.project);
     renderProjectSettings();
     renderProjectPolicy();
@@ -718,6 +727,7 @@ async function loadBoard(projectId, options = {}) {
     renderMergeQueue();
     renderActivityFilters();
     renderActivityFeed();
+    renderRecentArtifacts();
     renderBoard(boardPayload.board);
 
     const nextTicketId =
@@ -891,6 +901,43 @@ function renderActivityFeed() {
   }
 }
 
+function renderRecentArtifacts() {
+  dom.recentArtifactsCount.textContent = `${state.artifacts.length} recent artifact${state.artifacts.length === 1 ? "" : "s"}`;
+  dom.recentArtifacts.innerHTML = "";
+
+  if (state.artifacts.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "collection-empty";
+    empty.textContent = "No durable artifacts recorded yet.";
+    dom.recentArtifacts.append(empty);
+    return;
+  }
+
+  for (const artifact of state.artifacts) {
+    const item = document.createElement("article");
+    item.className = "collection-item";
+    const ticketLabel =
+      artifact.ticketKey && artifact.ticketTitle
+        ? `${artifact.ticketKey} · ${artifact.ticketTitle}`
+        : artifact.ticketKey || artifact.ticketId || "Unscoped ticket";
+    item.innerHTML = `
+      <div class="execution-item-header">
+        <div>
+          <strong>${escapeHtml(artifact.label)}</strong>
+          <p>${escapeHtml(ticketLabel)}</p>
+        </div>
+        <span class="state-badge subtle">${escapeHtml(artifact.kind)}</span>
+      </div>
+      <div class="ticket-card-meta execution-meta">
+        <span>${escapeHtml(artifactSourceLabel(artifact))}</span>
+        <span>${formatDate(artifact.createdAt)}</span>
+      </div>
+      <p>${escapeHtml(artifact.uri)}</p>
+    `;
+    dom.recentArtifacts.append(item);
+  }
+}
+
 function renderProjectSettings() {
   const project = state.project;
   if (!project) {
@@ -1022,6 +1069,7 @@ function renderNoProjectState() {
   state.repos = [];
   state.mergeQueue = [];
   state.events = [];
+  state.artifacts = [];
   dom.projectSelect.innerHTML = "";
   dom.projectSelect.disabled = true;
   dom.refreshButton.disabled = true;
@@ -1031,6 +1079,8 @@ function renderNoProjectState() {
   dom.mergeQueue.innerHTML = "";
   dom.activityCount.textContent = "";
   dom.activityFeed.innerHTML = "";
+  dom.recentArtifactsCount.textContent = "";
+  dom.recentArtifacts.innerHTML = "";
   renderBoardFilters();
   setProjectWorkspaceVisible(false);
   clearTicketDetail();
@@ -1238,6 +1288,7 @@ function renderTicketDetail(ticket) {
   renderValidations(ticket);
   renderMergeStatus(ticket);
   renderWorktrees(ticket);
+  renderArtifacts(ticket);
 
   dom.eventTimeline.innerHTML = "";
   for (const event of ticket.events) {
@@ -1333,6 +1384,7 @@ function renderExecutions(ticket) {
       execution.remainingWorkMd ||
       execution.expectedNextEvidenceMd ||
       "No execution notes recorded yet.";
+    const artifactSummary = renderArtifactSummary(execution.artifacts);
     item.innerHTML = `
       <div class="execution-item-header">
         <div>
@@ -1346,6 +1398,7 @@ function renderExecutions(ticket) {
       <div class="ticket-card-meta execution-meta">
         <span>${profileLabel}</span>
         <span>${execution.worktrees?.length || 0} worktree</span>
+        ${artifactSummary}
         <span>Started ${formatDate(execution.startedAt)}</span>
         <span>${execution.finishedAt ? `Finished ${formatDate(execution.finishedAt)}` : "Active run"}</span>
       </div>
@@ -1369,6 +1422,7 @@ function renderReviews(ticket) {
   for (const review of ticket.reviews) {
     const item = document.createElement("article");
     item.className = "collection-item";
+    const artifactSummary = renderArtifactSummary(review.artifacts);
     const findingsMarkup =
       review.findings?.length
         ? `<div class="ticket-card-meta execution-meta">${review.findings
@@ -1390,6 +1444,7 @@ function renderReviews(ticket) {
       </div>
       <div class="ticket-card-meta execution-meta">
         <span>${review.findingsCount} finding${review.findingsCount === 1 ? "" : "s"}</span>
+        ${artifactSummary}
         <span>${formatDate(review.createdAt)}</span>
       </div>
       ${findingsMarkup}
@@ -1432,6 +1487,7 @@ function renderValidations(ticket) {
   for (const validation of ticket.validations) {
     const item = document.createElement("article");
     item.className = "collection-item";
+    const artifactSummary = renderArtifactSummary(validation.artifacts);
     item.innerHTML = `
       <div class="execution-item-header">
         <div>
@@ -1443,6 +1499,7 @@ function renderValidations(ticket) {
       <div class="ticket-card-meta execution-meta">
         <span>${validation.commandProfile || "ad hoc commands"}</span>
         <span>${validation.commands.length} command${validation.commands.length === 1 ? "" : "s"}</span>
+        ${artifactSummary}
         <span>${formatDate(validation.finishedAt)}</span>
       </div>
       <p>${validation.commands.length ? validation.commands.map((command) => `<code>${escapeHtml(command)}</code>`).join(" · ") : "No commands recorded."}</p>
@@ -1499,6 +1556,9 @@ function renderMergeStatus(ticket) {
     meta.push(`Strategy ${prettyState(latestRun.strategy)}`);
     if (latestRun.approvedByKind && latestRun.approvedByRef) {
       meta.push(`Approved by ${latestRun.approvedByKind}:${latestRun.approvedByRef}`);
+    }
+    if (latestRun.artifacts?.length) {
+      meta.push(`${latestRun.artifacts.length} artifact${latestRun.artifacts.length === 1 ? "" : "s"}`);
     }
     meta.push(`Recorded ${formatDate(latestRun.finishedAt)}`);
   }
@@ -1697,6 +1757,36 @@ function renderWorktrees(ticket) {
   }
 }
 
+function renderArtifacts(ticket) {
+  dom.artifactList.innerHTML = "";
+  if (ticket.artifacts.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "collection-empty";
+    empty.textContent = "No durable artifacts recorded yet.";
+    dom.artifactList.append(empty);
+    return;
+  }
+
+  for (const artifact of ticket.artifacts) {
+    const item = document.createElement("article");
+    item.className = "collection-item";
+    item.innerHTML = `
+      <div class="execution-item-header">
+        <div>
+          <strong>${escapeHtml(artifact.label)}</strong>
+          <p>${escapeHtml(artifact.uri)}</p>
+        </div>
+        <span class="state-badge subtle">${escapeHtml(artifact.kind)}</span>
+      </div>
+      <div class="ticket-card-meta execution-meta">
+        <span>${escapeHtml(artifactSourceLabel(artifact))}</span>
+        <span>${formatDate(artifact.createdAt)}</span>
+      </div>
+    `;
+    dom.artifactList.append(item);
+  }
+}
+
 function renderParentTicketOptions(ticket) {
   dom.ticketParentSelect.innerHTML = "";
 
@@ -1793,6 +1883,7 @@ function clearTicketDetail() {
   dom.executionList.innerHTML = "";
   dom.executionReasonInput.value = "";
   dom.executionNoteInput.value = "";
+  dom.executionArtifactsInput.value = "";
   resetRepoTargetForm();
   dom.repoTargets.innerHTML = "";
   dom.ticketOverviewCards.innerHTML = "";
@@ -1811,6 +1902,7 @@ function clearTicketDetail() {
   dom.mergeApprovedByRefInput.disabled = true;
   dom.mergeSummaryInput.disabled = true;
   dom.worktrees.innerHTML = "";
+  dom.artifactList.innerHTML = "";
   resetReviewForm();
   resetValidationForm();
 }
@@ -1868,11 +1960,13 @@ function resetReviewForm() {
   dom.reviewVerdictSelect.value = "passed";
   dom.reviewFindingCategoryInput.value = "correctness";
   dom.reviewFindingSeveritySelect.value = "high";
+  dom.reviewArtifactsInput.value = "";
 }
 
 function resetValidationForm() {
   dom.validationForm.reset();
   dom.validationVerdictSelect.value = "passed";
+  dom.validationArtifactsInput.value = "";
 }
 
 function resetMergeForm() {
@@ -1880,6 +1974,7 @@ function resetMergeForm() {
   dom.mergeStrategySelect.value = "squash";
   dom.mergeOutcomeSelect.value = "completed";
   dom.mergeApprovedByKindInput.value = "human";
+  dom.mergeArtifactsInput.value = "";
 }
 
 function setProjectWorkspaceVisible(isVisible) {
@@ -1895,6 +1990,8 @@ function setBoardError(message) {
   dom.mergeQueue.innerHTML = "";
   dom.activityCount.textContent = "";
   dom.activityFeed.innerHTML = "";
+  dom.recentArtifactsCount.textContent = "";
+  dom.recentArtifacts.innerHTML = "";
   dom.projectSelect.disabled = !state.projectId;
   dom.refreshButton.disabled = !state.projectId;
   clearTicketDetail();
@@ -1920,6 +2017,21 @@ function buildPrimaryReviewFinding() {
     finding.lineNumber = lineNumber;
   }
   return finding;
+}
+
+function parseArtifactLines(value) {
+  return splitLines(value).map((line, index) => {
+    const parts = line.split("|").map((part) => part.trim());
+    if (parts.length < 3 || !parts[0] || !parts[1] || !parts[2]) {
+      throw new Error(`Artifact line ${index + 1} must use: kind | label | uri`);
+    }
+
+    return {
+      kind: parts[0],
+      label: parts[1],
+      uri: parts[2],
+    };
+  });
 }
 
 function currentTicketRepoTargets() {
@@ -1959,6 +2071,22 @@ function showStatus(message, tone = "info", options = {}) {
       dom.statusBanner.hidden = true;
     }, 2200);
   }
+}
+
+function renderArtifactSummary(artifacts = []) {
+  if (!artifacts.length) {
+    return "";
+  }
+
+  return `<span>${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}</span>`;
+}
+
+function artifactSourceLabel(artifact) {
+  if (artifact.mergeRunId) return "Merge lane";
+  if (artifact.validationRunId) return "Validation lane";
+  if (artifact.reviewId) return "Review lane";
+  if (artifact.executionId) return "Execution lane";
+  return "Ticket";
 }
 
 function boardDecisionLabel(ticket) {
