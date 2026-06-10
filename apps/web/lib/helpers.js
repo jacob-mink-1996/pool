@@ -45,6 +45,7 @@ export function prettyReasonCode(value) {
     merge_approval_required: "Merge approval required",
     merge_approved: "Merge approved",
     merge_blocked: "Merge blocked",
+    merge_capacity_reached: "Merge capacity reached",
     validation_blocked: "Validation blocked",
     review_blocked: "Review blocked",
     execution_blocked: "Execution blocked",

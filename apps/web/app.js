@@ -166,6 +166,7 @@ function bindEvents() {
         requireHumanApprovalBeforeMerge: dom.policyRequireHumanApprovalInput.checked,
         agentCreatedTicketDefaultState: dom.policyAgentCreatedStateSelect.value,
         maxParallelExecutions: Number.parseInt(dom.policyMaxParallelInput.value, 10),
+        maxParallelMerges: Number.parseInt(dom.policyMaxParallelMergesInput.value, 10),
         maxAutoContinueIterations: Number.parseInt(dom.policyMaxContinueInput.value, 10),
       }),
     });
@@ -1123,6 +1124,7 @@ function renderProjectPolicy() {
   dom.policyRequireHumanApprovalInput.checked = Boolean(policy.requireHumanApprovalBeforeMerge);
   dom.policyAgentCreatedStateSelect.value = policy.agentCreatedTicketDefaultState || "PROPOSED";
   dom.policyMaxParallelInput.value = String(policy.maxParallelExecutions || 1);
+  dom.policyMaxParallelMergesInput.value = String(policy.maxParallelMerges || 1);
   dom.policyMaxContinueInput.value = String(policy.maxAutoContinueIterations || 1);
 }
 

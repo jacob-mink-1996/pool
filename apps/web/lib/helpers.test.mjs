@@ -35,6 +35,7 @@ test("roleLoadoutNote explains assigned load", () => {
 test("prettyReasonCode humanizes structured block reasons", () => {
   assert.equal(prettyReasonCode("validation_profile_required"), "Validation profile required");
   assert.equal(prettyReasonCode("ticket_not_ready_for_validation"), "Ticket is not ready for validation");
+  assert.equal(prettyReasonCode("merge_capacity_reached"), "Merge capacity reached");
 });
 
 test("prettyReasonSource humanizes structured reason sources", () => {

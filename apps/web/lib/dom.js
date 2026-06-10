@@ -28,6 +28,7 @@ export const dom = {
   policyRequireHumanApprovalInput: document.querySelector("#policy-require-human-approval-input"),
   policyAgentCreatedStateSelect: document.querySelector("#policy-agent-created-state-select"),
   policyMaxParallelInput: document.querySelector("#policy-max-parallel-input"),
+  policyMaxParallelMergesInput: document.querySelector("#policy-max-parallel-merges-input"),
   policyMaxContinueInput: document.querySelector("#policy-max-continue-input"),
   repoCount: document.querySelector("#repo-count"),
   repoCreateForm: document.querySelector("#repo-create-form"),
