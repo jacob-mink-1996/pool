@@ -12,6 +12,7 @@
     "dev": "npm --workspace services/api run dev",
     "dev:web": "npm --workspace apps/web run dev",
     "demo:live": "node scripts/demo-live-flow.mjs",
+    "verify:mvp": "node scripts/verify-mvp-live.mjs",
     "start": "npm --workspace services/api run start",
     "start:web": "npm --workspace apps/web run start",
     "check": "node scripts/check-types.mjs",

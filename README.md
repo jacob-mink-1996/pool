@@ -125,3 +125,17 @@ Override the target if needed with:
 
 - `POOL_BASE_URL=http://127.0.0.1:4318`
 - `POOL_DEMO_PROJECT_ID=project_pool`
+
+### Verify The MVP Loop Automatically
+
+To boot a temporary API instance, point it at a temporary real git repo, and verify the full
+execution -> review -> validation -> merge loop automatically:
+
+```bash
+npm run verify:mvp
+```
+
+Optional environment variables:
+
+- `POOL_MVP_REPEAT=3` to run the verification flow multiple times in a row
+- `POOL_PORT=4318` to pin the temporary API port
