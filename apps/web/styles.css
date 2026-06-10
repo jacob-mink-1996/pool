@@ -101,8 +101,16 @@ select {
 
 .project-sidebar-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.project-sidebar-list::-webkit-scrollbar {
+  display: none;
 }
 
 .project-rail-footer {
@@ -125,9 +133,10 @@ select {
 
 .project-rail-button {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  max-width: 100%;
+  max-width: min(14rem, 100%);
   padding: 0.45rem 0.75rem;
   border: 1px solid rgba(14, 93, 127, 0.12);
   border-radius: 999px;
