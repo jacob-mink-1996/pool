@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pool Mission Control</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Autonomous Delivery Control Plane</p>
+          <h1>Pool Mission Control</h1>
+          <p class="hero-copy">
+            Shape backlog, watch execution lanes, and inspect the evidence without living in agent transcripts.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <label class="field project-picker">
+            <span>Project</span>
+            <select id="project-select" aria-label="Select project"></select>
+          </label>
+          <button id="refresh-button" class="ghost-button" type="button">Refresh board</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel board-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Board</p>
+              <h2 id="board-title">Loading project...</h2>
+            </div>
+            <p id="board-meta" class="panel-meta"></p>
+          </div>
+          <section class="project-create-card">
+            <div class="section-toolbar">
+              <div>
+                <h3>Create Project</h3>
+                <p class="section-copy">Open a fresh Pool space without leaving mission control.</p>
+              </div>
+            </div>
+            <form id="project-create-form" class="project-create-form">
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Name</span>
+                  <input id="create-project-name-input" type="text" maxlength="120" />
+                </label>
+                <label class="field">
+                  <span>Slug</span>
+                  <input id="create-project-slug-input" type="text" maxlength="120" />
+                </label>
+                <label class="field">
+                  <span>Default Base Branch</span>
+                  <input id="create-project-branch-input" type="text" maxlength="120" />
+                </label>
+                <label class="field">
+                  <span>Workspace Root</span>
+                  <input id="create-project-workspace-root-input" type="text" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Description</span>
+                <textarea id="create-project-description-input" rows="3"></textarea>
+              </label>
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Create project</button>
+              </div>
+            </form>
+          </section>
+
+          <div id="project-empty" class="empty-state project-empty" hidden>
+            Create a project to register repos, build backlog, and start moving tickets through delivery lanes.
+          </div>
+
+          <div id="project-workspace">
+          <div class="control-grid">
+            <form id="project-settings-form" class="project-settings-form">
+              <div class="section-toolbar">
+                <h3>Project Settings</h3>
+                <button class="ghost-button" type="submit">Save project</button>
+              </div>
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Name</span>
+                  <input id="project-name-input" type="text" maxlength="120" />
+                </label>
+                <label class="field">
+                  <span>Default Base Branch</span>
+                  <input id="project-default-branch-input" type="text" maxlength="120" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Workspace Root</span>
+                <input id="project-workspace-root-input" type="text" />
+              </label>
+              <label class="field">
+                <span>Description</span>
+                <textarea id="project-description-input" rows="3"></textarea>
+              </label>
+            </form>
+
+            <form id="project-policy-form" class="project-settings-form">
+              <div class="section-toolbar">
+                <h3>Delivery Policy</h3>
+                <button class="ghost-button" type="submit">Save policy</button>
+              </div>
+              <div class="detail-grid">
+                <label class="repo-primary-toggle">
+                  <input id="policy-require-reviewer-input" type="checkbox" />
+                  <span>Require reviewer lane</span>
+                </label>
+                <label class="repo-primary-toggle">
+                  <input id="policy-require-validator-input" type="checkbox" />
+                  <span>Require validator lane</span>
+                </label>
+                <label class="repo-primary-toggle">
+                  <input id="policy-require-human-approval-input" type="checkbox" />
+                  <span>Human approval before merge</span>
+                </label>
+                <label class="field">
+                  <span>Agent-Created Ticket State</span>
+                  <select id="policy-agent-created-state-select" aria-label="Agent created ticket default state"></select>
+                </label>
+                <label class="field">
+                  <span>Max Parallel Executions</span>
+                  <input id="policy-max-parallel-input" type="number" min="1" step="1" />
+                </label>
+                <label class="field">
+                  <span>Max Auto-Continue Iterations</span>
+                  <input id="policy-max-continue-input" type="number" min="1" step="1" />
+                </label>
+              </div>
+            </form>
+
+            <section class="repo-registry">
+              <div class="section-toolbar">
+                <h3>Repositories</h3>
+                <p id="repo-count" class="section-meta"></p>
+              </div>
+              <form id="repo-create-form" class="repo-create-form">
+                <div class="detail-grid">
+                  <label class="field">
+                    <span>Name</span>
+                    <input id="repo-name-input" type="text" maxlength="120" />
+                  </label>
+                  <label class="field">
+                    <span>Slug</span>
+                    <input id="repo-slug-input" type="text" maxlength="120" />
+                  </label>
+                  <label class="field">
+                    <span>Default Branch</span>
+                    <input id="repo-default-branch-input" type="text" maxlength="120" />
+                  </label>
+                  <label class="field">
+                    <span>Remote URL</span>
+                    <input id="repo-remote-url-input" type="text" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Local Path</span>
+                  <input id="repo-local-path-input" type="text" />
+                </label>
+                <label class="repo-primary-toggle">
+                  <input id="repo-is-primary-input" type="checkbox" />
+                  <span>Set as primary repo</span>
+                </label>
+                <div class="form-actions">
+                  <button class="primary-button" type="submit">Register repo</button>
+                </div>
+              </form>
+              <div id="repo-list" class="repo-list"></div>
+            </section>
+          </div>
+          <section class="repo-registry">
+            <div class="section-toolbar">
+              <div>
+                <h3>Agent Profiles</h3>
+                <p class="section-copy">Tune adapters, models, and per-role execution config without leaving mission control.</p>
+              </div>
+            </div>
+            <div id="role-profile-list" class="repo-list"></div>
+          </section>
+          <form id="ticket-create-form" class="ticket-create-form">
+            <div class="detail-grid">
+              <label class="field">
+                <span>New Ticket Title</span>
+                <input id="create-title-input" type="text" maxlength="120" />
+              </label>
+              <label class="field">
+                <span>Initial State</span>
+                <select id="create-state-select" aria-label="New ticket initial state"></select>
+              </label>
+              <label class="field">
+                <span>Priority</span>
+                <select id="create-priority-select" aria-label="New ticket priority"></select>
+              </label>
+              <label class="field">
+                <span>Assigned Role</span>
+                <select id="create-role-select" aria-label="New ticket role"></select>
+              </label>
+            </div>
+            <label class="field">
+              <span>Brief</span>
+              <textarea id="create-brief-input" rows="3"></textarea>
+            </label>
+            <div class="ticket-create-actions">
+              <label class="field compact-field">
+                <span>Repo Target</span>
+                <select id="create-repo-select" aria-label="New ticket repo target"></select>
+              </label>
+              <button class="primary-button" type="submit">Create ticket</button>
+            </div>
+          </form>
+          <section class="merge-queue-panel">
+            <div class="section-toolbar">
+              <div>
+                <h3>Board Filters</h3>
+                <p class="section-copy">Focus the live board on the lane, role, priority, or text you need right now.</p>
+              </div>
+            </div>
+            <form id="board-filter-form" class="activity-filter-form">
+              <label class="field compact-field">
+                <span>Search</span>
+                <input id="board-search-input" type="text" maxlength="120" placeholder="Search title, brief, or summary" />
+              </label>
+              <label class="field compact-field">
+                <span>State</span>
+                <select id="board-state-select" aria-label="Filter board by state"></select>
+              </label>
+              <label class="field compact-field">
+                <span>Role</span>
+                <select id="board-role-select" aria-label="Filter board by role"></select>
+              </label>
+              <label class="field compact-field">
+                <span>Priority</span>
+                <select id="board-priority-select" aria-label="Filter board by priority"></select>
+              </label>
+              <div class="activity-filter-actions">
+                <button class="ghost-button" type="button" id="board-filter-reset-button">Reset</button>
+                <button class="primary-button" type="submit">Apply filters</button>
+              </div>
+            </form>
+          </section>
+          <section class="merge-queue-panel">
+            <div class="section-toolbar">
+              <div>
+                <h3>Merge Queue</h3>
+                <p class="section-copy">Tickets waiting on final approval or integration, surfaced as a dedicated operator queue.</p>
+              </div>
+              <p id="merge-queue-count" class="section-meta"></p>
+            </div>
+            <div id="merge-queue" class="collection"></div>
+          </section>
+          <section class="merge-queue-panel">
+            <div class="section-toolbar">
+              <div>
+                <h3>Activity Feed</h3>
+                <p class="section-copy">Recent project-wide delivery events, so you can see movement without drilling into a ticket first.</p>
+              </div>
+              <p id="activity-count" class="section-meta"></p>
+            </div>
+            <form id="activity-filter-form" class="activity-filter-form">
+              <label class="field compact-field">
+                <span>Ticket</span>
+                <select id="activity-ticket-select" aria-label="Filter activity by ticket"></select>
+              </label>
+              <label class="field compact-field">
+                <span>Event Type</span>
+                <select id="activity-type-select" aria-label="Filter activity by event type"></select>
+              </label>
+              <label class="field compact-field">
+                <span>Recent Events</span>
+                <select id="activity-limit-select" aria-label="Activity event limit">
+                  <option value="10">10</option>
+                  <option value="20" selected>20</option>
+                  <option value="40">40</option>
+                </select>
+              </label>
+              <div class="activity-filter-actions">
+                <button class="ghost-button" type="button" id="activity-filter-reset-button">Reset</button>
+                <button class="primary-button" type="submit">Apply filters</button>
+              </div>
+            </form>
+            <div id="activity-feed" class="collection"></div>
+          </section>
+          <div id="board-columns" class="board-columns" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <aside class="panel detail-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Ticket Detail</p>
+              <h2 id="ticket-title">Select a ticket</h2>
+            </div>
+            <span id="ticket-state-badge" class="state-badge subtle">No ticket</span>
+          </div>
+
+          <div id="ticket-empty" class="empty-state">
+            Pick a ticket card to inspect repo targets, blockers, criteria, and activity.
+          </div>
+
+          <div id="ticket-detail" class="detail-content" hidden>
+            <p id="ticket-brief" class="ticket-brief"></p>
+
+            <form id="state-form" class="state-form">
+              <label class="field">
+                <span>Move ticket</span>
+                <select id="state-select" aria-label="Move ticket to state"></select>
+              </label>
+              <label class="field reason-field">
+                <span>Reason</span>
+                <input
+                  id="state-reason"
+                  type="text"
+                  placeholder="Why is this transition happening?"
+                  maxlength="160"
+                />
+              </label>
+              <button class="primary-button" type="submit">Apply</button>
+            </form>
+
+            <section class="execution-section">
+              <div class="section-toolbar">
+                <div>
+                  <h3>Execution Lane</h3>
+                  <p class="section-copy">Start runs, record outcomes, and keep the operator loop grounded in durable evidence.</p>
+                </div>
+              </div>
+
+              <form id="execution-create-form" class="execution-create-form">
+                <label class="field compact-field">
+                  <span>Role</span>
+                  <select id="execution-role-select" aria-label="Execution role"></select>
+                </label>
+                <label class="field execution-reason-field">
+                  <span>Launch Reason</span>
+                  <input
+                    id="execution-reason-input"
+                    type="text"
+                    maxlength="160"
+                    placeholder="Why should this execution start now?"
+                  />
+                </label>
+                <button class="primary-button" type="submit">Start run</button>
+              </form>
+
+              <p id="execution-action-empty" class="collection-empty">
+                No active execution. Start a run to unlock continuation and outcome controls.
+              </p>
+
+              <form id="execution-action-form" class="execution-action-form" hidden>
+                <label class="field compact-field">
+                  <span>Outcome</span>
+                  <select id="execution-outcome-select" aria-label="Execution outcome"></select>
+                </label>
+                <label class="field execution-note-field">
+                  <span>Operator Note</span>
+                  <textarea
+                    id="execution-note-input"
+                    rows="3"
+                    placeholder="Summarize what happened or what remains."
+                  ></textarea>
+                </label>
+                <div class="execution-action-buttons">
+                  <button class="ghost-button" type="submit">Record outcome</button>
+                  <button id="execution-continue-button" class="ghost-button" type="button">Continue run</button>
+                  <button id="execution-cancel-button" class="ghost-button danger-button" type="button">Cancel run</button>
+                </div>
+              </form>
+
+              <div id="execution-list" class="collection"></div>
+            </section>
+
+            <section>
+              <div class="section-toolbar">
+                <div>
+                  <h3>Reviews</h3>
+                  <p class="section-copy">Capture reviewer verdicts and concrete findings as durable evidence.</p>
+                </div>
+              </div>
+
+              <form id="review-form" class="execution-create-form">
+                <label class="field compact-field">
+                  <span>Execution</span>
+                  <select id="review-execution-select" aria-label="Reviewed execution"></select>
+                </label>
+                <label class="field compact-field">
+                  <span>Verdict</span>
+                  <select id="review-verdict-select" aria-label="Review verdict">
+                    <option value="passed">Passed</option>
+                    <option value="rework">Rework</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                </label>
+                <button class="primary-button" type="submit">Record review</button>
+              </form>
+
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Summary</span>
+                  <textarea
+                    id="review-summary-input"
+                    rows="3"
+                    placeholder="Summarize the reviewer verdict."
+                  ></textarea>
+                </label>
+                <label class="field">
+                  <span>Primary Finding Details</span>
+                  <textarea
+                    id="review-finding-details-input"
+                    rows="3"
+                    placeholder="Optional details for the main finding."
+                  ></textarea>
+                </label>
+              </div>
+
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Primary Finding Title</span>
+                  <input id="review-finding-title-input" type="text" maxlength="160" />
+                </label>
+                <label class="field">
+                  <span>Category</span>
+                  <input id="review-finding-category-input" type="text" maxlength="80" value="correctness" />
+                </label>
+                <label class="field">
+                  <span>Severity</span>
+                  <select id="review-finding-severity-select" aria-label="Review finding severity">
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>File:Line</span>
+                  <input id="review-finding-location-input" type="text" maxlength="200" placeholder="src/file.js:42" />
+                </label>
+              </div>
+
+              <div id="review-list" class="collection"></div>
+            </section>
+
+            <section>
+              <div class="section-toolbar">
+                <div>
+                  <h3>Validations</h3>
+                  <p class="section-copy">Record repo-scoped validation outcomes before a ticket enters merge readiness.</p>
+                </div>
+              </div>
+
+              <form id="validation-form" class="execution-create-form">
+                <label class="field compact-field">
+                  <span>Repo</span>
+                  <select id="validation-repo-select" aria-label="Validation repo"></select>
+                </label>
+                <label class="field compact-field">
+                  <span>Verdict</span>
+                  <select id="validation-verdict-select" aria-label="Validation verdict">
+                    <option value="passed">Passed</option>
+                    <option value="failed">Failed</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                </label>
+                <label class="field compact-field">
+                  <span>Command Profile</span>
+                  <input id="validation-command-profile-input" type="text" maxlength="80" placeholder="ci" />
+                </label>
+                <button class="primary-button" type="submit">Record validation</button>
+              </form>
+
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Commands</span>
+                  <textarea
+                    id="validation-commands-input"
+                    rows="3"
+                    placeholder="One command per line"
+                  ></textarea>
+                </label>
+                <label class="field">
+                  <span>Summary</span>
+                  <textarea
+                    id="validation-summary-input"
+                    rows="3"
+                    placeholder="Summarize what the checks proved."
+                  ></textarea>
+                </label>
+              </div>
+
+              <div id="validation-list" class="collection"></div>
+            </section>
+
+            <section>
+              <div class="section-toolbar">
+                <div>
+                  <h3>Merge Readiness</h3>
+                  <p class="section-copy">Record approval and the final merge outcome once the ticket has enough evidence.</p>
+                </div>
+              </div>
+
+              <article id="merge-status-card" class="collection-item merge-status-card">
+                <div class="execution-item-header">
+                  <div>
+                    <strong id="merge-status-title">Waiting on delivery evidence</strong>
+                    <p id="merge-status-copy">Ticket must reach merge readiness before the operator can close the loop.</p>
+                  </div>
+                  <span id="merge-status-badge" class="state-badge subtle">Waiting</span>
+                </div>
+                <div id="merge-status-meta" class="ticket-card-meta execution-meta"></div>
+              </article>
+
+              <form id="merge-form" class="execution-create-form">
+                <label class="field compact-field">
+                  <span>Strategy</span>
+                  <select id="merge-strategy-select" aria-label="Merge strategy">
+                    <option value="squash">Squash</option>
+                    <option value="merge_commit">Merge commit</option>
+                    <option value="rebase">Rebase</option>
+                  </select>
+                </label>
+                <label class="field compact-field">
+                  <span>Outcome</span>
+                  <select id="merge-outcome-select" aria-label="Merge outcome">
+                    <option value="completed">Completed</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="rework">Rework</option>
+                  </select>
+                </label>
+                <button class="primary-button" type="submit">Record merge</button>
+              </form>
+
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Approval Kind</span>
+                  <input id="merge-approved-by-kind-input" type="text" maxlength="80" placeholder="human" />
+                </label>
+                <label class="field">
+                  <span>Approval Reference</span>
+                  <input id="merge-approved-by-ref-input" type="text" maxlength="120" placeholder="operator name or decision id" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Summary</span>
+                <textarea
+                  id="merge-summary-input"
+                  rows="3"
+                  placeholder="Describe the merge result or what blocked it."
+                ></textarea>
+              </label>
+            </section>
+
+            <form id="ticket-edit-form" class="ticket-edit-form">
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Title</span>
+                  <input id="ticket-title-input" type="text" maxlength="120" />
+                </label>
+                <label class="field">
+                  <span>Priority</span>
+                  <select id="ticket-priority-select" aria-label="Ticket priority"></select>
+                </label>
+                <label class="field">
+                  <span>Assigned Role</span>
+                  <select id="ticket-role-select" aria-label="Assigned role"></select>
+                </label>
+                <label class="field">
+                  <span>Latest Summary</span>
+                  <input id="ticket-summary-input" type="text" maxlength="160" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Parent Ticket</span>
+                <select id="ticket-parent-select" aria-label="Parent ticket"></select>
+              </label>
+
+              <label class="field">
+                <span>Brief</span>
+                <textarea id="ticket-brief-input" rows="4"></textarea>
+              </label>
+
+              <div class="detail-grid">
+                <label class="field">
+                  <span>Acceptance Criteria</span>
+                  <textarea id="acceptance-criteria-input" rows="6"></textarea>
+                </label>
+                <label class="field">
+                  <span>Definition of Done</span>
+                  <textarea id="definition-of-done-input" rows="6"></textarea>
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Save ticket</button>
+              </div>
+            </form>
+
+            <div class="detail-grid supporting-grid">
+              <section>
+                <h3>Acceptance Criteria</h3>
+                <pre id="acceptance-criteria" class="markdown-block"></pre>
+              </section>
+              <section>
+                <h3>Definition of Done</h3>
+                <pre id="definition-of-done" class="markdown-block"></pre>
+              </section>
+            </div>
+
+            <section>
+              <div class="section-toolbar">
+                <div>
+                  <h3>Repo Targets</h3>
+                  <p class="section-copy">Retarget tickets across repos and capture branch or scope notes per repo.</p>
+                </div>
+                <form id="repo-target-form" class="repo-target-form">
+                  <label class="field compact-field">
+                    <span>Add repo</span>
+                    <select id="repo-target-repo-select" aria-label="Add repo target"></select>
+                  </label>
+                  <label class="field compact-field">
+                    <span>Base Ref</span>
+                    <input
+                      id="repo-target-base-ref-input"
+                      type="text"
+                      maxlength="120"
+                      placeholder="Defaults to the repo branch"
+                    />
+                  </label>
+                  <label class="field compact-field">
+                    <span>Branch</span>
+                    <input
+                      id="repo-target-branch-input"
+                      type="text"
+                      maxlength="120"
+                      placeholder="Optional working branch"
+                    />
+                  </label>
+                  <button class="ghost-button" type="submit">Add target</button>
+                </form>
+              </div>
+              <label class="field">
+                <span>Scope Notes For New Target</span>
+                <textarea
+                  id="repo-target-scope-input"
+                  rows="3"
+                  placeholder="What part of this repo should the ticket touch?"
+                ></textarea>
+              </label>
+              <div id="repo-targets" class="collection"></div>
+            </section>
+
+            <section>
+              <div class="section-toolbar">
+                <h3>Dependencies</h3>
+                <form id="dependency-form" class="dependency-form">
+                  <label class="field compact-field">
+                    <span>Add blocker</span>
+                    <select id="blocking-ticket-select" aria-label="Select blocking ticket"></select>
+                  </label>
+                  <button class="ghost-button" type="submit">Add</button>
+                </form>
+              </div>
+              <div id="dependencies" class="collection"></div>
+            </section>
+
+            <section>
+              <div class="section-toolbar">
+                <div>
+                  <h3>Worktrees</h3>
+                  <p class="section-copy">Execution-scoped worktree plans for each targeted repo.</p>
+                </div>
+              </div>
+              <div id="worktrees" class="collection"></div>
+            </section>
+
+            <section>
+              <h3>Timeline</h3>
+              <div id="event-timeline" class="timeline"></div>
+            </section>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <template id="ticket-card-template">
+      <button class="ticket-card" type="button">
+        <span class="ticket-key"></span>
+        <strong class="ticket-card-title"></strong>
+        <p class="ticket-card-summary"></p>
+        <div class="ticket-card-meta"></div>
+      </button>
+    </template>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

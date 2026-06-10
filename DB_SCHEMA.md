@@ -1,0 +1,376 @@
+# Database Schema
+
+## Goals
+
+The Pool database needs to support:
+
+- durable project and ticket state
+- multi-repo targeting from the start
+- append-only execution and event history
+- review and validation evidence
+- resumable orchestration
+
+Postgres is the intended primary database.
+
+## Design Principles
+
+- normalize durable entities
+- keep state transitions auditable
+- prefer append-only event records for operational history
+- make multi-repo coordination explicit
+- separate current state from historical evidence
+
+## Core Tables
+
+### `projects`
+
+Represents a conceptual work space.
+
+Suggested fields:
+
+- `id` UUID PK
+- `slug` text unique not null
+- `name` text not null
+- `description` text
+- `workspace_root` text not null
+- `default_base_branch` text
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+### `repos`
+
+One project may own multiple repos.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `slug` text not null
+- `name` text not null
+- `local_path` text not null
+- `remote_url` text
+- `default_branch` text not null
+- `is_primary` boolean not null default false
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+Suggested constraints:
+
+- unique `(project_id, slug)`
+- unique `(project_id, local_path)`
+
+### `project_policies`
+
+Holds the active policy set for a project.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID unique FK -> `projects.id`
+- `require_reviewer` boolean not null default true
+- `require_validator` boolean not null default true
+- `require_human_approval_before_merge` boolean not null default true
+- `max_parallel_executions` integer not null default 1
+- `max_auto_continue_iterations` integer not null default 3
+- `agent_created_ticket_default_state` text not null
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+### `agent_profiles`
+
+Role-specific execution config.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `role` text not null
+- `adapter` text not null
+- `model` text
+- `display_name` text not null
+- `max_iterations` integer
+- `config_json` jsonb not null default '{}'::jsonb
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+Suggested constraints:
+
+- unique `(project_id, role, display_name)`
+
+### `tickets`
+
+Primary work item.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `parent_ticket_id` UUID FK -> `tickets.id`
+- `key` text not null
+- `title` text not null
+- `brief` text not null
+- `acceptance_criteria_md` text
+- `definition_of_done_md` text
+- `state` text not null
+- `priority` text not null
+- `created_by_kind` text not null
+- `created_by_ref` text
+- `assigned_role` text
+- `assigned_agent_profile_id` UUID FK -> `agent_profiles.id`
+- `blocked_reason_kind` text
+- `latest_summary` text
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+- `closed_at` timestamptz
+
+Suggested constraints:
+
+- unique `(project_id, key)`
+
+### `ticket_dependencies`
+
+Explicit dependency graph.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `blocking_ticket_id` UUID FK -> `tickets.id`
+- `blocked_ticket_id` UUID FK -> `tickets.id`
+- `dependency_type` text not null default 'finish_to_start'
+- `created_at` timestamptz not null
+
+Suggested constraints:
+
+- unique `(blocking_ticket_id, blocked_ticket_id, dependency_type)`
+
+### `ticket_repo_targets`
+
+Maps tickets to one or more repos.
+
+Suggested fields:
+
+- `id` UUID PK
+- `ticket_id` UUID FK -> `tickets.id`
+- `repo_id` UUID FK -> `repos.id`
+- `base_ref` text not null
+- `branch_name` text
+- `target_scope_md` text
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+Suggested constraints:
+
+- unique `(ticket_id, repo_id)`
+
+### `executions`
+
+One agent run against one ticket.
+
+Suggested fields:
+
+- `id` UUID PK
+- `ticket_id` UUID FK -> `tickets.id`
+- `agent_profile_id` UUID FK -> `agent_profiles.id`
+- `role` text not null
+- `iteration` integer not null
+- `status` text not null
+- `outcome` text
+- `started_at` timestamptz not null
+- `finished_at` timestamptz
+- `summary_md` text
+- `remaining_work_md` text
+- `expected_next_evidence_md` text
+- `failure_kind` text
+- `blocked_kind` text
+- `prompt_snapshot_uri` text
+- `context_snapshot_json` jsonb
+
+Suggested constraints:
+
+- unique `(ticket_id, role, iteration)`
+
+### `execution_repo_targets`
+
+Execution-level targeting for multi-repo work.
+
+Suggested fields:
+
+- `id` UUID PK
+- `execution_id` UUID FK -> `executions.id`
+- `repo_id` UUID FK -> `repos.id`
+- `branch_name` text not null
+- `worktree_path` text
+- `created_at` timestamptz not null
+
+Suggested constraints:
+
+- unique `(execution_id, repo_id)`
+
+### `worktrees`
+
+Tracks isolated workspaces.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `repo_id` UUID FK -> `repos.id`
+- `ticket_id` UUID FK -> `tickets.id`
+- `execution_id` UUID FK -> `executions.id`
+- `path` text not null
+- `branch_name` text not null
+- `base_ref` text not null
+- `status` text not null
+- `is_dirty` boolean not null default false
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+- `cleaned_at` timestamptz
+
+Suggested constraints:
+
+- unique `(repo_id, path)`
+
+### `reviews`
+
+Separate reviewer lane output.
+
+Suggested fields:
+
+- `id` UUID PK
+- `ticket_id` UUID FK -> `tickets.id`
+- `review_execution_id` UUID FK -> `executions.id`
+- `reviewer_agent_profile_id` UUID FK -> `agent_profiles.id`
+- `verdict` text not null
+- `summary_md` text
+- `findings_count` integer not null default 0
+- `created_at` timestamptz not null
+
+### `review_findings`
+
+Structured review issues.
+
+Suggested fields:
+
+- `id` UUID PK
+- `review_id` UUID FK -> `reviews.id`
+- `severity` text not null
+- `category` text not null
+- `file_path` text
+- `line_number` integer
+- `title` text not null
+- `details_md` text
+- `created_at` timestamptz not null
+
+### `validation_runs`
+
+Machine or agent validation lane.
+
+Suggested fields:
+
+- `id` UUID PK
+- `ticket_id` UUID FK -> `tickets.id`
+- `repo_id` UUID FK -> `repos.id`
+- `validation_execution_id` UUID FK -> `executions.id`
+- `status` text not null
+- `verdict` text
+- `commands_json` jsonb not null default '[]'::jsonb
+- `summary_md` text
+- `started_at` timestamptz not null
+- `finished_at` timestamptz
+
+### `artifacts`
+
+Durable artifacts from executions, reviews, validations, merges.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `ticket_id` UUID FK -> `tickets.id`
+- `execution_id` UUID FK -> `executions.id`
+- `kind` text not null
+- `label` text not null
+- `uri` text not null
+- `metadata_json` jsonb not null default '{}'::jsonb
+- `created_at` timestamptz not null
+
+### `merge_runs`
+
+Tracks merge attempts and results.
+
+Suggested fields:
+
+- `id` UUID PK
+- `ticket_id` UUID FK -> `tickets.id`
+- `status` text not null
+- `strategy` text not null
+- `approved_by_kind` text
+- `approved_by_ref` text
+- `started_at` timestamptz not null
+- `finished_at` timestamptz
+- `summary_md` text
+
+### `event_log`
+
+Append-only operational history.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `ticket_id` UUID FK -> `tickets.id`
+- `execution_id` UUID FK -> `executions.id`
+- `event_type` text not null
+- `payload_json` jsonb not null
+- `created_at` timestamptz not null
+
+## Recommended Enums
+
+Suggested logical enums:
+
+- ticket state
+- priority
+- execution status
+- execution outcome
+- review verdict
+- validation verdict
+- worktree status
+- merge status
+- blocker kind
+
+Start as text columns if you want migration agility; harden into database enums later
+only once the product language stabilizes.
+
+## Indexing Priorities
+
+Add indexes early for:
+
+- `tickets(project_id, state, priority)`
+- `executions(ticket_id, started_at desc)`
+- `event_log(project_id, created_at desc)`
+- `event_log(ticket_id, created_at desc)`
+- `worktrees(ticket_id)`
+- `ticket_dependencies(blocked_ticket_id)`
+- `ticket_dependencies(blocking_ticket_id)`
+
+## V1 Recommendation
+
+Implement the following first:
+
+- `projects`
+- `repos`
+- `project_policies`
+- `agent_profiles`
+- `tickets`
+- `ticket_dependencies`
+- `ticket_repo_targets`
+- `executions`
+- `worktrees`
+- `reviews`
+- `review_findings`
+- `validation_runs`
+- `artifacts`
+- `event_log`
+
+`merge_runs` can arrive slightly after the first execution/review loop if needed.

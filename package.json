@@ -1,0 +1,17 @@
+{
+  "name": "@pool/product",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace services/api run dev",
+    "start": "npm --workspace services/api run start",
+    "check": "node scripts/check-types.mjs",
+    "test": "node --test"
+  }
+}
