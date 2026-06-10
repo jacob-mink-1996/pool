@@ -87,6 +87,7 @@ select {
 .section-meta,
 .section-copy,
 .ticket-brief,
+.ticket-live-note,
 .timeline-item p,
 .collection-empty,
 .column-empty {
@@ -457,6 +458,19 @@ select {
   gap: 1.1rem;
 }
 
+.ticket-live-note {
+  margin: 0.38rem 0 0;
+  font-size: 0.86rem;
+}
+
+.ticket-live-note.is-live {
+  color: #155d5d;
+}
+
+.ticket-live-note.is-warning {
+  color: #85531c;
+}
+
 .detail-section {
   display: grid;
   gap: 0.75rem;
@@ -739,7 +753,37 @@ select {
 }
 
 .merge-blocking-reasons {
+  display: grid;
+  gap: 0.65rem;
   margin-top: 0.35rem;
+}
+
+.merge-reason-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(179, 71, 58, 0.14);
+  border-radius: 16px;
+  background: rgba(179, 71, 58, 0.06);
+}
+
+.merge-reason-card strong,
+.merge-reason-card p,
+.merge-reason-card span {
+  margin: 0;
+}
+
+.merge-reason-card strong {
+  font-size: 0.94rem;
+}
+
+.merge-reason-card p,
+.merge-reason-card span {
+  color: var(--muted);
+}
+
+.merge-reason-card span {
+  font-size: 0.84rem;
 }
 
 .repo-pill.is-primary {
@@ -813,6 +857,13 @@ select {
 
 .artifact-item p {
   word-break: break-all;
+}
+
+.artifact-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
 }
 
 .execution-item-header {

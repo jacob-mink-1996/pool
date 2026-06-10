@@ -36,20 +36,30 @@ export function prettyReasonCode(value) {
 
   const labels = {
     human_approval_required: "Human approval required",
+    approval_required: "Approval required",
     validation_profile_required: "Validation profile required",
+    validation_required: "Validation required",
+    review_required: "Review required",
     merge_waiting: "Merge waiting on evidence",
     merge_ready: "Merge ready",
     merge_approval_required: "Merge approval required",
+    merge_approved: "Merge approved",
     merge_blocked: "Merge blocked",
     validation_blocked: "Validation blocked",
     review_blocked: "Review blocked",
     execution_blocked: "Execution blocked",
     execution_failed: "Execution failed",
     validation_failed: "Validation failed",
+    review_execution_not_finished: "Execution must finish before review",
+    ticket_not_ready_for_validation: "Ticket is not ready for validation",
+    ticket_not_ready: "Ticket is not ready",
     review_rework: "Review requested rework",
     merge_rework: "Merge requested rework",
     needs_continue: "Execution needs continuation",
     interrupted: "Interrupted during restart recovery",
+    max_auto_continue_iterations: "Auto-continue limit reached",
+    required_validation_command_profile_for_merge: "Required validation profile missing",
+    require_human_approval_before_merge: "Project policy requires human approval",
   };
 
   return labels[value] || prettyState(value);

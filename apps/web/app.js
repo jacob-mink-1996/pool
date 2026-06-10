@@ -573,6 +573,9 @@ function bindEvents() {
     });
   });
 
+  dom.recentArtifacts.addEventListener("click", handleArtifactAction);
+  dom.artifactList.addEventListener("click", handleArtifactAction);
+
   dom.executionActionForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const activeExecution = currentActiveExecution(state.ticketDetail);
@@ -664,6 +667,32 @@ function renderStateOptions() {
   }
 }
 
+async function handleArtifactAction(event) {
+  const button = event.target.closest("[data-artifact-action]");
+  if (!button) {
+    return;
+  }
+
+  const uri = button.dataset.artifactUri || "";
+  if (!uri) {
+    return;
+  }
+
+  if (button.dataset.artifactAction === "open") {
+    window.open(uri, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  if (button.dataset.artifactAction === "copy") {
+    try {
+      await navigator.clipboard.writeText(uri);
+      showStatus("Copied artifact URI", "success");
+    } catch (error) {
+      showStatus("Could not copy artifact URI", "error");
+    }
+  }
+}
+
 function renderRoleOptions() {
   fillSelectOptions(dom.ticketRoleSelect, roleOptions, prettyRole);
 }
@@ -752,12 +781,12 @@ async function loadBoard(projectId, options = {}) {
       fetchJson(`/api/v1/projects/${projectId}/artifacts?limit=10`),
     ]);
     state.project = projectPayload.project;
-    state.board = boardPayload.board;
     state.tickets = ticketsPayload.tickets || [];
     state.repos = reposPayload.repos || [];
     state.mergeQueue = mergeQueuePayload.queue || [];
     state.events = activityPayload.events || [];
     state.artifacts = artifactsPayload.artifacts || [];
+    state.board = buildBoardState(projectPayload.project, state.tickets, boardPayload.board?.columns);
     syncProjectSummary(projectPayload.project);
     renderProjectSettings();
     renderProjectPolicy();
@@ -770,13 +799,13 @@ async function loadBoard(projectId, options = {}) {
     renderActivityFilters();
     renderActivityFeed();
     renderRecentArtifacts();
-    renderBoard(boardPayload.board);
+    renderBoard(state.board);
     ensureLiveStream(projectId);
 
     const nextTicketId =
       options.ticketId ||
       (options.keepSelection ? state.selectedTicketId : "") ||
-      boardPayload.board.columns.flatMap((column) => column.tickets).at(0)?.id ||
+      state.board.columns.flatMap((column) => column.tickets).at(0)?.id ||
       "";
 
     if (nextTicketId) {
@@ -904,6 +933,7 @@ function renderActivityFilters() {
 }
 
 function renderActivityFeed() {
+  dom.activityCount.textContent = `${state.events.length} recent event${state.events.length === 1 ? "" : "s"}`;
   dom.activityFeed.innerHTML = "";
 
   if (state.events.length === 0) {
@@ -1296,6 +1326,8 @@ async function loadTicket(ticketId, options = {}) {
   if (draft) {
     restoreDetailDraftState(draft, payload.ticket);
   }
+  syncDraftWarningState(payload.ticket);
+  renderTicketLiveNote(payload.ticket);
   renderBoard(state.board);
 }
 
@@ -1306,6 +1338,7 @@ function renderTicketDetail(ticket) {
   dom.ticketTitle.textContent = `${ticket.key} · ${ticket.title}`;
   dom.ticketStateBadge.textContent = prettyState(ticket.state);
   dom.ticketStateBadge.className = `state-badge ${stateClassMap.get(ticket.state)}`;
+  renderTicketLiveNote(ticket);
   dom.ticketBrief.textContent = ticket.brief;
   dom.stateSelect.value = ticket.state;
   dom.ticketTitleInput.value = ticket.title;
@@ -1331,26 +1364,7 @@ function renderTicketDetail(ticket) {
   renderMergeStatus(ticket);
   renderWorktrees(ticket);
   renderArtifacts(ticket);
-
-  dom.eventTimeline.innerHTML = "";
-  for (const event of ticket.events) {
-    const item = document.createElement("article");
-    item.className = "timeline-item";
-    item.dataset.eventCursor = event.cursor || "";
-    item.innerHTML = `
-      <p class="timeline-type">${escapeHtml(eventTypeLabel(event))}</p>
-      <strong>${escapeHtml(event.summary || event.detail || "Project event recorded")}</strong>
-      <p>${escapeHtml(event.detail || "No additional detail.")}</p>
-      <div class="ticket-card-meta execution-meta">
-        <span>${escapeHtml(`Lane ${prettyState(event.lane || event.family || "ticket")}`)}</span>
-        ${event.reasonCode ? `<span>${escapeHtml(prettyReasonCode(event.reasonCode))}</span>` : ""}
-        ${event.reasonSource ? `<span>${escapeHtml(prettyReasonSource(event.reasonSource))}</span>` : ""}
-        ${event.sequence ? `<span>${escapeHtml(`Seq ${event.sequence}`)}</span>` : ""}
-      </div>
-      <time>${formatDate(event.createdAt)}</time>
-    `;
-    dom.eventTimeline.append(item);
-  }
+  renderTicketTimeline(ticket.events);
 }
 
 function renderTicketOverview(ticket) {
@@ -1578,6 +1592,7 @@ function renderValidationRepoOptions(ticket) {
 function renderMergeStatus(ticket) {
   const mergeStatus = ticket.mergeStatus;
   const latestRun = mergeStatus?.latestRun || null;
+  const blockingReasons = normalizeBlockingReasonObjects(mergeStatus);
 
   dom.mergeStatusTitle.textContent = latestRun
     ? `Latest merge ${prettyState(latestRun.status)}`
@@ -1600,6 +1615,9 @@ function renderMergeStatus(ticket) {
     if (mergeStatus.readiness) {
       meta.push(`Readiness ${prettyState(mergeStatus.readiness)}`);
     }
+    if (mergeStatus.requiresHumanApproval && mergeStatus.canMerge) {
+      meta.push("Human sign-off is the only remaining gate");
+    }
     meta.push(
       `${mergeStatus.uncleanedWorktreeCount} worktree${mergeStatus.uncleanedWorktreeCount === 1 ? "" : "s"} not cleaned`,
     );
@@ -1615,7 +1633,7 @@ function renderMergeStatus(ticket) {
     meta.push(`Recorded ${formatDate(latestRun.finishedAt)}`);
   }
   dom.mergeStatusMeta.innerHTML = meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
-  dom.mergeBlockingReasons.innerHTML = renderReasonBadges(normalizeBlockingReasonObjects(mergeStatus));
+  dom.mergeBlockingReasons.innerHTML = renderReasonCards(blockingReasons);
 
   const mergeEnabled = Boolean(mergeStatus?.canMerge);
   setFormControlsDisabled(dom.mergeForm, !mergeEnabled);
@@ -1823,6 +1841,28 @@ function renderArtifacts(ticket) {
   renderArtifactGroups(dom.artifactList, ticket.artifacts, { showTicketLabel: false });
 }
 
+function renderTicketTimeline(events) {
+  dom.eventTimeline.innerHTML = "";
+  for (const event of events) {
+    const item = document.createElement("article");
+    item.className = "timeline-item";
+    item.dataset.eventCursor = event.cursor || "";
+    item.innerHTML = `
+      <p class="timeline-type">${escapeHtml(eventTypeLabel(event))}</p>
+      <strong>${escapeHtml(event.summary || event.detail || "Project event recorded")}</strong>
+      <p>${escapeHtml(event.detail || "No additional detail.")}</p>
+      <div class="ticket-card-meta execution-meta">
+        <span>${escapeHtml(`Lane ${prettyState(event.lane || event.family || "ticket")}`)}</span>
+        ${event.reasonCode ? `<span>${escapeHtml(prettyReasonCode(event.reasonCode))}</span>` : ""}
+        ${event.reasonSource ? `<span>${escapeHtml(prettyReasonSource(event.reasonSource))}</span>` : ""}
+        ${event.sequence ? `<span>${escapeHtml(`Seq ${event.sequence}`)}</span>` : ""}
+      </div>
+      <time>${formatDate(event.createdAt)}</time>
+    `;
+    dom.eventTimeline.append(item);
+  }
+}
+
 function renderParentTicketOptions(ticket) {
   dom.ticketParentSelect.innerHTML = "";
 
@@ -2017,6 +2057,9 @@ function clearTicketDetail() {
   dom.ticketEmpty.hidden = false;
   dom.ticketDetail.hidden = true;
   dom.ticketTitle.textContent = "Select a ticket";
+  dom.ticketLiveNote.hidden = true;
+  dom.ticketLiveNote.textContent = "";
+  dom.ticketLiveNote.className = "ticket-live-note";
   dom.ticketStateBadge.textContent = "No ticket";
   dom.ticketStateBadge.className = "state-badge subtle";
   dom.executionList.innerHTML = "";
@@ -2229,10 +2272,12 @@ function ensureLiveStream(projectId) {
     renderLiveIndicator();
   });
 
-  source.addEventListener("snapshot", () => {
+  source.addEventListener("snapshot", (browserEvent) => {
     state.live.status = "connected";
     state.live.isConnected = true;
+    state.live.lastEventAt = new Date().toISOString();
     renderLiveIndicator();
+    handleLiveEvent(browserEvent, "snapshot");
   });
 
   source.addEventListener("event", (browserEvent) => {
@@ -2240,7 +2285,7 @@ function ensureLiveStream(projectId) {
     state.live.isConnected = true;
     state.live.lastEventAt = new Date().toISOString();
     renderLiveIndicator();
-    handleLiveEvent(browserEvent);
+    handleLiveEvent(browserEvent, "event");
   });
 
   source.addEventListener("error", () => {
@@ -2264,9 +2309,15 @@ function closeLiveStream(options = {}) {
   }
   state.live.eventSource = null;
   window.clearTimeout(state.live.reconnectTimerId);
-  window.clearTimeout(state.live.refreshTimerId);
+  window.clearTimeout(state.live.artifactsRefreshTimerId);
+  window.clearTimeout(state.live.mergeQueueRefreshTimerId);
+  for (const timerId of Object.values(state.live.pendingTicketSyncs || {})) {
+    window.clearTimeout(timerId);
+  }
   state.live.reconnectTimerId = 0;
-  state.live.refreshTimerId = 0;
+  state.live.artifactsRefreshTimerId = 0;
+  state.live.mergeQueueRefreshTimerId = 0;
+  state.live.pendingTicketSyncs = {};
   state.live.isConnected = false;
   state.live.projectId = options.keepIndicator ? state.live.projectId : "";
   state.live.url = options.keepIndicator ? state.live.url : "";
@@ -2276,7 +2327,7 @@ function closeLiveStream(options = {}) {
   }
 }
 
-function handleLiveEvent(browserEvent) {
+function handleLiveEvent(browserEvent, streamKind = "event") {
   let payload = null;
   try {
     if (browserEvent.data) {
@@ -2285,52 +2336,185 @@ function handleLiveEvent(browserEvent) {
   } catch (error) {
     console.warn("Failed to parse live event payload", error);
   }
-  const streamEvent = payload?.event || payload?.events?.[0] || payload;
-  if (streamEvent?.cursor) {
-    if (streamEvent.cursor === state.live.lastCursor) {
-      return;
+  const streamEvents =
+    streamKind === "snapshot"
+      ? Array.isArray(payload?.events)
+        ? payload.events
+        : []
+      : [payload?.event || payload?.events?.[0] || payload].filter(Boolean);
+
+  let didApply = false;
+  for (const streamEvent of streamEvents) {
+    didApply = applyLiveStreamEvent(streamEvent, { streamKind }) || didApply;
+  }
+
+  if (didApply) {
+    renderLiveIndicator();
+  }
+}
+
+function applyLiveStreamEvent(streamEvent, options = {}) {
+  if (!streamEvent || !streamEvent.id) {
+    return false;
+  }
+
+  if (options.streamKind === "snapshot") {
+    if (!state.live.lastCursor) {
+      rememberLiveCursor(streamEvent);
+      return false;
     }
+    if (streamEvent.cursor && streamEvent.cursor <= state.live.lastCursor) {
+      return false;
+    }
+  }
+
+  if (streamEvent.cursor && streamEvent.cursor === state.live.lastCursor) {
+    return false;
+  }
+
+  rememberLiveCursor(streamEvent);
+  upsertActivityEvent(streamEvent);
+
+  if (streamEvent.ticketId && state.ticketDetail?.id === streamEvent.ticketId) {
+    prependTicketEvent(streamEvent);
+    if (isTicketDraftDirty(state.ticketDetail)) {
+      state.live.staleDraftTicketId = streamEvent.ticketId;
+      state.live.staleDraftCount += 1;
+    }
+    renderTicketLiveNote(state.ticketDetail);
+  }
+
+  if (streamEvent.ticketId) {
+    scheduleTicketSync(streamEvent.ticketId, {
+      preserveDrafts: state.selectedTicketId === streamEvent.ticketId,
+    });
+  }
+
+  if (shouldRefreshMergeQueueForEvent(streamEvent)) {
+    scheduleMergeQueueRefresh();
+  }
+
+  if (shouldRefreshArtifactsForEvent(streamEvent)) {
+    scheduleArtifactsRefresh();
+  }
+
+  return true;
+}
+
+function rememberLiveCursor(streamEvent) {
+  if (streamEvent?.cursor) {
     state.live.lastCursor = streamEvent.cursor;
   }
   if (Number.isInteger(streamEvent?.sequence)) {
     state.live.lastSequence = streamEvent.sequence;
   }
-  scheduleLiveRefresh();
 }
 
-function scheduleLiveRefresh() {
+function scheduleTicketSync(ticketId, options = {}) {
+  if (!state.projectId || !ticketId) {
+    return;
+  }
+
+  window.clearTimeout(state.live.pendingTicketSyncs[ticketId]);
+  state.live.pendingTicketSyncs[ticketId] = window.setTimeout(async () => {
+    delete state.live.pendingTicketSyncs[ticketId];
+    try {
+      const payload = await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${ticketId}`);
+      applyTicketSyncPayload(payload.ticket, options);
+    } catch (error) {
+      console.error(error);
+    }
+  }, 120);
+}
+
+function applyTicketSyncPayload(ticket, options = {}) {
+  upsertTicketSummary(ticket);
+  state.board = buildBoardState(state.project, state.tickets, state.board?.columns);
+  renderBoard(state.board);
+  renderMissionSnapshot();
+  renderActivityFilters();
+
+  if (state.selectedTicketId === ticket.id) {
+    const draft = options.preserveDrafts ? captureDetailDraftState(ticket.id) : null;
+    renderTicketDetail(ticket);
+    if (draft) {
+      restoreDetailDraftState(draft, ticket);
+    }
+    syncDraftWarningState(ticket);
+    renderTicketLiveNote(ticket);
+  }
+}
+
+function scheduleArtifactsRefresh() {
   if (!state.projectId) {
     return;
   }
 
-  if (state.live.isRefreshing) {
-    state.live.needsRefresh = true;
+  window.clearTimeout(state.live.artifactsRefreshTimerId);
+  state.live.artifactsRefreshTimerId = window.setTimeout(async () => {
+    try {
+      const artifactsPayload = await fetchJson(`/api/v1/projects/${state.projectId}/artifacts?limit=10`);
+      state.artifacts = artifactsPayload.artifacts || [];
+      renderRecentArtifacts();
+    } catch (error) {
+      console.error(error);
+    }
+  }, 180);
+}
+
+function scheduleMergeQueueRefresh() {
+  if (!state.projectId) {
     return;
   }
 
-  window.clearTimeout(state.live.refreshTimerId);
-  state.live.refreshTimerId = window.setTimeout(async () => {
-    if (state.live.isRefreshing || !state.projectId) {
-      return;
-    }
-    state.live.isRefreshing = true;
+  window.clearTimeout(state.live.mergeQueueRefreshTimerId);
+  state.live.mergeQueueRefreshTimerId = window.setTimeout(async () => {
     try {
-      await loadBoard(state.projectId, {
-        keepSelection: true,
-        ticketId: state.selectedTicketId,
-        silent: true,
-        preserveDrafts: true,
-      });
+      const mergeQueuePayload = await fetchJson(`/api/v1/projects/${state.projectId}/merge-queue`);
+      state.mergeQueue = mergeQueuePayload.queue || [];
+      renderMergeQueue();
+      renderMissionSnapshot();
     } catch (error) {
       console.error(error);
-    } finally {
-      state.live.isRefreshing = false;
-      if (state.live.needsRefresh) {
-        state.live.needsRefresh = false;
-        scheduleLiveRefresh();
-      }
     }
-  }, 300);
+  }, 180);
+}
+
+function upsertActivityEvent(streamEvent) {
+  if (!matchesActivityFilters(streamEvent, state.activityFilters)) {
+    return;
+  }
+
+  const nextEvents = [streamEvent, ...state.events.filter((event) => event.id !== streamEvent.id)];
+  state.events = nextEvents
+    .sort((left, right) => {
+      const rightSequence = Number.isInteger(right.sequence) ? right.sequence : 0;
+      const leftSequence = Number.isInteger(left.sequence) ? left.sequence : 0;
+      if (rightSequence !== leftSequence) {
+        return rightSequence - leftSequence;
+      }
+      return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    })
+    .slice(0, state.activityFilters.limit || 20);
+  renderActivityFeed();
+}
+
+function prependTicketEvent(streamEvent) {
+  if (!state.ticketDetail || state.ticketDetail.id !== streamEvent.ticketId) {
+    return;
+  }
+
+  const nextEvents = [streamEvent, ...state.ticketDetail.events.filter((event) => event.id !== streamEvent.id)];
+  nextEvents.sort((left, right) => {
+    const rightSequence = Number.isInteger(right.sequence) ? right.sequence : 0;
+    const leftSequence = Number.isInteger(left.sequence) ? left.sequence : 0;
+    if (rightSequence !== leftSequence) {
+      return rightSequence - leftSequence;
+    }
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
+  state.ticketDetail.events = nextEvents;
+  renderTicketTimeline(state.ticketDetail.events);
 }
 
 function renderLiveIndicator() {
@@ -2354,7 +2538,7 @@ function renderLiveIndicator() {
     badgeClass = "state-badge live";
     meta = state.live.lastEventAt
       ? `Last update ${formatDate(state.live.lastEventAt)}${state.live.lastSequence ? ` · seq ${state.live.lastSequence}` : ""}. Selection and filters stay pinned.`
-      : "Watching project activity and refreshing mission control automatically.";
+      : "Watching project activity and applying reducer-based updates live.";
   } else if (state.live.status === "reconnecting") {
     badge = "Live reconnecting";
     badgeClass = "state-badge live-error";
@@ -2478,26 +2662,243 @@ function applyMergeConflict(payload = {}) {
   const merge = payload.merge || null;
   if (merge) {
     dom.mergeStatusCopy.textContent = mergeSummaryText(merge) || "Merge policy blocked this action.";
-    dom.mergeBlockingReasons.innerHTML = renderReasonBadges(normalizeBlockingReasonObjects(merge));
+    dom.mergeBlockingReasons.innerHTML = renderReasonCards(normalizeBlockingReasonObjects(merge));
   }
 }
 
-function renderReasonBadges(reasons) {
+function renderReasonCards(reasons) {
   return reasons
     .map((reason) => {
-      const parts = [];
-      if (reason.code) {
-        parts.push(prettyReasonCode(reason.code));
-      }
-      if (reason.source) {
-        parts.push(prettyReasonSource(reason.source));
-      }
-      if (reason.message && reason.message !== prettyReasonCode(reason.code)) {
-        parts.push(reason.message);
-      }
-      return `<span>${escapeHtml(parts.filter(Boolean).join(" · "))}</span>`;
+      const title = reason.code ? prettyReasonCode(reason.code) : reason.message || "Policy block";
+      const source = reason.source ? prettyReasonSource(reason.source) : "Operator state";
+      const message =
+        reason.message && reason.message !== title
+          ? reason.message
+          : "Mission Control is rendering this block from structured backend policy state.";
+      return `
+        <article class="merge-reason-card">
+          <strong>${escapeHtml(title)}</strong>
+          <p>${escapeHtml(message)}</p>
+          <span>${escapeHtml(source)}</span>
+        </article>
+      `;
     })
     .join("");
+}
+
+function buildBoardState(project, tickets, previousColumns = []) {
+  const orderedStates = previousColumns.length
+    ? previousColumns.map((column) => column.state)
+    : stateOptions;
+  const columns = orderedStates.map((ticketState) => ({
+    state: ticketState,
+    tickets: [],
+    count: 0,
+  }));
+  const columnMap = new Map(columns.map((column) => [column.state, column]));
+
+  const filteredTickets = [...tickets]
+    .filter((ticket) => matchesBoardFilters(ticket, state.boardFilters))
+    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+
+  for (const ticket of filteredTickets) {
+    const column = columnMap.get(ticket.state);
+    if (!column) {
+      continue;
+    }
+    column.tickets.push(ticket);
+    column.count += 1;
+  }
+
+  return {
+    projectId: project?.id || state.projectId,
+    projectSlug: project?.slug || "",
+    projectName: project?.name || state.project?.name || "Pool Mission Control",
+    totalTickets: filteredTickets.length,
+    generatedAt: new Date().toISOString(),
+    columns,
+  };
+}
+
+function matchesBoardFilters(ticket, filters) {
+  if (!ticket) {
+    return false;
+  }
+
+  if (filters.state && ticket.state !== filters.state) {
+    return false;
+  }
+  if (filters.assignedRole && ticket.assignedRole !== filters.assignedRole) {
+    return false;
+  }
+  if (filters.priority && ticket.priority !== filters.priority) {
+    return false;
+  }
+  if (filters.search) {
+    const haystack = [ticket.key, ticket.title, ticket.brief, ticket.latestSummary].join(" ").toLowerCase();
+    if (!haystack.includes(filters.search.toLowerCase())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function upsertTicketSummary(ticket) {
+  const summary = ticketSummaryFromDetail(ticket);
+  const index = state.tickets.findIndex((item) => item.id === summary.id);
+  if (index === -1) {
+    state.tickets.unshift(summary);
+    return;
+  }
+  state.tickets[index] = {
+    ...state.tickets[index],
+    ...summary,
+  };
+}
+
+function ticketSummaryFromDetail(ticket) {
+  return {
+    id: ticket.id,
+    projectId: ticket.projectId,
+    parentTicketId: ticket.parentTicketId || "",
+    key: ticket.key,
+    title: ticket.title,
+    brief: ticket.brief,
+    state: ticket.state,
+    priority: ticket.priority,
+    assignedRole: ticket.assignedRole,
+    latestSummary: ticket.latestSummary,
+    latestReviewVerdict: ticket.latestReviewVerdict || ticket.reviews?.at(-1)?.verdict || "",
+    latestValidationVerdict: ticket.latestValidationVerdict || ticket.validations?.at(-1)?.verdict || "",
+    repoCount: ticket.repoTargets?.length || 0,
+    dependencyCount: ticket.dependencies?.length || 0,
+    eventCount: ticket.events?.length || 0,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
+  };
+}
+
+function matchesActivityFilters(event, filters) {
+  if (!event) {
+    return false;
+  }
+  if (filters.ticketId && event.ticketId !== filters.ticketId) {
+    return false;
+  }
+  if (filters.type && event.type !== filters.type) {
+    return false;
+  }
+  return true;
+}
+
+function shouldRefreshArtifactsForEvent(event) {
+  return ["execution", "review", "validation", "merge"].includes(event.family);
+}
+
+function shouldRefreshMergeQueueForEvent(event) {
+  return ["ticket", "review", "validation", "merge", "execution"].includes(event.family);
+}
+
+function ticketDraftFieldValues(ticket) {
+  return {
+    "state-select": ticket.state || "READY",
+    "state-reason": "",
+    "ticket-title-input": ticket.title || "",
+    "ticket-priority-select": ticket.priority || "medium",
+    "ticket-role-select": ticket.assignedRole || "developer",
+    "ticket-summary-input": ticket.latestSummary || "",
+    "ticket-parent-select": ticket.parentTicketId || "",
+    "ticket-brief-input": ticket.brief || "",
+    "acceptance-criteria-input": ticket.acceptanceCriteriaMd || "",
+    "definition-of-done-input": ticket.definitionOfDoneMd || "",
+    "execution-role-select": ticket.assignedRole || "developer",
+    "execution-reason-input": "",
+    "execution-outcome-select": "completed",
+    "execution-note-input": "",
+    "execution-artifacts-input": "",
+    "review-execution-select": "",
+    "review-verdict-select": "passed",
+    "review-summary-input": "",
+    "review-artifacts-input": "",
+    "review-finding-title-input": "",
+    "review-finding-category-input": "correctness",
+    "review-finding-severity-select": "high",
+    "review-finding-location-input": "",
+    "review-finding-details-input": "",
+    "validation-repo-select": "",
+    "validation-verdict-select": "passed",
+    "validation-command-profile-input": "",
+    "validation-commands-input": "",
+    "validation-summary-input": "",
+    "validation-artifacts-input": "",
+    "merge-strategy-select": "squash",
+    "merge-outcome-select": "completed",
+    "merge-approved-by-kind-input": "human",
+    "merge-approved-by-ref-input": "",
+    "merge-summary-input": "",
+    "merge-artifacts-input": "",
+    "repo-target-repo-select": "",
+    "repo-target-base-ref-input": "",
+    "repo-target-branch-input": "",
+    "repo-target-scope-input": "",
+    "blocking-ticket-select": "",
+  };
+}
+
+function isTicketDraftDirty(ticket) {
+  if (!ticket) {
+    return false;
+  }
+
+  const expected = ticketDraftFieldValues(ticket);
+  for (const [fieldId, expectedValue] of Object.entries(expected)) {
+    const element = document.getElementById(fieldId);
+    if (!element || element.disabled) {
+      continue;
+    }
+    if ((element.value || "") !== expectedValue) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function syncDraftWarningState(ticket) {
+  if (!ticket || state.live.staleDraftTicketId !== ticket.id) {
+    return;
+  }
+
+  if (!isTicketDraftDirty(ticket)) {
+    state.live.staleDraftTicketId = "";
+    state.live.staleDraftCount = 0;
+  }
+}
+
+function renderTicketLiveNote(ticket) {
+  if (!ticket) {
+    dom.ticketLiveNote.hidden = true;
+    dom.ticketLiveNote.textContent = "";
+    dom.ticketLiveNote.className = "ticket-live-note";
+    return;
+  }
+
+  if (state.live.staleDraftTicketId === ticket.id && state.live.staleDraftCount > 0) {
+    dom.ticketLiveNote.hidden = false;
+    dom.ticketLiveNote.textContent = `${state.live.staleDraftCount} live update${state.live.staleDraftCount === 1 ? "" : "s"} landed while you were editing. Your draft stayed in place.`;
+    dom.ticketLiveNote.className = "ticket-live-note is-warning";
+    return;
+  }
+
+  if (state.live.isConnected) {
+    dom.ticketLiveNote.hidden = false;
+    dom.ticketLiveNote.textContent = "This detail view is staying pinned while live reducers apply stream updates underneath it.";
+    dom.ticketLiveNote.className = "ticket-live-note is-live";
+    return;
+  }
+
+  dom.ticketLiveNote.hidden = true;
+  dom.ticketLiveNote.textContent = "";
+  dom.ticketLiveNote.className = "ticket-live-note";
 }
 
 function showStatus(message, tone = "info", options = {}) {
@@ -2529,8 +2930,16 @@ function renderArtifactSummary(artifacts = []) {
 }
 
 function renderArtifactGroups(container, artifacts, options = {}) {
+  const sortedArtifacts = [...artifacts].sort((left, right) => {
+    const laneDelta = artifactSourceRank(left) - artifactSourceRank(right);
+    if (laneDelta !== 0) {
+      return laneDelta;
+    }
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
+
   const groups = new Map();
-  for (const artifact of artifacts) {
+  for (const artifact of sortedArtifacts) {
     const label = artifactSourceLabel(artifact);
     if (!groups.has(label)) {
       groups.set(label, []);
@@ -2573,6 +2982,10 @@ function renderArtifactGroups(container, artifacts, options = {}) {
           ${options.showTicketLabel ? `<span>${escapeHtml(ticketLabel)}</span>` : ""}
           <span>${formatDate(artifact.createdAt)}</span>
         </div>
+        <div class="artifact-item-actions">
+          <button class="ghost-button" type="button" data-artifact-action="copy" data-artifact-uri="${escapeHtml(artifact.uri)}">Copy URI</button>
+          <button class="ghost-button" type="button" data-artifact-action="open" data-artifact-uri="${escapeHtml(artifact.uri)}">Open</button>
+        </div>
       `;
       list.append(item);
     }
@@ -2596,6 +3009,14 @@ function artifactSourceLabel(artifact) {
   if (artifact.reviewId) return "Review lane";
   if (artifact.executionId) return "Execution lane";
   return "Ticket";
+}
+
+function artifactSourceRank(artifact) {
+  if (artifact.mergeRunId) return 0;
+  if (artifact.validationRunId) return 1;
+  if (artifact.reviewId) return 2;
+  if (artifact.executionId) return 3;
+  return 4;
 }
 
 function boardDecisionLabel(ticket) {

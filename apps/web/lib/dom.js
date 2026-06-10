@@ -65,6 +65,7 @@ export const dom = {
   recentArtifacts: document.querySelector("#recent-artifacts"),
   boardColumns: document.querySelector("#board-columns"),
   ticketTitle: document.querySelector("#ticket-title"),
+  ticketLiveNote: document.querySelector("#ticket-live-note"),
   ticketStateBadge: document.querySelector("#ticket-state-badge"),
   ticketEmpty: document.querySelector("#ticket-empty"),
   ticketDetail: document.querySelector("#ticket-detail"),

@@ -24,11 +24,15 @@ export const state = {
   live: {
     eventSource: null,
     reconnectTimerId: 0,
-    refreshTimerId: 0,
     isConnected: false,
     status: "idle",
     lastEventAt: "",
     lastCursor: "",
     lastSequence: 0,
+    staleDraftTicketId: "",
+    staleDraftCount: 0,
+    pendingTicketSyncs: {},
+    artifactsRefreshTimerId: 0,
+    mergeQueueRefreshTimerId: 0,
   },
 };

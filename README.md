@@ -104,3 +104,24 @@ Optional environment variables:
 
 - `POOL_DB_PATH` to override the SQLite database file location
 - `POOL_SEED_DEMO=false` to boot without the seeded demo project
+
+### Run The Live Operator Demo
+
+Once the API is up with the seeded project, you can drive an end-to-end Mission Control flow against it:
+
+```bash
+npm run demo:live
+```
+
+This script:
+
+- creates a fresh demo ticket in the seeded project
+- starts and completes an execution
+- records review and validation evidence
+- records a merge with approval metadata
+- watches the live project event stream while it runs
+
+Override the target if needed with:
+
+- `POOL_BASE_URL=http://127.0.0.1:4318`
+- `POOL_DEMO_PROJECT_ID=project_pool`
