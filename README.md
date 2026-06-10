@@ -105,6 +105,33 @@ Optional environment variables:
 - `POOL_DB_PATH` to override the SQLite database file location
 - `POOL_SEED_DEMO=false` to boot without the seeded demo project
 
+### Bootstrap A Real Local Project
+
+To turn a real local git repo into a ready-to-use Pool project without hand-editing project,
+repo, policy, and profile settings:
+
+```bash
+npm run bootstrap:project -- --repo-path /absolute/path/to/repo --project-name "Client Zero"
+```
+
+This command:
+
+- creates or updates the Pool project
+- points the primary repo at your local checkout
+- enables reviewer and validator gates
+- sets the merge-required validation profile to `ci`
+- configures a default shell validator profile that records passed `ci` evidence
+
+Optional flags:
+
+- `--base-url http://127.0.0.1:4318`
+- `--workspace-root /absolute/path/to/workspace`
+- `--project-slug client-zero`
+- `--repo-slug client-zero-app`
+- `--default-branch main`
+- `--ci-command "npm test"`
+- `--human-approval-before-merge true`
+
 ### Run The Live Operator Demo
 
 Once the API is up with the seeded project, you can drive an end-to-end Mission Control flow against it:

@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "npm --workspace services/api run dev",
     "dev:web": "npm --workspace apps/web run dev",
+    "bootstrap:project": "node scripts/bootstrap-project.mjs",
     "demo:live": "node scripts/demo-live-flow.mjs",
     "verify:mvp": "node scripts/verify-mvp-live.mjs",
     "start": "npm --workspace services/api run start",
