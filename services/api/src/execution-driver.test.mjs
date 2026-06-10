@@ -317,6 +317,87 @@ test("execution driver materializes a real git worktree when the target repo exi
   }
 });
 
+test("execution driver rematerializes stale git worktrees when branch metadata no longer matches", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-worktree-refresh-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const repoRoot = join(fixtureDir, "repo");
+  const staleRepoRoot = join(fixtureDir, "stale-repo");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    execFileSync("git", ["init", "-b", "main", repoRoot]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    writeFileSync(join(repoRoot, "README.md"), "# Fresh Repo\n", "utf8");
+    execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
+    execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
+
+    execFileSync("git", ["init", "-b", "main", staleRepoRoot]);
+    execFileSync("git", ["-C", staleRepoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", staleRepoRoot, "config", "user.email", "pool@example.com"]);
+    writeFileSync(join(staleRepoRoot, "stale.txt"), "stale\n", "utf8");
+    execFileSync("git", ["-C", staleRepoRoot, "add", "stale.txt"]);
+    execFileSync("git", ["-C", staleRepoRoot, "commit", "-m", "seed stale repo"]);
+
+    store.updateRepo("project_pool", "repo_project_pool_pool", {
+      name: "pool",
+      localPath: repoRoot,
+      remoteUrl: "",
+      defaultBranch: "main",
+      isPrimary: true,
+    });
+    store.updateRoleProfile("project_pool", "developer", {
+      adapter: "shell",
+      model: "fixture",
+      config: {
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Git-backed worktree refreshed.' }));"`,
+      },
+    });
+
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Verify stale worktree rematerialization.",
+    });
+    const staleWorktreePath = execution.worktrees[0].path;
+    execFileSync("git", ["-C", staleRepoRoot, "worktree", "add", "-B", "stale-branch", staleWorktreePath, "main"]);
+    writeFileSync(
+      join(staleWorktreePath, ".pool-worktree.json"),
+      JSON.stringify({
+        projectId: "project_pool",
+        ticketId: "ticket_project_pool_2",
+        executionId: execution.id,
+        repoId: "repo_project_pool_pool",
+        repoSlug: "pool",
+        repoLocalPath: staleRepoRoot,
+        baseRef: "main",
+        branchName: "stale-branch",
+      }),
+      "utf8",
+    );
+
+    const driver = createExecutionDriver({ store, logger: silentLogger() });
+    await driver.pollOnce();
+
+    const worktreeMetadata = JSON.parse(readFileSync(join(staleWorktreePath, ".pool-worktree.json"), "utf8"));
+    const currentBranch = execFileSync("git", ["-C", staleWorktreePath, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+
+    assert.equal(worktreeMetadata.repoLocalPath, repoRoot);
+    assert.equal(worktreeMetadata.branchName, execution.worktrees[0].branchName);
+    assert.equal(currentBranch, execution.worktrees[0].branchName);
+    assert.equal(existsSync(join(staleWorktreePath, "README.md")), true);
+    assert.equal(existsSync(join(staleWorktreePath, "stale.txt")), false);
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 test("execution driver reconciles interrupted active executions on startup", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-reconcile-"));
   const workspaceRoot = join(fixtureDir, "workspace");

@@ -311,15 +311,16 @@ async function materializeWorktrees(ticket, execution) {
 }
 
 async function ensureWorktreeMaterialized(target, worktree) {
-  if (await fileExists(join(worktree.path, ".git"))) {
+  if (await canReuseMaterializedWorktree(target, worktree)) {
     return;
+  }
+
+  if (await fileExists(worktree.path)) {
+    await rm(worktree.path, { recursive: true, force: true });
   }
 
   if (await isGitRepository(target.repoLocalPath)) {
     await mkdir(dirname(worktree.path), { recursive: true });
-    if (await fileExists(worktree.path)) {
-      await rm(worktree.path, { recursive: true, force: true });
-    }
 
     const materialized = await runProcess(
       "git",
@@ -347,6 +348,28 @@ async function ensureWorktreeMaterialized(target, worktree) {
   }
 
   await mkdir(worktree.path, { recursive: true });
+}
+
+async function canReuseMaterializedWorktree(target, worktree) {
+  if (!(await fileExists(join(worktree.path, ".git")))) {
+    return false;
+  }
+
+  const metadataPath = join(worktree.path, ".pool-worktree.json");
+  let metadata = null;
+  try {
+    metadata = JSON.parse(await readFile(metadataPath, "utf8"));
+  } catch {
+    return false;
+  }
+
+  return (
+    metadata &&
+    metadata.repoLocalPath === target.repoLocalPath &&
+    metadata.repoId === worktree.repoId &&
+    metadata.branchName === worktree.branchName &&
+    metadata.baseRef === worktree.baseRef
+  );
 }
 
 async function prepareRuntimeArtifacts(project, ticket, execution) {
