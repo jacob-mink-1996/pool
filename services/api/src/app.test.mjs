@@ -195,6 +195,7 @@ test("project policy and role profiles can be patched through the API", async ()
         requireValidator: false,
         requireHumanApprovalBeforeMerge: false,
         maxParallelExecutions: 6,
+        maxParallelMerges: 2,
         maxAutoContinueIterations: 9,
         agentCreatedTicketDefaultState: "READY",
       }),
@@ -223,6 +224,7 @@ test("project policy and role profiles can be patched through the API", async ()
 
     assert.equal(updatePolicyResponse.status, 200);
     assert.equal(updatePolicyBody.policy.maxParallelExecutions, 6);
+    assert.equal(updatePolicyBody.policy.maxParallelMerges, 2);
     assert.equal(updatePolicyBody.policy.requireReviewer, false);
     assert.equal(updatePolicyBody.policy.requiredValidationCommandProfileForMerge, "");
     assert.equal(updateProfileResponse.status, 200);
@@ -233,6 +235,7 @@ test("project policy and role profiles can be patched through the API", async ()
     assert.equal(profilesBody.profiles.find((profile) => profile.role === "developer").model, "codex-max");
     assert.equal(projectResponse.status, 200);
     assert.equal(projectBody.project.policy.maxAutoContinueIterations, 9);
+    assert.equal(projectBody.project.policy.maxParallelMerges, 2);
     assert.equal(
       projectBody.project.roleProfiles.find((profile) => profile.role === "developer").adapter,
       "codex-cli",

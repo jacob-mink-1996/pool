@@ -120,7 +120,20 @@ class MergeDriver {
     const mergeRuntime = await prepareMergeRuntime(project, ticket);
 
     try {
-      const mergeOutcome = await this.runMergeAttempts(ticket, repos, mergeRuntime);
+      const stopLeaseHeartbeat = startLeaseHeartbeat(
+        () =>
+          this.store.renewMergeRunClaim(queueItem.projectId, startedRun.id, {
+            claimToken: this.claimToken,
+            leaseMs: this.leaseMs,
+          }),
+        this.leaseMs,
+      );
+      let mergeOutcome;
+      try {
+        mergeOutcome = await this.runMergeAttempts(ticket, repos, mergeRuntime);
+      } finally {
+        stopLeaseHeartbeat();
+      }
       this.store.completeMergeRun(queueItem.projectId, startedRun.id, {
         status: mergeOutcome.status,
         summaryMd: mergeOutcome.summaryMd,
@@ -524,4 +537,13 @@ function backoffForAttempt(baseMs, attempt) {
 
 function sleep(milliseconds) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+}
+
+function startLeaseHeartbeat(renew, leaseMs) {
+  const intervalMs = Math.max(10, Math.floor(leaseMs / 2));
+  const timer = setInterval(() => {
+    Promise.resolve(renew()).catch(() => {});
+  }, intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }

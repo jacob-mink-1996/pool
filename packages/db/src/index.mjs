@@ -42,6 +42,7 @@ create table if not exists project_policies (
   require_human_approval_before_merge integer not null default 1,
   required_validation_command_profile_for_merge text not null default '',
   max_parallel_executions integer not null default 1,
+  max_parallel_merges integer not null default 1,
   max_auto_continue_iterations integer not null default 3,
   agent_created_ticket_default_state text not null,
   created_at text not null,
@@ -420,6 +421,9 @@ export function createSqliteStore(options = {}) {
       });
       applyPositiveIntegerPatch(updates, changedFields, input, existing, "maxParallelExecutions", {
         column: "max_parallel_executions",
+      });
+      applyPositiveIntegerPatch(updates, changedFields, input, existing, "maxParallelMerges", {
+        column: "max_parallel_merges",
       });
       applyPositiveIntegerPatch(updates, changedFields, input, existing, "maxAutoContinueIterations", {
         column: "max_auto_continue_iterations",
@@ -1478,6 +1482,7 @@ export function createSqliteStore(options = {}) {
       };
       const approvalDetail =
         approvedByKind && approvedByRef ? `Approved by ${approvedByKind}:${approvedByRef}` : "No approval recorded";
+      assertProjectCanStartMerge(database, projectId, ticket.key);
 
       const started = withTransaction(database, () => {
         const latestRun = getLatestMergeRunRow(database, projectId, ticketId);
@@ -1746,6 +1751,21 @@ export function createSqliteStore(options = {}) {
       });
 
       return claimed ? this.getExecution(projectId, executionId) : null;
+    },
+
+    renewMergeRunClaim(projectId, mergeRunId, input = {}) {
+      const claimToken = requiredText(input.claimToken, "claimToken");
+      const renewedAt = optionalText(input.renewedAt, now());
+      const leaseMs = Number.isInteger(input.leaseMs) && input.leaseMs > 0 ? input.leaseMs : 30_000;
+      const leaseExpiresAt = addMs(renewedAt, leaseMs);
+      const result = database
+        .prepare(
+          `update merge_runs
+           set claim_expires_at = ?
+           where project_id = ? and id = ? and claim_token = ? and finished_at is null`,
+        )
+        .run(leaseExpiresAt, projectId, mergeRunId, claimToken);
+      return result.changes > 0 ? this.getMergeRun(projectId, mergeRunId) : null;
     },
 
     releaseExecutionClaim(projectId, executionId, input = {}) {
@@ -2336,6 +2356,25 @@ function assertProjectCanStartExecution(database, projectId, ticketKey) {
   if (runningCount >= Number(policy.max_parallel_executions)) {
     throw new Error(
       `Project execution limit reached for ${ticketKey}: ${policy.max_parallel_executions} active runs allowed`,
+    );
+  }
+}
+
+function assertProjectCanStartMerge(database, projectId, ticketKey) {
+  const policy = requiredProjectPolicy(database, projectId);
+  const runningCount = Number(
+    database
+      .prepare(
+        `select count(*) as count
+         from merge_runs
+         where project_id = ? and status = 'running' and finished_at is null`,
+      )
+      .get(projectId).count,
+  );
+
+  if (runningCount >= Number(policy.max_parallel_merges)) {
+    throw new Error(
+      `Project merge limit reached for ${ticketKey}: ${policy.max_parallel_merges} active merges allowed`,
     );
   }
 }
@@ -3007,6 +3046,7 @@ function mapProjectPolicy(row) {
     requireHumanApprovalBeforeMerge: Boolean(row.require_human_approval_before_merge),
     requiredValidationCommandProfileForMerge: row.required_validation_command_profile_for_merge || "",
     maxParallelExecutions: Number(row.max_parallel_executions),
+    maxParallelMerges: Number(row.max_parallel_merges),
     maxAutoContinueIterations: Number(row.max_auto_continue_iterations),
     agentCreatedTicketDefaultState: row.agent_created_ticket_default_state,
   };
@@ -3899,9 +3939,9 @@ function insertProjectPolicy(database, projectId, policy, timestamp) {
       `insert into project_policies (
         id, project_id, require_reviewer, require_validator,
         require_human_approval_before_merge, required_validation_command_profile_for_merge,
-        max_parallel_executions, max_auto_continue_iterations, agent_created_ticket_default_state,
-        created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        max_parallel_executions, max_parallel_merges, max_auto_continue_iterations,
+        agent_created_ticket_default_state, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       `policy_${slugify(projectId)}`,
@@ -3911,6 +3951,7 @@ function insertProjectPolicy(database, projectId, policy, timestamp) {
       policy.requireHumanApprovalBeforeMerge ? 1 : 0,
       policy.requiredValidationCommandProfileForMerge || "",
       policy.maxParallelExecutions,
+      policy.maxParallelMerges ?? 1,
       policy.maxAutoContinueIterations,
       policy.agentCreatedTicketDefaultState,
       timestamp,
@@ -4205,6 +4246,9 @@ function migrateSchema(database) {
     database.exec(
       "alter table project_policies add column required_validation_command_profile_for_merge text not null default ''",
     );
+  }
+  if (!policyColumns.has("max_parallel_merges")) {
+    database.exec("alter table project_policies add column max_parallel_merges integer not null default 1");
   }
 
   const eventColumns = new Set(database.prepare("pragma table_info(events)").all().map((row) => row.name));

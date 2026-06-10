@@ -582,6 +582,7 @@ function inferErrorReasonCode(error) {
   if (message.startsWith("Unknown execution for ticket ")) return "unknown_execution";
   if (message.startsWith("Execution already running for ")) return "execution_already_running";
   if (message.startsWith("Project execution limit reached for ")) return "execution_capacity_reached";
+  if (message.startsWith("Project merge limit reached for ")) return "merge_capacity_reached";
   if (message.includes(" reached the continuation limit of ")) return "execution_continue_limit_reached";
   if (message.includes(" must be finished before review")) return "review_execution_not_finished";
   if (message.includes(" must complete successfully before review")) return "review_execution_not_completed";
@@ -772,6 +773,7 @@ function inferErrorStatus(error) {
   if (
     message.startsWith("Execution already running for ") ||
     message.startsWith("Project execution limit reached for ") ||
+    message.startsWith("Project merge limit reached for ") ||
     message.includes(" reached the continuation limit of ") ||
     message === "Cannot clean an active worktree" ||
     message.startsWith("Execution execution_") ||

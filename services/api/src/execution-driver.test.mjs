@@ -420,6 +420,48 @@ test("execution driver retries transient adapter failures before succeeding", as
   }
 });
 
+test("execution driver renews claims while a long-running execution is still active", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-renew-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    store.updateRoleProfile("project_pool", "developer", {
+      adapter: "shell",
+      model: "fixture",
+      config: {
+        command: `"${process.execPath}" -e "setTimeout(() => { const fs=require('node:fs'); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Long-running execution completed.' })); }, 120)"`,
+      },
+    });
+
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Keep renewing this lease while work is in flight.",
+    });
+    const driver = createExecutionDriver({ store, logger: silentLogger(), leaseMs: 40 });
+
+    const pollPromise = driver.pollOnce();
+    await new Promise((resolve) => setTimeout(resolve, 70));
+
+    const competingClaim = store.claimExecution("project_pool", execution.id, {
+      claimToken: "worker-b",
+      leaseMs: 40,
+    });
+
+    await pollPromise;
+
+    assert.equal(competingClaim, null);
+    assert.equal(store.getExecution("project_pool", execution.id).outcome, "completed");
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 function silentLogger() {
   return {
     error() {},

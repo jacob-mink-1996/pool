@@ -383,6 +383,10 @@ export function parseUpdateProjectPolicyInput(body) {
     parsed.maxParallelExecutions = requiredPositiveInteger(body, "maxParallelExecutions");
   }
 
+  if (hasOwn(body, "maxParallelMerges")) {
+    parsed.maxParallelMerges = requiredPositiveInteger(body, "maxParallelMerges");
+  }
+
   if (hasOwn(body, "maxAutoContinueIterations")) {
     parsed.maxAutoContinueIterations = requiredPositiveInteger(body, "maxAutoContinueIterations");
   }

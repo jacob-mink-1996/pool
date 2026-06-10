@@ -31,6 +31,7 @@ create table if not exists project_policies (
   require_validator boolean not null default true,
   require_human_approval_before_merge boolean not null default true,
   max_parallel_executions integer not null default 1,
+  max_parallel_merges integer not null default 1,
   max_auto_continue_iterations integer not null default 3,
   agent_created_ticket_default_state text not null,
   created_at timestamptz not null,

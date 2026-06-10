@@ -121,7 +121,17 @@ class ExecutionDriver {
     }
 
     try {
-      await this.runExecutionAttempts({ execution: freshExecution, ticket, project, adapterRun });
+      const stopLeaseHeartbeat = startLeaseHeartbeat(() =>
+        this.store.claimExecution(execution.projectId, execution.id, {
+          claimToken: this.claimToken,
+          leaseMs: this.leaseMs,
+        }),
+      this.leaseMs);
+      try {
+        await this.runExecutionAttempts({ execution: freshExecution, ticket, project, adapterRun });
+      } finally {
+        stopLeaseHeartbeat();
+      }
     } catch (error) {
       const failureSummary = error instanceof Error ? error.message : String(error);
       const latestExecution = this.store.getExecution(execution.projectId, execution.id);
@@ -218,6 +228,15 @@ function backoffForAttempt(baseMs, attempt) {
 
 function sleep(milliseconds) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+}
+
+function startLeaseHeartbeat(renew, leaseMs) {
+  const intervalMs = Math.max(10, Math.floor(leaseMs / 2));
+  const timer = setInterval(() => {
+    Promise.resolve(renew()).catch(() => {});
+  }, intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }
 
 function selectAdapterRun(profile, execution) {

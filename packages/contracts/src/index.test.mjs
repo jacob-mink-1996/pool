@@ -346,6 +346,7 @@ test("request parsers normalize project and ticket payloads", () => {
   const policy = parseUpdateProjectPolicyInput({
     requireReviewer: false,
     maxParallelExecutions: 4,
+    maxParallelMerges: 2,
     maxAutoContinueIterations: 7,
     agentCreatedTicketDefaultState: " READY ",
   });
@@ -371,6 +372,7 @@ test("request parsers normalize project and ticket payloads", () => {
   assert.deepEqual(policy, {
     requireReviewer: false,
     maxParallelExecutions: 4,
+    maxParallelMerges: 2,
     maxAutoContinueIterations: 7,
     agentCreatedTicketDefaultState: "READY",
   });
@@ -553,6 +555,10 @@ test("request parsers reject invalid enum values and types", () => {
   assert.throws(
     () => parseUpdateProjectPolicyInput({ maxParallelExecutions: 0 }),
     /Field maxParallelExecutions must be a positive integer/,
+  );
+  assert.throws(
+    () => parseUpdateProjectPolicyInput({ maxParallelMerges: 0 }),
+    /Field maxParallelMerges must be a positive integer/,
   );
   assert.throws(
     () => parseUpdateProjectPolicyInput({ agentCreatedTicketDefaultState: "SOON" }),

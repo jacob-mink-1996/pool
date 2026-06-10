@@ -39,6 +39,7 @@ test("store updates project policy and role profiles", () => {
     requireValidator: false,
     requireHumanApprovalBeforeMerge: false,
     maxParallelExecutions: 5,
+    maxParallelMerges: 2,
     maxAutoContinueIterations: 8,
     agentCreatedTicketDefaultState: "READY",
   });
@@ -53,6 +54,7 @@ test("store updates project policy and role profiles", () => {
   assert.equal(updatedPolicy.requireHumanApprovalBeforeMerge, false);
   assert.equal(updatedPolicy.requiredValidationCommandProfileForMerge, "");
   assert.equal(updatedPolicy.maxParallelExecutions, 5);
+  assert.equal(updatedPolicy.maxParallelMerges, 2);
   assert.equal(updatedPolicy.maxAutoContinueIterations, 8);
   assert.equal(updatedPolicy.agentCreatedTicketDefaultState, "READY");
 
@@ -66,6 +68,7 @@ test("store updates project policy and role profiles", () => {
 
   const project = store.getProjectSummary("project_pool");
   assert.equal(project.policy.maxParallelExecutions, 5);
+  assert.equal(project.policy.maxParallelMerges, 2);
   assert.equal(project.policy.agentCreatedTicketDefaultState, "READY");
   assert.equal(project.roleProfiles.find((profile) => profile.role === "developer").adapter, "codex-cli");
   assert.equal(store.listEvents("project_pool").at(-1).summary, "Pool developer profile updated");
@@ -180,6 +183,52 @@ test("store can reconcile interrupted active merge runs after restart", () => {
   assert.equal(mergeStatus.latestRun.status, "blocked");
   assert.equal(ticket.state, "BLOCKED");
   assert.equal(ticket.events.at(-1).reasonCode, "interrupted");
+  store.close();
+});
+
+test("store enforces project merge concurrency limits", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  store.updateProjectPolicy("project_pool", {
+    requireReviewer: false,
+    requireValidator: false,
+    requireHumanApprovalBeforeMerge: false,
+    maxParallelMerges: 1,
+  });
+
+  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Prepare merge-ready implementation.",
+  });
+  store.completeExecution("project_pool", execution.id, {
+    outcome: "completed",
+    summaryMd: "Merge-ready implementation completed.",
+  });
+
+  store.startMergeRun("project_pool", "ticket_project_pool_2", {
+    strategy: "squash",
+    approvedByKind: "system",
+    approvedByRef: "pool-auto",
+    claimToken: "merge-worker-a",
+  });
+
+  const another = store.createTicket("project_pool", {
+    title: "Second merge-ready ticket",
+    brief: "Exercise merge concurrency guardrails.",
+    assignedRole: "developer",
+    state: "READY_TO_MERGE",
+  });
+
+  assert.throws(
+    () =>
+      store.startMergeRun("project_pool", another.id, {
+        strategy: "squash",
+        approvedByKind: "system",
+        approvedByRef: "pool-auto",
+        claimToken: "merge-worker-b",
+      }),
+    /Project merge limit reached for/,
+  );
+
   store.close();
 });
 
