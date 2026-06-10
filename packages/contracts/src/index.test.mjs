@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   boardDto,
+  eventDto,
   parseCompleteExecutionInput,
   parseContinueExecutionInput,
   parseCreateReviewInput,
@@ -18,6 +19,33 @@ import {
   projectSummaryDto,
   ticketDto,
 } from "./index.mjs";
+
+test("eventDto projects a stable event contract for live consumers", () => {
+  const event = eventDto({
+    id: "event_1",
+    sequence: 17,
+    projectId: "project_pool",
+    repoId: "repo_project_pool_pool",
+    repoSlug: "pool",
+    repoName: "pool",
+    ticketId: "ticket_1",
+    ticketKey: "POOL-1",
+    ticketTitle: "Build API",
+    type: "execution.completed",
+    summary: "POOL-1 developer iteration 1 completed",
+    detail: "Execution landed cleanly.",
+    reasonCode: "interrupted",
+    reasonSource: "execution",
+    createdAt: "2026-06-10T05:10:00.000Z",
+  });
+
+  assert.equal(event.family, "execution");
+  assert.equal(event.action, "completed");
+  assert.equal(event.lane, "execution");
+  assert.equal(event.cursor, "2026-06-10T05:10:00.000Z:17");
+  assert.equal(event.reasonCode, "interrupted");
+  assert.equal(event.reasonSource, "execution");
+});
 
 test("boardDto groups tickets by state", () => {
   const board = boardDto("project_pool", [
@@ -253,6 +281,8 @@ test("ticketDto includes projected events", () => {
           type: "ticket.created",
           summary: "Created",
           detail: "",
+          reasonCode: "",
+          reasonSource: "",
           createdAt: "2026-06-10T05:00:00.000Z",
         },
       ],

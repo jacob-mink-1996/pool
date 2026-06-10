@@ -11,8 +11,11 @@ import {
 } from "../../domain/src/index.mjs";
 
 export function eventDto(event) {
+  const [family = "", action = ""] = String(event.type || "").split(".", 2);
   return {
     id: event.id,
+    sequence: Number.isInteger(event.sequence) ? event.sequence : 0,
+    cursor: event.cursor || buildEventCursor(event),
     projectId: event.projectId,
     repoId: event.repoId,
     repoSlug: event.repoSlug || "",
@@ -21,10 +24,48 @@ export function eventDto(event) {
     ticketKey: event.ticketKey || "",
     ticketTitle: event.ticketTitle || "",
     type: event.type,
+    family,
+    action,
+    lane: event.lane || deriveEventLane(family),
     summary: event.summary,
     detail: event.detail,
+    reasonCode: event.reasonCode || "",
+    reasonSource: event.reasonSource || "",
     createdAt: event.createdAt,
   };
+}
+
+function buildEventCursor(event) {
+  if (!event?.createdAt) {
+    return event?.id || "";
+  }
+  const sequence = Number.isInteger(event.sequence) ? event.sequence : 0;
+  return `${event.createdAt}:${sequence}`;
+}
+
+function deriveEventLane(family) {
+  switch (family) {
+    case "execution":
+      return "execution";
+    case "review":
+      return "review";
+    case "validation":
+      return "validation";
+    case "merge":
+      return "merge";
+    case "worktree":
+      return "worktree";
+    case "ticket":
+      return "ticket";
+    case "dependency":
+      return "dependency";
+    case "repo":
+      return "repo";
+    case "project":
+      return "project";
+    default:
+      return "system";
+  }
 }
 
 export function ticketDependencyDto(dependency) {

@@ -89,6 +89,32 @@ test("store transitions tickets and records events", () => {
 
   assert.equal(transitioned.state, "WORKING");
   assert.equal(transitioned.events.at(-1).type, "ticket.transitioned");
+  assert.equal(transitioned.events.at(-1).family, "ticket");
+  assert.equal(transitioned.events.at(-1).action, "transitioned");
+  assert.equal(transitioned.events.at(-1).lane, "ticket");
+  assert.match(transitioned.events.at(-1).cursor, /:/);
+  store.close();
+});
+
+test("store can reconcile interrupted active executions after restart", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Start work before a restart.",
+  });
+
+  const recovered = store.reconcileActiveExecutions();
+  const recoveredExecution = store.getExecution("project_pool", execution.id);
+  const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+
+  assert.equal(recovered.length, 1);
+  assert.equal(recoveredExecution.outcome, "failed");
+  assert.equal(recoveredExecution.failureKind, "interrupted");
+  assert.match(recoveredExecution.summaryMd, /recovered after restart/i);
+  assert.equal(ticket.state, "WORKING");
+  assert.match(ticket.events.at(-1).summary, /failed/);
+  assert.equal(ticket.events.at(-1).reasonCode, "interrupted");
+  assert.equal(ticket.events.at(-1).reasonSource, "execution");
   store.close();
 });
 
@@ -750,7 +776,13 @@ test("store enforces merge validation-profile policy before merge", () => {
   const mergeStatus = store.getMergeStatus("project_pool", "ticket_project_pool_2");
   assert.equal(mergeStatus.ticketState, "READY_TO_MERGE");
   assert.equal(mergeStatus.canMerge, false);
+  assert.equal(mergeStatus.readiness, "waiting");
+  assert.equal(mergeStatus.blockingReasons[0].code, "validation_profile_required");
+  assert.equal(mergeStatus.blockingReasons[0].source, "validation");
+  assert.equal(mergeStatus.approval.required, false);
   assert.match(mergeStatus.statusSummary, /Latest validation must use ci profile before merge/);
+  assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").events.at(-1).reasonCode, "validation_profile_required");
+  assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").events.at(-1).reasonSource, "validation");
 
   assert.throws(
     () =>

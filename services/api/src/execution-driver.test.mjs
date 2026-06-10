@@ -317,8 +317,37 @@ test("execution driver materializes a real git worktree when the target repo exi
   }
 });
 
+test("execution driver reconciles interrupted active executions on startup", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-reconcile-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Run before a simulated restart.",
+    });
+    const driver = createExecutionDriver({ store, logger: silentLogger() });
+
+    await driver.reconcileOnStart();
+
+    const recovered = store.getExecution("project_pool", execution.id);
+    assert.equal(recovered.outcome, "failed");
+    assert.equal(recovered.failureKind, "interrupted");
+    assert.match(recovered.summaryMd, /recovered after restart/i);
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 function silentLogger() {
   return {
     error() {},
+    info() {},
   };
 }

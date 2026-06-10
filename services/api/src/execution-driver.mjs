@@ -31,6 +31,10 @@ class ExecutionDriver {
       return;
     }
 
+    this.reconcileOnStart().catch((error) => {
+      this.logger.error?.("[pool-driver] startup reconciliation failed", error);
+    });
+
     this.timer = setInterval(() => {
       this.pollOnce().catch((error) => {
         this.logger.error?.("[pool-driver] poll failed", error);
@@ -66,6 +70,17 @@ class ExecutionDriver {
     });
 
     await Promise.all(started);
+  }
+
+  async reconcileOnStart() {
+    const recovered = this.store.reconcileActiveExecutions({
+      summaryMd: "Pool recovered after restart before this lane reported a final result.",
+      remainingWorkMd: "Retry or continue this lane now that the control plane is back online.",
+    });
+    if (recovered.length > 0) {
+      this.logger.info?.(`[pool-driver] reconciled ${recovered.length} interrupted execution(s)`);
+    }
+    await this.pollOnce();
   }
 
   async runExecution(execution) {
