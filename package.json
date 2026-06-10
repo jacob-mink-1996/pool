@@ -10,16 +10,29 @@
   ],
   "scripts": {
     "dev": "npm --workspace services/api run dev",
-    "dev:web": "npm --workspace apps/web run dev",
+    "dev:web": "npm --workspace apps/web-react run dev",
+    "build:web": "npm --workspace apps/web-react run build",
     "bootstrap:project": "node scripts/bootstrap-project.mjs",
     "demo:live": "node scripts/demo-live-flow.mjs",
     "verify:mvp": "node scripts/verify-mvp-live.mjs",
     "start": "npm --workspace services/api run start",
-    "start:web": "npm --workspace apps/web run start",
-    "check": "node scripts/check-types.mjs",
+    "start:web": "npm --workspace apps/web-react run preview",
+    "check": "npm run build:web && node scripts/check-types.mjs",
+    "check:ui": "npm run build:web && node scripts/check-react-ui-browser.mjs",
     "test": "node --test"
   },
   "dependencies": {
-    "@shoelace-style/shoelace": "^2.20.1"
+    "@dnd-kit/core": "^6.3.1",
+    "@radix-ui/react-dialog": "^1.1.16",
+    "@radix-ui/react-tabs": "^1.1.14",
+    "@radix-ui/react-tooltip": "^1.2.9",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "lucide-react": "^1.17.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
   }
 }

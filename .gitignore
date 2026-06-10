@@ -1,5 +1,6 @@
 *.log
 node_modules/
+apps/web-react/dist/
 .pool/
 services/api/.pool/
 .pool/*

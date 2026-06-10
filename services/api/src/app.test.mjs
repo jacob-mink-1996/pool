@@ -59,37 +59,32 @@ test("root route serves the operator web app", async () => {
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     assert.match(html, /Pool Mission Control/);
-    assert.match(html, /status-banner/);
-    assert.match(html, /Operator Overview/);
-    assert.match(html, /Create Project/);
-    assert.match(html, /Project Settings/);
-    assert.match(html, /Delivery Policy/);
-    assert.match(html, /Repositories/);
-    assert.match(html, /Agent Profiles/);
-    assert.match(html, /Merge Queue/);
-    assert.match(html, /Execution Lane/);
-    assert.match(html, /Reviews/);
-    assert.match(html, /Validations/);
-    assert.match(html, /Merge Readiness/);
-    assert.match(html, /Worktrees/);
-    assert.match(html, /Artifacts/);
+    assert.match(html, /<div id="root"><\/div>|status-banner/);
   });
 });
 
-test("web module assets are served with the correct content type", async () => {
+test("web assets are served with the correct content type", async () => {
   await withServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/lib/helpers.js`);
+    const rootResponse = await fetch(baseUrl);
+    const html = await rootResponse.text();
+    const moduleMatch = html.match(/src="([^"]+\.js)"/);
+    const assetPath = moduleMatch?.[1] || "/app.js";
+    const response = await fetch(`${baseUrl}${assetPath}`);
     const body = await response.text();
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/javascript/);
-    assert.match(body, /export function prettyState/);
+    assert.equal(body.length > 0, true);
   });
 });
 
 test("head requests succeed for web assets", async () => {
   await withServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/app.js`, { method: "HEAD" });
+    const rootResponse = await fetch(baseUrl);
+    const html = await rootResponse.text();
+    const moduleMatch = html.match(/src="([^"]+\.js)"/);
+    const assetPath = moduleMatch?.[1] || "/app.js";
+    const response = await fetch(`${baseUrl}${assetPath}`, { method: "HEAD" });
     const body = await response.text();
 
     assert.equal(response.status, 200);
