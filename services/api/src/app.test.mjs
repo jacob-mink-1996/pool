@@ -57,6 +57,7 @@ test("root route serves the operator web app", async () => {
     assert.match(html, /Validations/);
     assert.match(html, /Merge Readiness/);
     assert.match(html, /Worktrees/);
+    assert.match(html, /Artifacts/);
   });
 });
 
@@ -199,6 +200,7 @@ test("project policy and role profiles can be patched through the API", async ()
     assert.equal(updatePolicyResponse.status, 200);
     assert.equal(updatePolicyBody.policy.maxParallelExecutions, 6);
     assert.equal(updatePolicyBody.policy.requireReviewer, false);
+    assert.equal(updatePolicyBody.policy.requiredValidationCommandProfileForMerge, "");
     assert.equal(updateProfileResponse.status, 200);
     assert.equal(updateProfileBody.profile.role, "developer");
     assert.equal(updateProfileBody.profile.adapter, "codex-cli");
@@ -211,6 +213,79 @@ test("project policy and role profiles can be patched through the API", async ()
       projectBody.project.roleProfiles.find((profile) => profile.role === "developer").adapter,
       "codex-cli",
     );
+  });
+});
+
+test("API surfaces merge-policy blocks when validation profile does not satisfy policy", async () => {
+  await withServer(async (baseUrl) => {
+    await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        requireReviewer: false,
+        requireValidator: true,
+        requireHumanApprovalBeforeMerge: false,
+        requiredValidationCommandProfileForMerge: "ci",
+      }),
+    });
+
+    const executionResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        role: "developer",
+        reason: "Prepare merge policy validation mismatch.",
+      }),
+    });
+    const executionBody = await executionResponse.json();
+
+    await fetch(`${baseUrl}/api/v1/projects/project_pool/executions/${executionBody.execution.id}/complete`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        outcome: "completed",
+        summaryMd: "Implementation completed for merge mismatch test.",
+      }),
+    });
+
+    const ticketAfterImplementation = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`);
+    const ticketAfterImplementationBody = await ticketAfterImplementation.json();
+    const validatorExecution = ticketAfterImplementationBody.ticket.executions.find(
+      (item) => item.role === "validator",
+    );
+
+    await fetch(`${baseUrl}/api/v1/projects/project_pool/executions/${validatorExecution.id}/complete`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        outcome: "completed",
+        summaryMd: "Validation completed with the wrong profile.",
+        validation: {
+          verdict: "passed",
+          commandProfile: "smoke",
+          commands: ["npm test"],
+          repoIds: ["repo_project_pool_pool"],
+          summaryMd: "Validation passed but under the wrong profile.",
+        },
+      }),
+    });
+
+    const mergeStatusResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`);
+    const mergeStatusBody = await mergeStatusResponse.json();
+    assert.equal(mergeStatusResponse.status, 200);
+    assert.equal(mergeStatusBody.merge.canMerge, false);
+    assert.match(mergeStatusBody.merge.statusSummary, /Latest validation must use ci profile before merge/);
+
+    const mergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        strategy: "squash",
+      }),
+    });
+    const mergeBody = await mergeResponse.json();
+    assert.equal(mergeResponse.status, 409);
+    assert.match(mergeBody.message, /Latest validation must use ci profile before merge/);
   });
 });
 
@@ -238,6 +313,13 @@ test("review and validation endpoints persist evidence and advance ticket state"
         body: JSON.stringify({
           outcome: "completed",
           summaryMd: "Implementation is ready for reviewer evidence.",
+          artifacts: [
+            {
+              kind: "patch",
+              label: "Implementation diff",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2.patch",
+            },
+          ],
         }),
       },
     );
@@ -252,6 +334,13 @@ test("review and validation endpoints persist evidence and advance ticket state"
           executionId: executionBody.execution.id,
           verdict: "rework",
           summaryMd: "Reviewer found a routing issue.",
+          artifacts: [
+            {
+              kind: "report",
+              label: "Reviewer notes",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2-review.md",
+            },
+          ],
           findings: [
             {
               severity: "high",
@@ -269,6 +358,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
     assert.equal(reviewResponse.status, 201);
     assert.equal(reviewBody.review.findingsCount, 1);
     assert.equal(reviewBody.review.findings[0].severity, "high");
+    assert.equal(reviewBody.review.artifacts[0].label, "Reviewer notes");
 
     const reviewListResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
@@ -305,6 +395,13 @@ test("review and validation endpoints persist evidence and advance ticket state"
           commands: ["npm test"],
           verdict: "passed",
           summaryMd: "Validation checks passed.",
+          artifacts: [
+            {
+              kind: "log",
+              label: "Validation output",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2-validation.log",
+            },
+          ],
         }),
       },
     );
@@ -312,6 +409,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
     assert.equal(validationResponse.status, 201);
     assert.equal(validationBody.validations.length, 1);
     assert.equal(validationBody.validations[0].verdict, "passed");
+    assert.equal(validationBody.validations[0].artifacts[0].kind, "log");
 
     const validationListResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/validations`,
@@ -326,6 +424,12 @@ test("review and validation endpoints persist evidence and advance ticket state"
     const ticketAfterValidationBody = await ticketAfterValidationResponse.json();
     assert.equal(ticketAfterValidationBody.ticket.state, "READY_TO_MERGE");
     assert.equal(ticketAfterValidationBody.ticket.validations.length, 1);
+    assert.equal(
+      ticketAfterValidationBody.ticket.executions.find((execution) => execution.id === executionBody.execution.id)
+        .artifacts[0].label,
+      "Implementation diff",
+    );
+    assert.equal(ticketAfterValidationBody.ticket.artifacts.length, 3);
   });
 });
 
@@ -632,6 +736,55 @@ test("dependency endpoint rejects missing blocker tickets with not found", async
   });
 });
 
+test("API exposes a live SSE event stream for project activity", async () => {
+  await withServer(async (baseUrl) => {
+    const abortController = new AbortController();
+    const response = await fetch(`${baseUrl}/api/v1/projects/project_pool/events/stream?limit=10`, {
+      signal: abortController.signal,
+    });
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /text\/event-stream/);
+
+    const reader = response.body.getReader();
+    const initialChunk = await readStreamChunk(reader);
+    assert.match(initialChunk, /event: snapshot/);
+
+    await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/transition`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        targetState: "WORKING",
+        reason: "Drive a live event for the stream.",
+      }),
+    });
+
+    const nextChunk = await readStreamUntil(reader, /ticket\.transitioned|WORKING/);
+    assert.match(nextChunk, /event: event/);
+    assert.match(nextChunk, /ticket\.transitioned/);
+
+    abortController.abort();
+  });
+});
+
 function findColumn(columns, state) {
   return columns.find((column) => column.state === state);
+}
+
+async function readStreamChunk(reader) {
+  const { value, done } = await reader.read();
+  assert.equal(done, false);
+  return new TextDecoder().decode(value);
+}
+
+async function readStreamUntil(reader, pattern, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  let text = "";
+  while (Date.now() < deadline) {
+    text += await readStreamChunk(reader);
+    if (pattern.test(text)) {
+      return text;
+    }
+  }
+  throw new Error(`Timed out waiting for stream pattern: ${pattern}`);
 }

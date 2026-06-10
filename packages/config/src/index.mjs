@@ -5,6 +5,7 @@ export function defaultProjectPolicy() {
     requireReviewer: true,
     requireValidator: true,
     requireHumanApprovalBeforeMerge: true,
+    requiredValidationCommandProfileForMerge: "",
     maxParallelExecutions: 3,
     maxAutoContinueIterations: 5,
     agentCreatedTicketDefaultState: "PROPOSED",

@@ -46,6 +46,9 @@ export function executionDto(execution) {
     id: execution.id,
     projectId: execution.projectId,
     ticketId: execution.ticketId,
+    ticketKey: execution.ticketKey || "",
+    ticketTitle: execution.ticketTitle || "",
+    ticketState: execution.ticketState || "",
     agentProfileId: execution.agentProfileId,
     role: execution.role,
     iteration: execution.iteration,
@@ -58,7 +61,27 @@ export function executionDto(execution) {
     blockedKind: execution.blockedKind,
     startedAt: execution.startedAt,
     finishedAt: execution.finishedAt,
+    artifacts: (execution.artifacts || []).map(artifactDto),
     worktrees: (execution.worktrees || []).map(worktreeDto),
+  };
+}
+
+export function artifactDto(artifact) {
+  return {
+    id: artifact.id,
+    projectId: artifact.projectId,
+    ticketId: artifact.ticketId,
+    ticketKey: artifact.ticketKey || "",
+    ticketTitle: artifact.ticketTitle || "",
+    executionId: artifact.executionId || "",
+    reviewId: artifact.reviewId || "",
+    validationRunId: artifact.validationRunId || "",
+    mergeRunId: artifact.mergeRunId || "",
+    kind: artifact.kind,
+    label: artifact.label,
+    uri: artifact.uri,
+    metadata: { ...(artifact.metadata || {}) },
+    createdAt: artifact.createdAt,
   };
 }
 
@@ -95,6 +118,7 @@ export function reviewDto(review) {
     summaryMd: review.summaryMd,
     findingsCount: review.findingsCount,
     createdAt: review.createdAt,
+    artifacts: (review.artifacts || []).map(artifactDto),
     findings: (review.findings || []).map((finding) => ({ ...finding })),
   };
 }
@@ -111,6 +135,7 @@ export function mergeRunDto(mergeRun) {
     summaryMd: mergeRun.summaryMd,
     startedAt: mergeRun.startedAt,
     finishedAt: mergeRun.finishedAt,
+    artifacts: (mergeRun.artifacts || []).map(artifactDto),
   };
 }
 
@@ -130,6 +155,7 @@ export function validationRunDto(validation) {
     summaryMd: validation.summaryMd,
     startedAt: validation.startedAt,
     finishedAt: validation.finishedAt,
+    artifacts: (validation.artifacts || []).map(artifactDto),
   };
 }
 
@@ -230,6 +256,7 @@ export function ticketDetailDto(ticket, options = {}) {
     validations: (options.validations || []).map(validationRunDto),
     dependencies: (options.dependencies || []).map(ticketDependencyDto),
     worktrees: (options.worktrees || []).map(worktreeDto),
+    artifacts: (options.artifacts || []).map(artifactDto),
     mergeStatus: options.mergeStatus ? { ...options.mergeStatus } : null,
     repoTargets: (options.repoTargets || []).map((target) => ({
       id: target.id,
@@ -308,6 +335,7 @@ export function parseUpdateProjectPolicyInput(body) {
     requireReviewer: optionalBoolean(body, "requireReviewer"),
     requireValidator: optionalBoolean(body, "requireValidator"),
     requireHumanApprovalBeforeMerge: optionalBoolean(body, "requireHumanApprovalBeforeMerge"),
+    requiredValidationCommandProfileForMerge: optionalPatchedString(body, "requiredValidationCommandProfileForMerge"),
   });
 
   if (hasOwn(body, "maxParallelExecutions")) {
@@ -506,6 +534,9 @@ export function parseCompleteExecutionInput(body) {
     expectedNextEvidenceMd: optionalOptionalString(body, "expectedNextEvidenceMd"),
     failureKind: optionalOptionalString(body, "failureKind"),
     blockedKind: optionalOptionalString(body, "blockedKind"),
+    artifacts: parseArtifacts(body.artifacts),
+    review: parseEmbeddedReviewResult(body.review),
+    validation: parseEmbeddedValidationResult(body.validation),
   });
 }
 
@@ -523,6 +554,7 @@ export function parseCreateReviewInput(body) {
     verdict,
     summaryMd: optionalOptionalString(body, "summaryMd"),
     blockedKind: optionalOptionalString(body, "blockedKind"),
+    artifacts: parseArtifacts(body.artifacts),
     findings: parseReviewFindings(body.findings),
   });
 }
@@ -541,6 +573,7 @@ export function parseCreateValidationInput(body) {
     verdict,
     summaryMd: optionalOptionalString(body, "summaryMd"),
     blockedKind: optionalOptionalString(body, "blockedKind"),
+    artifacts: parseArtifacts(body.artifacts),
     commands: parseCommands(body.commands),
     repoIds: parseRepoIds(body.repoIds),
   });
@@ -554,6 +587,7 @@ export function parseMergeTicketInput(body) {
     approvedByKind: optionalOptionalString(body, "approvedByKind"),
     approvedByRef: optionalOptionalString(body, "approvedByRef"),
     summaryMd: optionalOptionalString(body, "summaryMd"),
+    artifacts: parseArtifacts(body.artifacts),
   });
 
   if (hasOwn(body, "status")) {
@@ -587,6 +621,72 @@ function parseRepoTargets(value) {
       branchName: optionalString(target, "branchName"),
       targetScopeMd: optionalString(target, "targetScopeMd"),
     });
+  });
+}
+
+function parseEmbeddedReviewResult(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  assertObject(value, "review");
+
+  const verdict = requiredFieldString(value, "verdict", "review.verdict");
+  if (!isReviewVerdict(verdict)) {
+    throw new Error(`Invalid review verdict: ${verdict}`);
+  }
+
+  return compactObject({
+    verdict,
+    summaryMd: optionalNestedString(value, "summaryMd"),
+    blockedKind: optionalNestedString(value, "blockedKind"),
+    artifacts: value.artifacts === undefined ? undefined : parseArtifacts(value.artifacts),
+    findings: value.findings === undefined ? undefined : parseEmbeddedReviewFindings(value.findings),
+  });
+}
+
+function parseEmbeddedValidationResult(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  assertObject(value, "validation");
+
+  const verdict = requiredFieldString(value, "verdict", "validation.verdict");
+  if (!isValidationVerdict(verdict)) {
+    throw new Error(`Invalid validation verdict: ${verdict}`);
+  }
+
+  return compactObject({
+    verdict,
+    summaryMd: optionalNestedString(value, "summaryMd"),
+    blockedKind: optionalNestedString(value, "blockedKind"),
+    artifacts: value.artifacts === undefined ? undefined : parseArtifacts(value.artifacts),
+    commands: value.commands === undefined ? undefined : parseCommands(value.commands),
+    repoIds: value.repoIds === undefined ? undefined : parseRepoIds(value.repoIds),
+    commandProfile: optionalNestedString(value, "commandProfile"),
+  });
+}
+
+function parseArtifacts(value) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error("Field artifacts must be an array");
+  }
+
+  return value.map((artifact, index) => {
+    assertObject(artifact, `artifacts[${index}]`);
+    const parsed = compactObject({
+      kind: requiredFieldString(artifact, "kind", `artifacts[${index}].kind`),
+      label: requiredFieldString(artifact, "label", `artifacts[${index}].label`),
+      uri: requiredFieldString(artifact, "uri", `artifacts[${index}].uri`),
+    });
+
+    if (hasOwn(artifact, "metadata")) {
+      parsed.metadata = optionalObject(artifact, "metadata");
+    }
+
+    return parsed;
   });
 }
 
@@ -624,6 +724,34 @@ function parseReviewFindings(value) {
   });
 }
 
+function parseEmbeddedReviewFindings(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error("Field findings must be an array");
+  }
+
+  return value.map((finding, index) => {
+    assertObject(finding, `findings[${index}]`);
+    const severity = requiredFieldString(finding, "severity", `findings[${index}].severity`);
+    if (!isReviewFindingSeverity(severity)) {
+      throw new Error(`Invalid review finding severity: ${severity}`);
+    }
+
+    return compactObject({
+      severity,
+      category: requiredFieldString(finding, "category", `findings[${index}].category`),
+      title: requiredFieldString(finding, "title", `findings[${index}].title`),
+      filePath: optionalNestedString(finding, "filePath"),
+      detailsMd: optionalNestedString(finding, "detailsMd"),
+      lineNumber: hasOwn(finding, "lineNumber")
+        ? requiredPositiveNestedInteger(finding.lineNumber, `findings[${index}].lineNumber`)
+        : undefined,
+    });
+  });
+}
+
 function parseCommands(value) {
   if (value === undefined) {
     return [];
@@ -654,6 +782,24 @@ function parseRepoIds(value) {
     }
     return repoId.trim();
   });
+}
+
+function optionalNestedString(source, field) {
+  if (!hasOwn(source, field)) {
+    return undefined;
+  }
+  if (typeof source[field] !== "string") {
+    throw new Error(`Field ${field} must be a string`);
+  }
+  const value = source[field].trim();
+  return value || undefined;
+}
+
+function requiredPositiveNestedInteger(value, label) {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Field ${label} must be a positive integer`);
+  }
+  return value;
 }
 
 function assertObject(value, label = "Request body") {

@@ -51,6 +51,7 @@ test("store updates project policy and role profiles", () => {
   assert.equal(updatedPolicy.requireReviewer, false);
   assert.equal(updatedPolicy.requireValidator, false);
   assert.equal(updatedPolicy.requireHumanApprovalBeforeMerge, false);
+  assert.equal(updatedPolicy.requiredValidationCommandProfileForMerge, "");
   assert.equal(updatedPolicy.maxParallelExecutions, 5);
   assert.equal(updatedPolicy.maxAutoContinueIterations, 8);
   assert.equal(updatedPolicy.agentCreatedTicketDefaultState, "READY");
@@ -312,11 +313,14 @@ test("store persists execution history and routes ticket state from outcomes", (
 
   const ticketAfterComplete = store.getTicket("project_pool", "ticket_project_pool_2");
   assert.equal(ticketAfterComplete.state, "REVIEWING");
-  assert.equal(ticketAfterComplete.executions.length, 1);
-  assert.equal(ticketAfterComplete.executions[0].id, started.id);
-  assert.equal(ticketAfterComplete.executions[0].worktrees[0].status, "ready_for_review");
-  assert.equal(ticketAfterComplete.worktrees.length, 1);
-  assert.equal(ticketAfterComplete.worktrees[0].executionId, started.id);
+  assert.equal(ticketAfterComplete.executions.length, 2);
+  assert.equal(ticketAfterComplete.executions.some((execution) => execution.id === started.id), true);
+  assert.equal(
+    ticketAfterComplete.executions.find((execution) => execution.id === started.id).worktrees[0].status,
+    "ready_for_review",
+  );
+  assert.equal(ticketAfterComplete.worktrees.length, 2);
+  assert.equal(ticketAfterComplete.worktrees.some((worktree) => worktree.executionId === started.id), true);
   assert.equal(ticketAfterComplete.events.some((event) => event.type === "worktree.created"), true);
 
   const listedWorktrees = store.listWorktrees("project_pool", {
@@ -394,7 +398,7 @@ test("store persists review and validation evidence and advances the ticket loop
   const ticketAfterReview = store.getTicket("project_pool", "ticket_project_pool_2");
   assert.equal(ticketAfterReview.state, "VALIDATING");
   assert.equal(ticketAfterReview.reviews.length, 1);
-  assert.equal(ticketAfterReview.events.at(-1).type, "review.completed");
+  assert.equal(ticketAfterReview.events.some((event) => event.type === "review.completed"), true);
 
   const validations = store.createValidation("project_pool", "ticket_project_pool_2", {
     executionId: started.id,
@@ -425,6 +429,123 @@ test("store persists review and validation evidence and advances the ticket loop
     .tickets.find((ticket) => ticket.id === "ticket_project_pool_2");
   assert.equal(boardTicket.latestReviewVerdict, "passed");
   assert.equal(boardTicket.latestValidationVerdict, "passed");
+
+  store.close();
+});
+
+test("store auto-routes next execution lanes after implementation and review completion", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+
+  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Finish implementation and let Pool route review.",
+  });
+  store.completeExecution("project_pool", implementation.id, {
+    outcome: "completed",
+    summaryMd: "Implementation finished for autonomous review routing.",
+  });
+
+  const ticketAfterImplementation = store.getTicket("project_pool", "ticket_project_pool_2");
+  assert.equal(ticketAfterImplementation.state, "REVIEWING");
+  assert.equal(ticketAfterImplementation.executions.some((execution) => execution.role === "reviewer"), true);
+  assert.equal(
+    ticketAfterImplementation.executions.find((execution) => execution.role === "reviewer").status,
+    "running",
+  );
+
+  const review = store.createReview("project_pool", "ticket_project_pool_2", {
+    executionId: implementation.id,
+    verdict: "passed",
+    summaryMd: "Reviewer approved the implementation.",
+  });
+  assert.equal(review.verdict, "passed");
+
+  const ticketAfterReview = store.getTicket("project_pool", "ticket_project_pool_2");
+  assert.equal(ticketAfterReview.state, "VALIDATING");
+  assert.equal(ticketAfterReview.executions.some((execution) => execution.role === "validator"), true);
+  assert.equal(
+    ticketAfterReview.executions.find((execution) => execution.role === "validator").status,
+    "running",
+  );
+
+  store.close();
+});
+
+test("store can persist a review directly from reviewer execution completion", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+
+  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Finish implementation and auto-route review.",
+  });
+  store.completeExecution("project_pool", implementation.id, {
+    outcome: "completed",
+    summaryMd: "Implementation finished for embedded reviewer evidence.",
+  });
+
+  const reviewerExecution = store
+    .getTicket("project_pool", "ticket_project_pool_2")
+    .executions.find((execution) => execution.role === "reviewer");
+  assert.ok(reviewerExecution);
+
+  store.completeExecution("project_pool", reviewerExecution.id, {
+    outcome: "completed",
+    summaryMd: "Reviewer execution finished.",
+    review: {
+      verdict: "passed",
+      summaryMd: "Reviewer found no blocking issues.",
+      artifacts: [{ kind: "report", label: "Reviewer notes", uri: "file:///tmp/review.md" }],
+      findings: [],
+    },
+  });
+
+  const ticketAfterReview = store.getTicket("project_pool", "ticket_project_pool_2");
+  assert.equal(ticketAfterReview.state, "VALIDATING");
+  assert.equal(ticketAfterReview.reviews.length, 1);
+  assert.equal(ticketAfterReview.reviews[0].artifacts[0].label, "Reviewer notes");
+  assert.equal(ticketAfterReview.executions.some((execution) => execution.role === "validator"), true);
+
+  store.close();
+});
+
+test("store can persist validation directly from validator execution completion", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  store.updateProjectPolicy("project_pool", {
+    requireReviewer: false,
+    requireValidator: true,
+  });
+
+  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Finish implementation and auto-route validation.",
+  });
+  store.completeExecution("project_pool", implementation.id, {
+    outcome: "completed",
+    summaryMd: "Implementation finished for embedded validator evidence.",
+  });
+
+  const validatorExecution = store
+    .getTicket("project_pool", "ticket_project_pool_2")
+    .executions.find((execution) => execution.role === "validator");
+  assert.ok(validatorExecution);
+
+  store.completeExecution("project_pool", validatorExecution.id, {
+    outcome: "completed",
+    summaryMd: "Validator execution finished.",
+    validation: {
+      verdict: "passed",
+      commandProfile: "ci",
+      commands: ["npm test"],
+      artifacts: [{ kind: "log", label: "Validation output", uri: "file:///tmp/validation.log" }],
+      repoIds: ["repo_project_pool_pool"],
+      summaryMd: "Validation checks passed.",
+    },
+  });
+
+  const ticketAfterValidation = store.getTicket("project_pool", "ticket_project_pool_2");
+  assert.equal(ticketAfterValidation.state, "READY_TO_MERGE");
+  assert.equal(ticketAfterValidation.validations.length, 1);
+  assert.equal(ticketAfterValidation.validations[0].artifacts[0].label, "Validation output");
 
   store.close();
 });
@@ -517,6 +638,8 @@ test("store respects review and validation policy skips after execution completi
 test("store persists merge runs and closes merge-ready tickets", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
   store.updateProjectPolicy("project_pool", {
+    requireReviewer: false,
+    requireValidator: false,
     requireHumanApprovalBeforeMerge: true,
   });
   store.transitionTicket("project_pool", "ticket_project_pool_2", {
@@ -553,6 +676,10 @@ test("store persists merge runs and closes merge-ready tickets", () => {
 
 test("store enforces merge readiness and approval policy", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
+  store.updateProjectPolicy("project_pool", {
+    requireReviewer: false,
+    requireValidator: false,
+  });
   store.transitionTicket("project_pool", "ticket_project_pool_2", {
     targetState: "READY_TO_MERGE",
     reason: "Ready for merge policy checks.",
@@ -582,6 +709,57 @@ test("store enforces merge readiness and approval policy", () => {
         approvedByRef: "jacob",
       }),
     /Ticket POOL-1 is not ready for merge/,
+  );
+
+  store.close();
+});
+
+test("store enforces merge validation-profile policy before merge", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  store.updateProjectPolicy("project_pool", {
+    requireReviewer: false,
+    requireValidator: true,
+    requireHumanApprovalBeforeMerge: false,
+    requiredValidationCommandProfileForMerge: "ci",
+  });
+
+  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Prepare merge policy validation test.",
+  });
+  store.completeExecution("project_pool", implementation.id, {
+    outcome: "completed",
+    summaryMd: "Implementation completed for merge policy test.",
+  });
+
+  const validatorExecution = store
+    .getTicket("project_pool", "ticket_project_pool_2")
+    .executions.find((execution) => execution.role === "validator");
+  store.completeExecution("project_pool", validatorExecution.id, {
+    outcome: "completed",
+    summaryMd: "Validation completed with non-ci profile.",
+    validation: {
+      verdict: "passed",
+      commandProfile: "smoke",
+      commands: ["npm test"],
+      repoIds: ["repo_project_pool_pool"],
+      summaryMd: "Validation passed but under the wrong profile.",
+    },
+  });
+
+  const mergeStatus = store.getMergeStatus("project_pool", "ticket_project_pool_2");
+  assert.equal(mergeStatus.ticketState, "READY_TO_MERGE");
+  assert.equal(mergeStatus.canMerge, false);
+  assert.match(mergeStatus.statusSummary, /Latest validation must use ci profile before merge/);
+
+  assert.throws(
+    () =>
+      store.mergeTicket("project_pool", "ticket_project_pool_2", {
+        strategy: "squash",
+        approvedByKind: "human",
+        approvedByRef: "jacob",
+      }),
+    /Latest validation must use ci profile before merge/,
   );
 
   store.close();

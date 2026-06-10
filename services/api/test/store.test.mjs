@@ -37,9 +37,25 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
       reason: "Picked up for the next MVP implementation pass.",
     });
 
+    const execution = store.createExecution("project_pool", createdTicket.id, {
+      role: "developer",
+      reason: "Capture durable evidence for the board read model pass.",
+    });
+    store.completeExecution("project_pool", execution.id, {
+      outcome: "completed",
+      summaryMd: "Board aggregate implementation finished.",
+      artifacts: [
+        {
+          kind: "patch",
+          label: "Board aggregate diff",
+          uri: "file:///workspace/pool/.pool/artifacts/pool-3.patch",
+        },
+      ],
+    });
+
     const boardBeforeClose = store.getProjectBoard("project_pool");
-    const workingColumnBeforeClose = boardBeforeClose.columns.find((column) => column.state === "WORKING");
-    assert.equal(workingColumnBeforeClose.count, 2);
+    const reviewingColumnBeforeClose = boardBeforeClose.columns.find((column) => column.state === "REVIEWING");
+    assert.equal(reviewingColumnBeforeClose.count, 1);
 
     store.close();
 
@@ -50,7 +66,7 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
     });
 
     const filteredTickets = reopenedStore.listTickets("project_pool", {
-      states: ["WORKING"],
+      states: ["REVIEWING"],
       search: "board read model",
     });
     assert.equal(filteredTickets.length, 1);
@@ -58,9 +74,15 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
     assert.equal(filteredTickets[0].repoCount, 1);
 
     const persistedTicket = reopenedStore.getTicket("project_pool", createdTicket.id);
-    assert.equal(persistedTicket.state, "WORKING");
-    assert.equal(persistedTicket.events.length, 2);
+    assert.equal(persistedTicket.state, "REVIEWING");
+    assert.equal(persistedTicket.events.length, 7);
     assert.equal(persistedTicket.repoTargets[0].repoName, "pool");
+    assert.equal(persistedTicket.executions.length, 2);
+    assert.equal(
+      persistedTicket.executions.find((persistedExecution) => persistedExecution.id === execution.id).artifacts[0].label,
+      "Board aggregate diff",
+    );
+    assert.equal(persistedTicket.artifacts[0].kind, "patch");
 
     reopenedStore.close();
   } finally {

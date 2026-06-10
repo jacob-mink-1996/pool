@@ -166,10 +166,23 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     const createExecutionBody = await createExecutionResponse.json();
     assert.equal(createExecutionBody.execution.status, "running");
     assert.equal(createExecutionBody.execution.iteration, 1);
+    assert.equal(createExecutionBody.execution.ticketKey, "POOL-2");
+    assert.equal(createExecutionBody.execution.ticketTitle, "Define first transport contracts");
+    assert.equal(createExecutionBody.execution.ticketState, "WORKING");
     assert.equal(createExecutionBody.execution.agentProfileId, "profile_project_pool_developer");
     assert.equal(createExecutionBody.execution.worktrees.length, 1);
     assert.equal(createExecutionBody.execution.worktrees[0].repoSlug, "pool");
     assert.match(createExecutionBody.execution.worktrees[0].path, /\/workspace\/pool\/\.pool\/worktrees\/pool-2\/pool\/iter-1$/);
+
+    const executionDetailResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/executions/${createExecutionBody.execution.id}`,
+    );
+    assert.equal(executionDetailResponse.status, 200);
+    const executionDetailBody = await executionDetailResponse.json();
+    assert.equal(executionDetailBody.execution.id, createExecutionBody.execution.id);
+    assert.equal(executionDetailBody.execution.ticketKey, "POOL-2");
+    assert.equal(executionDetailBody.execution.ticketTitle, "Define first transport contracts");
+    assert.equal(executionDetailBody.execution.ticketState, "WORKING");
 
     const listExecutionsResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
@@ -177,6 +190,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(listExecutionsResponse.status, 200);
     const listExecutionsBody = await listExecutionsResponse.json();
     assert.equal(listExecutionsBody.executions.length, 1);
+    assert.equal(listExecutionsBody.executions[0].ticketKey, "POOL-2");
 
     const completeExecutionResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/executions/${createExecutionBody.execution.id}/complete`,
@@ -192,6 +206,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(completeExecutionResponse.status, 200);
     const completeExecutionBody = await completeExecutionResponse.json();
     assert.equal(completeExecutionBody.execution.outcome, "completed");
+    assert.equal(completeExecutionBody.execution.ticketState, "REVIEWING");
     assert.equal(completeExecutionBody.execution.worktrees[0].status, "ready_for_review");
 
     const ticketAfterCompleteResponse = await fetch(
@@ -200,10 +215,22 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     const ticketAfterCompleteBody = await ticketAfterCompleteResponse.json();
     assert.equal(ticketAfterCompleteResponse.status, 200);
     assert.equal(ticketAfterCompleteBody.ticket.state, "REVIEWING");
-    assert.equal(ticketAfterCompleteBody.ticket.executions.length, 1);
-    assert.equal(ticketAfterCompleteBody.ticket.worktrees.length, 1);
-    assert.equal(ticketAfterCompleteBody.ticket.executions[0].worktrees[0].status, "ready_for_review");
+    assert.equal(ticketAfterCompleteBody.ticket.executions.length, 2);
+    assert.equal(ticketAfterCompleteBody.ticket.worktrees.length, 2);
+    assert.equal(
+      ticketAfterCompleteBody.ticket.executions.find((execution) => execution.id === createExecutionBody.execution.id)
+        .worktrees[0].status,
+      "ready_for_review",
+    );
+    assert.equal(ticketAfterCompleteBody.ticket.executions.some((execution) => execution.role === "reviewer"), true);
+    assert.equal(
+      ticketAfterCompleteBody.ticket.executions.find((execution) => execution.role === "reviewer").status,
+      "running",
+    );
     assert.equal(ticketAfterCompleteBody.ticket.events.some((event) => event.type === "worktree.created"), true);
+    const reviewerExecutionId = ticketAfterCompleteBody.ticket.executions.find(
+      (execution) => execution.role === "reviewer",
+    ).id;
 
     const listWorktreesResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/worktrees?ticketId=ticket_project_pool_2&status=ready_for_review`,
@@ -227,6 +254,18 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     const cleanWorktreeBody = await cleanWorktreeResponse.json();
     assert.equal(cleanWorktreeBody.worktree.status, "cleaned");
     assert.ok(cleanWorktreeBody.worktree.cleanedAt);
+
+    const cancelReviewerResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/executions/${reviewerExecutionId}/cancel`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          reason: "Clear the auto-routed reviewer lane before the continuation test.",
+        }),
+      },
+    );
+    assert.equal(cancelReviewerResponse.status, 200);
 
     const tightenPolicyResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {
       method: "PATCH",
@@ -388,6 +427,13 @@ test("API exposes review and validation evidence flows", async () => {
         body: JSON.stringify({
           outcome: "completed",
           summaryMd: "Implementation completed and ready for review.",
+          artifacts: [
+            {
+              kind: "patch",
+              label: "Implementation diff",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2.patch",
+            },
+          ],
         }),
       },
     );
@@ -402,12 +448,20 @@ test("API exposes review and validation evidence flows", async () => {
           executionId: createExecutionBody.execution.id,
           verdict: "passed",
           summaryMd: "Reviewer found no blocking issues.",
+          artifacts: [
+            {
+              kind: "report",
+              label: "Reviewer notes",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2-review.md",
+            },
+          ],
         }),
       },
     );
     assert.equal(reviewResponse.status, 201);
     const reviewBody = await reviewResponse.json();
     assert.equal(reviewBody.review.verdict, "passed");
+    assert.equal(reviewBody.review.artifacts[0].label, "Reviewer notes");
 
     const reviewListResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
@@ -428,6 +482,13 @@ test("API exposes review and validation evidence flows", async () => {
           commands: ["npm test"],
           verdict: "passed",
           summaryMd: "Validation checks passed.",
+          artifacts: [
+            {
+              kind: "log",
+              label: "Validation output",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2-validation.log",
+            },
+          ],
         }),
       },
     );
@@ -435,6 +496,7 @@ test("API exposes review and validation evidence flows", async () => {
     const validationBody = await validationResponse.json();
     assert.equal(validationBody.validations.length, 1);
     assert.equal(validationBody.validations[0].repoSlug, "pool");
+    assert.equal(validationBody.validations[0].artifacts[0].kind, "log");
 
     const ticketDetailResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
@@ -444,6 +506,12 @@ test("API exposes review and validation evidence flows", async () => {
     assert.equal(ticketDetailBody.ticket.state, "READY_TO_MERGE");
     assert.equal(ticketDetailBody.ticket.reviews.length, 1);
     assert.equal(ticketDetailBody.ticket.validations.length, 1);
+    assert.equal(
+      ticketDetailBody.ticket.executions.find((execution) => execution.id === createExecutionBody.execution.id)
+        .artifacts[0].label,
+      "Implementation diff",
+    );
+    assert.equal(ticketDetailBody.ticket.artifacts.length, 3);
 
     const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/board`);
     assert.equal(boardResponse.status, 200);
@@ -473,6 +541,15 @@ test("API exposes merge readiness and merge completion flows", async () => {
   try {
     await listen(server);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+    await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        requireReviewer: false,
+        requireValidator: false,
+      }),
+    });
 
     await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/transition`, {
       method: "POST",
@@ -520,6 +597,13 @@ test("API exposes merge readiness and merge completion flows", async () => {
           approvedByKind: "human",
           approvedByRef: "jacob",
           summaryMd: "Merged after review and validation passed.",
+          artifacts: [
+            {
+              kind: "record",
+              label: "Merge commit",
+              uri: "https://example.com/pool/commit/123",
+            },
+          ],
         }),
       },
     );
@@ -528,6 +612,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
     assert.equal(mergeBody.merge.ticketState, "DONE");
     assert.equal(mergeBody.merge.latestRun.status, "completed");
     assert.equal(mergeBody.merge.latestRun.approvedByRef, "jacob");
+    assert.equal(mergeBody.merge.latestRun.artifacts[0].label, "Merge commit");
 
     const ticketDetailResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
@@ -536,6 +621,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
     const ticketDetailBody = await ticketDetailResponse.json();
     assert.equal(ticketDetailBody.ticket.state, "DONE");
     assert.equal(ticketDetailBody.ticket.mergeStatus.latestRun.strategy, "squash");
+    assert.equal(ticketDetailBody.ticket.mergeStatus.latestRun.artifacts[0].kind, "record");
     assert.equal(ticketDetailBody.ticket.events.at(-2).type, "merge.started");
     assert.equal(ticketDetailBody.ticket.events.at(-1).type, "merge.completed");
 
@@ -602,6 +688,142 @@ test("API exposes filtered project activity events with ticket and repo context"
       `${baseUrl}/api/v1/projects/project_pool/events?order=sideways&limit=0`,
     );
     assert.equal(invalidFilterResponse.status, 400);
+  } finally {
+    await closeServer(server);
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("API exposes project artifact feeds with ticket context and filters", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-api-"));
+  const filename = join(fixtureDir, "pool.sqlite");
+  const store = createStore({
+    filename,
+    seedDemo: true,
+    workspaceRoot: "/workspace/pool",
+  });
+  const server = createPoolServer({ store });
+
+  try {
+    await listen(server);
+    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+    const executionResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          role: "developer",
+          reason: "Capture artifact feed evidence.",
+        }),
+      },
+    );
+    assert.equal(executionResponse.status, 201);
+    const executionBody = await executionResponse.json();
+
+    const completeResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/executions/${executionBody.execution.id}/complete`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          outcome: "completed",
+          summaryMd: "Execution completed with durable evidence.",
+          artifacts: [
+            {
+              kind: "patch",
+              label: "Implementation diff",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2.patch",
+            },
+          ],
+        }),
+      },
+    );
+    assert.equal(completeResponse.status, 200);
+
+    const reviewResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          executionId: executionBody.execution.id,
+          verdict: "passed",
+          summaryMd: "Review recorded its evidence for the artifact feed.",
+          artifacts: [
+            {
+              kind: "report",
+              label: "Reviewer notes",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2-review.md",
+            },
+          ],
+        }),
+      },
+    );
+    assert.equal(reviewResponse.status, 201);
+
+    const validationResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/validations`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          executionId: executionBody.execution.id,
+          repoIds: ["repo_project_pool_pool"],
+          commands: ["npm test"],
+          verdict: "passed",
+          summaryMd: "Validation recorded its evidence for the artifact feed.",
+          artifacts: [
+            {
+              kind: "log",
+              label: "Validation output",
+              uri: "file:///workspace/pool/.pool/artifacts/pool-2-validation.log",
+            },
+          ],
+        }),
+      },
+    );
+    assert.equal(validationResponse.status, 201);
+
+    const mergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        strategy: "squash",
+        status: "completed",
+        approvedByKind: "human",
+        approvedByRef: "jacob",
+        summaryMd: "Merged with durable evidence recorded.",
+        artifacts: [
+          {
+            kind: "record",
+            label: "Merge commit",
+            uri: "https://example.com/pool/commit/123",
+          },
+        ],
+      }),
+    });
+    assert.equal(mergeResponse.status, 200);
+
+    const artifactsResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/artifacts?limit=2`);
+    assert.equal(artifactsResponse.status, 200);
+    const artifactsBody = await artifactsResponse.json();
+    assert.equal(artifactsBody.artifacts.length, 2);
+    assert.equal(artifactsBody.artifacts[0].label, "Merge commit");
+    assert.equal(artifactsBody.artifacts[0].ticketKey, "POOL-2");
+    assert.equal(artifactsBody.artifacts[0].ticketTitle, "Define first transport contracts");
+    assert.equal(artifactsBody.artifacts[1].kind, "log");
+
+    const filteredArtifactsResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/artifacts?ticketId=ticket_project_pool_2&kind=record&limit=1`,
+    );
+    assert.equal(filteredArtifactsResponse.status, 200);
+    const filteredArtifactsBody = await filteredArtifactsResponse.json();
+    assert.equal(filteredArtifactsBody.artifacts.length, 1);
+    assert.equal(filteredArtifactsBody.artifacts[0].mergeRunId.length > 0, true);
+    assert.equal(filteredArtifactsBody.artifacts[0].label, "Merge commit");
   } finally {
     await closeServer(server);
     store.close();

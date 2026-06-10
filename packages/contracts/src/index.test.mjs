@@ -75,6 +75,9 @@ test("ticketDto includes projected events", () => {
           id: "execution_1",
           projectId: "project_pool",
           ticketId: "ticket_1",
+          ticketKey: "POOL-1",
+          ticketTitle: "Build API",
+          ticketState: "READY",
           agentProfileId: "profile_project_pool_developer",
           role: "developer",
           iteration: 1,
@@ -87,6 +90,21 @@ test("ticketDto includes projected events", () => {
           blockedKind: "",
           startedAt: "2026-06-10T05:00:00.000Z",
           finishedAt: "2026-06-10T05:10:00.000Z",
+          artifacts: [
+            {
+              id: "artifact_1",
+              projectId: "project_pool",
+              ticketId: "ticket_1",
+              ticketKey: "POOL-1",
+              ticketTitle: "Build API",
+              executionId: "execution_1",
+              kind: "patch",
+              label: "API diff",
+              uri: "file:///workspace/pool/diffs/pool-1.patch",
+              metadata: { sizeBytes: 1024 },
+              createdAt: "2026-06-10T05:10:00.000Z",
+            },
+          ],
           worktrees: [
             {
               id: "worktree_1",
@@ -187,6 +205,21 @@ test("ticketDto includes projected events", () => {
           cleanedAt: null,
         },
       ],
+      artifacts: [
+        {
+          id: "artifact_ticket_1",
+          projectId: "project_pool",
+          ticketId: "ticket_1",
+          ticketKey: "POOL-1",
+          ticketTitle: "Build API",
+          executionId: "execution_1",
+          kind: "patch",
+          label: "API diff",
+          uri: "file:///workspace/pool/diffs/pool-1.patch",
+          metadata: { sizeBytes: 1024 },
+          createdAt: "2026-06-10T05:10:00.000Z",
+        },
+      ],
       mergeStatus: {
         projectId: "project_pool",
         ticketId: "ticket_1",
@@ -229,6 +262,8 @@ test("ticketDto includes projected events", () => {
   assert.equal(ticket.dependencies.length, 1);
   assert.equal(ticket.executions.length, 1);
   assert.equal(ticket.executions[0].outcome, "completed");
+  assert.equal(ticket.executions[0].ticketKey, "POOL-1");
+  assert.equal(ticket.executions[0].ticketState, "READY");
   assert.equal(ticket.executions[0].worktrees.length, 1);
   assert.equal(ticket.reviews.length, 1);
   assert.equal(ticket.reviews[0].findings[0].severity, "high");
@@ -239,6 +274,10 @@ test("ticketDto includes projected events", () => {
   assert.equal(ticket.worktrees[0].path, "/workspace/pool/.pool/worktrees/pool-1/pool/iter-1");
   assert.equal(ticket.mergeStatus.canMerge, true);
   assert.equal(ticket.mergeStatus.latestRun.strategy, "squash");
+  assert.equal(ticket.executions[0].artifacts[0].kind, "patch");
+  assert.equal(ticket.artifacts[0].label, "API diff");
+  assert.equal(ticket.artifacts[0].ticketKey, "POOL-1");
+  assert.equal(ticket.artifacts[0].ticketTitle, "Build API");
   assert.equal(ticket.events.length, 1);
   assert.equal(ticket.events[0].type, "ticket.created");
   assert.equal(ticket.parentTicketId, "ticket_parent_1");
@@ -346,11 +385,31 @@ test("execution parsers normalize execution payloads", () => {
     outcome: "needs_continue",
     summaryMd: " Implemented the first half ",
     remainingWorkMd: " Finish the follow-up persistence ",
+    artifacts: [{ kind: "log", label: "Run log", uri: "file:///tmp/pool.log" }],
+    review: {
+      verdict: "rework",
+      summaryMd: " Needs another pass ",
+      artifacts: [{ kind: "report", label: "Review notes", uri: "file:///tmp/review.md" }],
+      findings: [
+        {
+          severity: "high",
+          category: "correctness",
+          title: " Null guard missing ",
+        },
+      ],
+    },
+    validation: {
+      verdict: "passed",
+      commandProfile: " ci ",
+      commands: [" npm test "],
+      artifacts: [{ kind: "log", label: "CI output", uri: "file:///tmp/ci.txt" }],
+    },
   });
   const review = parseCreateReviewInput({
     executionId: " execution_1 ",
     verdict: "rework",
     summaryMd: " Needs another pass ",
+    artifacts: [{ kind: "report", label: "Review notes", uri: "file:///tmp/review.md" }],
     findings: [
       {
         severity: "high",
@@ -369,6 +428,7 @@ test("execution parsers normalize execution payloads", () => {
     commands: [" npm test ", " npm run lint "],
     verdict: "passed",
     summaryMd: " Everything passed ",
+    artifacts: [{ kind: "log", label: "CI output", uri: "file:///tmp/ci.txt" }],
   });
 
   assert.deepEqual(createExecution, {
@@ -384,11 +444,31 @@ test("execution parsers normalize execution payloads", () => {
     outcome: "needs_continue",
     summaryMd: "Implemented the first half",
     remainingWorkMd: "Finish the follow-up persistence",
+    artifacts: [{ kind: "log", label: "Run log", uri: "file:///tmp/pool.log" }],
+    review: {
+      verdict: "rework",
+      summaryMd: "Needs another pass",
+      artifacts: [{ kind: "report", label: "Review notes", uri: "file:///tmp/review.md" }],
+      findings: [
+        {
+          severity: "high",
+          category: "correctness",
+          title: "Null guard missing",
+        },
+      ],
+    },
+    validation: {
+      verdict: "passed",
+      commandProfile: "ci",
+      commands: ["npm test"],
+      artifacts: [{ kind: "log", label: "CI output", uri: "file:///tmp/ci.txt" }],
+    },
   });
   assert.deepEqual(review, {
     executionId: "execution_1",
     verdict: "rework",
     summaryMd: "Needs another pass",
+    artifacts: [{ kind: "report", label: "Review notes", uri: "file:///tmp/review.md" }],
     findings: [
       {
         severity: "high",
@@ -407,6 +487,7 @@ test("execution parsers normalize execution payloads", () => {
     commands: ["npm test", "npm run lint"],
     verdict: "passed",
     summaryMd: "Everything passed",
+    artifacts: [{ kind: "log", label: "CI output", uri: "file:///tmp/ci.txt" }],
   });
 });
 
@@ -417,6 +498,7 @@ test("merge parser normalizes merge payloads", () => {
     approvedByKind: " human ",
     approvedByRef: " Jacob ",
     summaryMd: " Merged after review and validation passed. ",
+    artifacts: [{ kind: "record", label: "Merge commit", uri: "https://example.com/merge/123" }],
   });
 
   assert.deepEqual(merge, {
@@ -425,6 +507,7 @@ test("merge parser normalizes merge payloads", () => {
     approvedByKind: "human",
     approvedByRef: "Jacob",
     summaryMd: "Merged after review and validation passed.",
+    artifacts: [{ kind: "record", label: "Merge commit", uri: "https://example.com/merge/123" }],
   });
 });
 

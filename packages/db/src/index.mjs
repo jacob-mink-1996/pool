@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { defaultProjectPolicy, defaultRoleProfiles } from "../../config/src/index.mjs";
 import {
+  artifactDto,
   executionDto,
   eventDto,
   mergeRunDto,
@@ -39,6 +40,7 @@ create table if not exists project_policies (
   require_reviewer integer not null default 1,
   require_validator integer not null default 1,
   require_human_approval_before_merge integer not null default 1,
+  required_validation_command_profile_for_merge text not null default '',
   max_parallel_executions integer not null default 1,
   max_auto_continue_iterations integer not null default 3,
   agent_created_ticket_default_state text not null,
@@ -192,6 +194,21 @@ create table if not exists validation_runs (
   finished_at text not null
 );
 
+create table if not exists artifacts (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  ticket_id text not null references tickets(id) on delete cascade,
+  execution_id text references executions(id) on delete cascade,
+  review_id text references reviews(id) on delete cascade,
+  validation_run_id text references validation_runs(id) on delete cascade,
+  merge_run_id text references merge_runs(id) on delete cascade,
+  kind text not null,
+  label text not null,
+  uri text not null,
+  metadata_json text not null default '{}',
+  created_at text not null
+);
+
 create table if not exists merge_runs (
   id text primary key,
   project_id text not null references projects(id) on delete cascade,
@@ -230,6 +247,12 @@ create index if not exists idx_reviews_ticket_id on reviews(ticket_id);
 create index if not exists idx_review_findings_review_id on review_findings(review_id);
 create index if not exists idx_validation_runs_project_id on validation_runs(project_id);
 create index if not exists idx_validation_runs_ticket_id on validation_runs(ticket_id);
+create index if not exists idx_artifacts_project_id on artifacts(project_id);
+create index if not exists idx_artifacts_ticket_id on artifacts(ticket_id);
+create index if not exists idx_artifacts_execution_id on artifacts(execution_id);
+create index if not exists idx_artifacts_review_id on artifacts(review_id);
+create index if not exists idx_artifacts_validation_run_id on artifacts(validation_run_id);
+create index if not exists idx_artifacts_merge_run_id on artifacts(merge_run_id);
 create index if not exists idx_merge_runs_project_id on merge_runs(project_id);
 create index if not exists idx_merge_runs_ticket_id on merge_runs(ticket_id);
 create index if not exists idx_events_project_id on events(project_id);
@@ -248,6 +271,7 @@ export function createSqliteStore(options = {}) {
 
   const database = new DatabaseSync(filename);
   database.exec(SQLITE_SCHEMA);
+  migrateSchema(database);
 
   if (options.seedDemo !== false && countProjects(database) === 0) {
     seed(database, options.workspaceRoot || process.cwd());
@@ -383,6 +407,9 @@ export function createSqliteStore(options = {}) {
       });
       applyBooleanPatch(updates, changedFields, input, existing, "requireHumanApprovalBeforeMerge", {
         column: "require_human_approval_before_merge",
+      });
+      applyTextPatch(updates, changedFields, input, existing, "requiredValidationCommandProfileForMerge", {
+        column: "required_validation_command_profile_for_merge",
       });
       applyPositiveIntegerPatch(updates, changedFields, input, existing, "maxParallelExecutions", {
         column: "max_parallel_executions",
@@ -838,8 +865,14 @@ export function createSqliteStore(options = {}) {
       const validations = getValidationRunsByTicketId(database, projectId, [ticket.id]).get(ticket.id) || [];
       const worktrees = getWorktreesByTicketId(database, projectId, [ticket.id]).get(ticket.id) || [];
       const worktreesByExecutionId = groupWorktreesByExecutionId(worktrees);
+      const executionArtifactsByExecutionId = getArtifactsByExecutionId(
+        database,
+        projectId,
+        executions.map((execution) => execution.id),
+      );
       const mergeStatus = buildMergeStatus(database, mapTicket(ticket), worktrees);
       const events = this.listEvents(projectId, { ticketId });
+      const artifacts = getArtifactsByTicketId(database, projectId, [ticket.id]).get(ticket.id) || [];
       const dependencyCount = Number(
         database
           .prepare("select count(*) as count from ticket_dependencies where project_id = ? and blocked_ticket_id = ?")
@@ -850,12 +883,14 @@ export function createSqliteStore(options = {}) {
         dependencies,
         executions: executions.map((execution) => ({
           ...execution,
+          artifacts: executionArtifactsByExecutionId.get(execution.id) || [],
           worktrees: worktreesByExecutionId.get(execution.id) || [],
         })),
         reviews,
         validations,
         repoTargets,
         worktrees,
+        artifacts,
         mergeStatus,
         dependencyCount,
         eventCount: events.length,
@@ -1091,7 +1126,7 @@ export function createSqliteStore(options = {}) {
            order by started_at desc, iteration desc`,
         )
         .all(projectId, ticketId)
-        .map((row) => executionDto(mapExecution(row)));
+        .map((row) => this.getExecution(projectId, row.id));
     },
 
     listReviews(projectId, ticketId) {
@@ -1130,6 +1165,7 @@ export function createSqliteStore(options = {}) {
       );
       const verdict = requiredText(input.verdict, "verdict");
       const findings = input.findings || [];
+      const artifacts = input.artifacts || [];
       const timestamp = now();
       const review = {
         id: `review_${randomUUID()}`,
@@ -1189,6 +1225,17 @@ export function createSqliteStore(options = {}) {
             );
         }
 
+        insertArtifacts(
+          database,
+          projectId,
+          ticketId,
+          {
+            reviewId: review.id,
+          },
+          artifacts,
+          timestamp,
+        );
+
         database
           .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
           .run(nextState, ticketSummary, timestamp, projectId, ticketId);
@@ -1201,6 +1248,16 @@ export function createSqliteStore(options = {}) {
           detail: review.summaryMd || `${findings.length} finding${findings.length === 1 ? "" : "s"}`,
         });
       });
+
+      if (verdict === "passed") {
+        startAutoRoutedLaneExecution({
+          store: this,
+          database,
+          projectId,
+          ticketId,
+          reason: `${ticket.key} review passed; Pool routed the validator lane.`,
+        });
+      }
 
       return reviewDto(getReviewsByTicketId(database, projectId, [ticketId]).get(ticketId)[0]);
     },
@@ -1250,9 +1307,13 @@ export function createSqliteStore(options = {}) {
         `${ticket.key} validation ${verdict === "passed" ? "passed" : verdict === "failed" ? "found rework" : "blocked"}`;
       const commandProfile = optionalText(input.commandProfile);
       const commands = input.commands || [];
+      const artifacts = input.artifacts || [];
+      const validationIds = [];
 
       withTransaction(database, () => {
         for (const repoId of repoIds) {
+          const validationId = `validation_${randomUUID()}`;
+          validationIds.push(validationId);
           database
             .prepare(
               `insert into validation_runs (
@@ -1261,7 +1322,7 @@ export function createSqliteStore(options = {}) {
               ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             )
             .run(
-              `validation_${randomUUID()}`,
+              validationId,
               projectId,
               ticketId,
               repoId,
@@ -1275,6 +1336,19 @@ export function createSqliteStore(options = {}) {
               timestamp,
               timestamp,
             );
+        }
+
+        for (const validationId of validationIds) {
+          insertArtifacts(
+            database,
+            projectId,
+            ticketId,
+            {
+              validationRunId: validationId,
+            },
+            artifacts,
+            timestamp,
+          );
         }
 
         database
@@ -1316,14 +1390,20 @@ export function createSqliteStore(options = {}) {
 
       const policy = requiredProjectPolicy(database, projectId);
       const status = optionalText(input.status, "completed");
+      const latestReview = getLatestReviewRow(database, projectId, ticketId);
+      const latestValidation = getLatestValidationRunRow(database, projectId, ticketId);
       const requiresHumanApproval = readPolicyBoolean(
         policy,
         "requireHumanApprovalBeforeMerge",
         "require_human_approval_before_merge",
       );
+      const mergePolicyBlock = describeMergePolicyBlock(policy, latestReview, latestValidation);
       const approvedByKind = optionalText(input.approvedByKind);
       const approvedByRef = optionalText(input.approvedByRef);
 
+      if (mergePolicyBlock) {
+        throw new Error(mergePolicyBlock);
+      }
       if (status === "completed" && requiresHumanApproval && (!approvedByKind || !approvedByRef)) {
         throw new Error(`Ticket ${ticket.key} requires human approval before merge`);
       }
@@ -1345,6 +1425,7 @@ export function createSqliteStore(options = {}) {
         startedAt: timestamp,
         finishedAt: timestamp,
       };
+      const artifacts = input.artifacts || [];
       const nextState = deriveTicketStateForMergeStatus(status);
       const approvalDetail =
         approvedByKind && approvedByRef ? `Approved by ${approvedByKind}:${approvedByRef}` : "No approval recorded";
@@ -1369,6 +1450,17 @@ export function createSqliteStore(options = {}) {
             mergeRun.startedAt,
             mergeRun.finishedAt,
           );
+
+        insertArtifacts(
+          database,
+          projectId,
+          ticketId,
+          {
+            mergeRunId: mergeRun.id,
+          },
+          artifacts,
+          timestamp,
+        );
 
         database
           .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
@@ -1400,11 +1492,30 @@ export function createSqliteStore(options = {}) {
         return null;
       }
 
+      const ticket = getTicketRow(database, projectId, execution.ticket_id);
       const worktrees = getWorktreesByExecutionId(database, projectId, [execution.id]).get(execution.id) || [];
+      const artifacts = getArtifactsByExecutionId(database, projectId, [execution.id]).get(execution.id) || [];
       return executionDto({
         ...mapExecution(execution),
+        ticketKey: ticket?.key || "",
+        ticketTitle: ticket?.title || "",
+        ticketState: ticket?.state || "",
+        artifacts,
         worktrees,
       });
+    },
+
+    listActiveExecutions() {
+      return database
+        .prepare(
+          `select project_id, id
+           from executions
+           where finished_at is null and status = 'running'
+           order by started_at asc`,
+        )
+        .all()
+        .map((row) => this.getExecution(row.project_id, row.id))
+        .filter(Boolean);
     },
 
     createExecution(projectId, ticketId, input) {
@@ -1527,7 +1638,7 @@ export function createSqliteStore(options = {}) {
           .prepare(
             "update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?",
           )
-          .run("WORKING", reason, timestamp, projectId, ticketId);
+          .run(deriveTicketStateForExecutionStart(role), reason, timestamp, projectId, ticketId);
 
         insertEvent(database, {
           projectId,
@@ -1571,6 +1682,9 @@ export function createSqliteStore(options = {}) {
       const expectedNextEvidenceMd = optionalText(input.expectedNextEvidenceMd);
       const failureKind = optionalText(input.failureKind);
       const blockedKind = optionalText(input.blockedKind);
+      const artifacts = input.artifacts || [];
+      const embeddedReview = input.review || null;
+      const embeddedValidation = input.validation || null;
       const nextState = deriveTicketStateForExecutionOutcome(
         ticket.state,
         outcome,
@@ -1614,6 +1728,17 @@ export function createSqliteStore(options = {}) {
           .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
           .run(nextState, ticketSummary, timestamp, projectId, execution.ticket_id);
 
+        insertArtifacts(
+          database,
+          projectId,
+          execution.ticket_id,
+          {
+            executionId,
+          },
+          artifacts,
+          timestamp,
+        );
+
         insertEvent(database, {
           projectId,
           ticketId: execution.ticket_id,
@@ -1622,6 +1747,40 @@ export function createSqliteStore(options = {}) {
           detail: summaryMd || remainingWorkMd || failureKind || blockedKind || "",
         });
       });
+
+      if (outcome === "completed" && execution.role === "developer") {
+        startAutoRoutedLaneExecution({
+          store: this,
+          database,
+          projectId,
+          ticketId: execution.ticket_id,
+          reason: `${ticket.key} implementation completed; Pool routed the next evidence lane.`,
+        });
+      }
+
+      if (outcome === "completed" && execution.role === "reviewer" && embeddedReview) {
+        this.createReview(projectId, execution.ticket_id, {
+          executionId,
+          verdict: embeddedReview.verdict,
+          summaryMd: embeddedReview.summaryMd,
+          blockedKind: embeddedReview.blockedKind,
+          artifacts: embeddedReview.artifacts || [],
+          findings: embeddedReview.findings || [],
+        });
+      }
+
+      if (outcome === "completed" && execution.role === "validator" && embeddedValidation) {
+        this.createValidation(projectId, execution.ticket_id, {
+          executionId,
+          repoIds: embeddedValidation.repoIds || [],
+          commandProfile: embeddedValidation.commandProfile,
+          commands: embeddedValidation.commands || [],
+          verdict: embeddedValidation.verdict,
+          summaryMd: embeddedValidation.summaryMd,
+          blockedKind: embeddedValidation.blockedKind,
+          artifacts: embeddedValidation.artifacts || [],
+        });
+      }
 
       return this.getExecution(projectId, executionId);
     },
@@ -1790,6 +1949,42 @@ export function createSqliteStore(options = {}) {
         .all(...params)
         .map((row) => eventDto(mapEvent(row)));
     },
+
+    listArtifacts(projectId, filters = {}) {
+      const clauses = ["a.project_id = ?"];
+      const params = [projectId];
+
+      for (const [field, column] of [
+        ["ticketId", "a.ticket_id"],
+        ["executionId", "a.execution_id"],
+        ["reviewId", "a.review_id"],
+        ["validationRunId", "a.validation_run_id"],
+        ["mergeRunId", "a.merge_run_id"],
+        ["kind", "a.kind"],
+      ]) {
+        if (filters[field]) {
+          clauses.push(`${column} = ?`);
+          params.push(filters[field]);
+        }
+      }
+
+      const limit =
+        Number.isInteger(filters.limit) && filters.limit > 0 ? ` limit ${filters.limit}` : "";
+
+      return database
+        .prepare(
+          `select
+             a.*,
+             t.key as ticket_key,
+             t.title as ticket_title
+           from artifacts a
+           left join tickets t on t.project_id = a.project_id and t.id = a.ticket_id
+           where ${clauses.join(" and ")}
+           order by a.created_at desc, a.rowid desc${limit}`,
+        )
+        .all(...params)
+        .map((row) => artifactDto(mapArtifact(row)));
+    },
   };
 }
 
@@ -1864,6 +2059,42 @@ function assertProjectCanStartExecution(database, projectId, ticketKey) {
     throw new Error(
       `Project execution limit reached for ${ticketKey}: ${policy.max_parallel_executions} active runs allowed`,
     );
+  }
+}
+
+function startAutoRoutedLaneExecution({ store, database, projectId, ticketId, reason }) {
+  const ticket = getTicketRow(database, projectId, ticketId);
+  if (!ticket) {
+    return null;
+  }
+
+  let nextRole = null;
+  if (ticket.state === "REVIEWING") {
+    nextRole = "reviewer";
+  } else if (ticket.state === "VALIDATING") {
+    nextRole = "validator";
+  } else {
+    return null;
+  }
+
+  const runningExecution = database
+    .prepare(
+      `select id
+       from executions
+       where project_id = ? and ticket_id = ? and role = ? and status = 'running'`,
+    )
+    .get(projectId, ticketId, nextRole);
+  if (runningExecution) {
+    return store.getExecution(projectId, runningExecution.id);
+  }
+
+  try {
+    return store.createExecution(projectId, ticketId, {
+      role: nextRole,
+      reason,
+    });
+  } catch {
+    return null;
   }
 }
 
@@ -2126,6 +2357,146 @@ function getWorktreesByExecutionId(database, projectId, executionIds) {
   return byExecutionId;
 }
 
+function getArtifactsByTicketId(database, projectId, ticketIds) {
+  const byTicketId = new Map();
+  for (const ticketId of ticketIds) {
+    byTicketId.set(ticketId, []);
+  }
+  if (ticketIds.length === 0) {
+    return byTicketId;
+  }
+
+  const placeholders = ticketIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where project_id = ? and ticket_id in (${placeholders})
+       order by created_at desc`,
+    )
+    .all(projectId, ...ticketIds);
+
+  for (const row of rows) {
+    const artifacts = byTicketId.get(row.ticket_id) || [];
+    artifacts.push(mapArtifact(row));
+    byTicketId.set(row.ticket_id, artifacts);
+  }
+
+  return byTicketId;
+}
+
+function getArtifactsByExecutionId(database, projectId, executionIds) {
+  const byExecutionId = new Map();
+  for (const executionId of executionIds) {
+    byExecutionId.set(executionId, []);
+  }
+  if (executionIds.length === 0) {
+    return byExecutionId;
+  }
+
+  const placeholders = executionIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where project_id = ? and execution_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(projectId, ...executionIds);
+
+  for (const row of rows) {
+    const artifacts = byExecutionId.get(row.execution_id) || [];
+    artifacts.push(mapArtifact(row));
+    byExecutionId.set(row.execution_id, artifacts);
+  }
+
+  return byExecutionId;
+}
+
+function getArtifactsByReviewId(database, reviewIds) {
+  const byReviewId = new Map();
+  for (const reviewId of reviewIds) {
+    byReviewId.set(reviewId, []);
+  }
+  if (reviewIds.length === 0) {
+    return byReviewId;
+  }
+
+  const placeholders = reviewIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where review_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(...reviewIds);
+
+  for (const row of rows) {
+    const artifacts = byReviewId.get(row.review_id) || [];
+    artifacts.push(mapArtifact(row));
+    byReviewId.set(row.review_id, artifacts);
+  }
+
+  return byReviewId;
+}
+
+function getArtifactsByValidationRunId(database, validationRunIds) {
+  const byValidationRunId = new Map();
+  for (const validationRunId of validationRunIds) {
+    byValidationRunId.set(validationRunId, []);
+  }
+  if (validationRunIds.length === 0) {
+    return byValidationRunId;
+  }
+
+  const placeholders = validationRunIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where validation_run_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(...validationRunIds);
+
+  for (const row of rows) {
+    const artifacts = byValidationRunId.get(row.validation_run_id) || [];
+    artifacts.push(mapArtifact(row));
+    byValidationRunId.set(row.validation_run_id, artifacts);
+  }
+
+  return byValidationRunId;
+}
+
+function getArtifactsByMergeRunId(database, mergeRunIds) {
+  const byMergeRunId = new Map();
+  for (const mergeRunId of mergeRunIds) {
+    byMergeRunId.set(mergeRunId, []);
+  }
+  if (mergeRunIds.length === 0) {
+    return byMergeRunId;
+  }
+
+  const placeholders = mergeRunIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where merge_run_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(...mergeRunIds);
+
+  for (const row of rows) {
+    const artifacts = byMergeRunId.get(row.merge_run_id) || [];
+    artifacts.push(mapArtifact(row));
+    byMergeRunId.set(row.merge_run_id, artifacts);
+  }
+
+  return byMergeRunId;
+}
+
 function getReviewsByTicketId(database, projectId, ticketIds) {
   const byTicketId = new Map();
   for (const ticketId of ticketIds) {
@@ -2147,11 +2518,13 @@ function getReviewsByTicketId(database, projectId, ticketIds) {
 
   const reviewIds = reviewRows.map((row) => row.id);
   const findingsByReviewId = getReviewFindingsByReviewId(database, reviewIds);
+  const artifactsByReviewId = getArtifactsByReviewId(database, reviewIds);
 
   for (const row of reviewRows) {
     const reviews = byTicketId.get(row.ticket_id) || [];
     reviews.push({
       ...mapReview(row),
+      artifacts: artifactsByReviewId.get(row.id) || [],
       findings: findingsByReviewId.get(row.id) || [],
     });
     byTicketId.set(row.ticket_id, reviews);
@@ -2220,9 +2593,15 @@ function getValidationRunsByTicketId(database, projectId, ticketIds) {
     )
     .all(projectId, ...ticketIds);
 
+  const validationIds = rows.map((row) => row.id);
+  const artifactsByValidationRunId = getArtifactsByValidationRunId(database, validationIds);
+
   for (const row of rows) {
     const validations = byTicketId.get(row.ticket_id) || [];
-    validations.push(mapValidationRun(row));
+    validations.push({
+      ...mapValidationRun(row),
+      artifacts: artifactsByValidationRunId.get(row.id) || [],
+    });
     byTicketId.set(row.ticket_id, validations);
   }
 
@@ -2285,6 +2664,30 @@ function getLatestValidationVerdictsByTicketId(database, projectId, ticketIds) {
   return byTicketId;
 }
 
+function getLatestReviewRow(database, projectId, ticketId) {
+  return database
+    .prepare(
+      `select id, verdict, summary_md, blocked_kind, created_at
+       from reviews
+       where project_id = ? and ticket_id = ?
+       order by created_at desc
+       limit 1`,
+    )
+    .get(projectId, ticketId);
+}
+
+function getLatestValidationRunRow(database, projectId, ticketId) {
+  return database
+    .prepare(
+      `select id, verdict, command_profile, summary_md, blocked_kind, finished_at
+       from validation_runs
+       where project_id = ? and ticket_id = ?
+       order by finished_at desc
+       limit 1`,
+    )
+    .get(projectId, ticketId);
+}
+
 function groupWorktreesByExecutionId(worktrees) {
   const byExecutionId = new Map();
   for (const worktree of worktrees) {
@@ -2324,6 +2727,7 @@ function mapProjectPolicy(row) {
     requireReviewer: Boolean(row.require_reviewer),
     requireValidator: Boolean(row.require_validator),
     requireHumanApprovalBeforeMerge: Boolean(row.require_human_approval_before_merge),
+    requiredValidationCommandProfileForMerge: row.required_validation_command_profile_for_merge || "",
     maxParallelExecutions: Number(row.max_parallel_executions),
     maxAutoContinueIterations: Number(row.max_auto_continue_iterations),
     agentCreatedTicketDefaultState: row.agent_created_ticket_default_state,
@@ -2409,6 +2813,25 @@ function mapEvent(row) {
     type: row.type,
     summary: row.summary,
     detail: row.detail,
+    createdAt: row.created_at,
+  };
+}
+
+function mapArtifact(row) {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    ticketId: row.ticket_id,
+    ticketKey: row.ticket_key,
+    ticketTitle: row.ticket_title,
+    executionId: row.execution_id,
+    reviewId: row.review_id,
+    validationRunId: row.validation_run_id,
+    mergeRunId: row.merge_run_id,
+    kind: row.kind,
+    label: row.label,
+    uri: row.uri,
+    metadata: JSON.parse(row.metadata_json),
     createdAt: row.created_at,
   };
 }
@@ -2517,12 +2940,17 @@ function buildBoardSummary(tickets) {
 function buildMergeStatus(database, ticket, worktrees = []) {
   const policy = requiredProjectPolicy(database, ticket.projectId);
   const latestRun = getLatestMergeRunRow(database, ticket.projectId, ticket.id);
+  const latestReview = getLatestReviewRow(database, ticket.projectId, ticket.id);
+  const latestValidation = getLatestValidationRunRow(database, ticket.projectId, ticket.id);
+  const latestRunArtifacts =
+    latestRun ? getArtifactsByMergeRunId(database, [latestRun.id]).get(latestRun.id) || [] : [];
   const requiresHumanApproval = readPolicyBoolean(
     policy,
     "requireHumanApprovalBeforeMerge",
     "require_human_approval_before_merge",
   );
-  const mergeable = ticket.state === "READY_TO_MERGE";
+  const mergePolicyBlock = describeMergePolicyBlock(policy, latestReview, latestValidation);
+  const mergeable = ticket.state === "READY_TO_MERGE" && !mergePolicyBlock;
   const uncleanedWorktreeCount = worktrees.filter((worktree) => worktree.status !== "cleaned").length;
 
   if (latestRun?.status === "completed" || ticket.state === "DONE") {
@@ -2536,7 +2964,7 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       canMerge: false,
       statusSummary: "Merge recorded and ticket closed.",
       uncleanedWorktreeCount,
-      latestRun: latestRun ? mergeRunDto(mapMergeRun(latestRun)) : null,
+      latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
     };
   }
 
@@ -2551,7 +2979,7 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       canMerge: mergeable,
       statusSummary: latestRun.summary_md || "Latest merge attempt is blocked.",
       uncleanedWorktreeCount,
-      latestRun: mergeRunDto(mapMergeRun(latestRun)),
+      latestRun: mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }),
     };
   }
 
@@ -2566,7 +2994,7 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       canMerge: mergeable,
       statusSummary: latestRun.summary_md || "Latest merge attempt requires rework.",
       uncleanedWorktreeCount,
-      latestRun: mergeRunDto(mapMergeRun(latestRun)),
+      latestRun: mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }),
     };
   }
 
@@ -2582,9 +3010,9 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       ? requiresHumanApproval
         ? "Ready to merge after operator approval is recorded."
         : "Ready to merge."
-      : "Ticket must reach READY_TO_MERGE before merge can start.",
+      : mergePolicyBlock || "Ticket must reach READY_TO_MERGE before merge can start.",
     uncleanedWorktreeCount,
-    latestRun: latestRun ? mergeRunDto(mapMergeRun(latestRun)) : null,
+    latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
   };
 }
 
@@ -2596,15 +3024,23 @@ function mapTicketStateToBoardState(ticketState) {
 }
 
 function deriveTicketStateForExecutionOutcome(currentState, outcome, blockedKind, policy, role) {
+  if (role === "reviewer") {
+    if (outcome === "completed" || outcome === "needs_continue") return "REVIEWING";
+    if (outcome === "blocked") return "BLOCKED";
+    if (outcome === "failed" && blockedKind) return "BLOCKED";
+    if (outcome === "followup_created") return currentState;
+    return "REVIEWING";
+  }
+  if (role === "validator") {
+    if (outcome === "completed" || outcome === "needs_continue") return "VALIDATING";
+    if (outcome === "blocked") return "BLOCKED";
+    if (outcome === "failed" && blockedKind) return "BLOCKED";
+    if (outcome === "followup_created") return currentState;
+    return "VALIDATING";
+  }
   if (outcome === "completed") {
     const requireReviewer = readPolicyBoolean(policy, "requireReviewer", "require_reviewer");
     const requireValidator = readPolicyBoolean(policy, "requireValidator", "require_validator");
-    if (role === "reviewer") {
-      return requireValidator ? "VALIDATING" : "READY_TO_MERGE";
-    }
-    if (role === "validator") {
-      return "READY_TO_MERGE";
-    }
     if (requireReviewer) {
       return "REVIEWING";
     }
@@ -2617,6 +3053,12 @@ function deriveTicketStateForExecutionOutcome(currentState, outcome, blockedKind
   if (outcome === "blocked") return "BLOCKED";
   if (outcome === "failed" && blockedKind) return "BLOCKED";
   if (outcome === "followup_created") return currentState;
+  return "WORKING";
+}
+
+function deriveTicketStateForExecutionStart(role) {
+  if (role === "reviewer") return "REVIEWING";
+  if (role === "validator") return "VALIDATING";
   return "WORKING";
 }
 
@@ -2654,6 +3096,26 @@ function deriveTicketStateForMergeStatus(status) {
   throw new Error(`Invalid merge status: ${status}`);
 }
 
+function describeMergePolicyBlock(policy, latestReview, latestValidation) {
+  const requireReviewer = readPolicyBoolean(policy, "requireReviewer", "require_reviewer");
+  const requireValidator = readPolicyBoolean(policy, "requireValidator", "require_validator");
+  const requiredValidationCommandProfile = optionalText(
+    policy.requiredValidationCommandProfileForMerge || policy.required_validation_command_profile_for_merge,
+  );
+
+  if (requireReviewer && latestReview?.verdict !== "passed") {
+    return "Latest review must pass before merge";
+  }
+  if (requireValidator && latestValidation?.verdict !== "passed") {
+    return "Latest validation must pass before merge";
+  }
+  if (requiredValidationCommandProfile && latestValidation?.command_profile !== requiredValidationCommandProfile) {
+    return `Latest validation must use ${requiredValidationCommandProfile} profile before merge`;
+  }
+
+  return "";
+}
+
 function deriveWorktreeStatusForOutcome(outcome) {
   if (outcome === "completed") return "ready_for_review";
   if (outcome === "needs_continue") return "needs_continue";
@@ -2665,6 +3127,8 @@ function deriveWorktreeStatusForOutcome(outcome) {
 function planExecutionWorktrees(database, projectId, ticket, execution, timestamp) {
   const project = getProjectRow(database, projectId);
   const repoTargets = getRepoTargetsByTicketId(database, [ticket.id]).get(ticket.id) || [];
+  const worktreeLeaf =
+    execution.role === "developer" ? `iter-${execution.iteration}` : `${execution.role}-iter-${execution.iteration}`;
 
   return repoTargets.map((target) => ({
     id: `worktree_${randomUUID()}`,
@@ -2679,9 +3143,9 @@ function planExecutionWorktrees(database, projectId, ticket, execution, timestam
       "worktrees",
       ticket.key.toLowerCase(),
       target.repoSlug,
-      `iter-${execution.iteration}`,
+      worktreeLeaf,
     ),
-    branchName: target.branchName || defaultWorktreeBranchName(ticket),
+    branchName: target.branchName || defaultWorktreeBranchName(ticket, execution.role, execution.iteration),
     baseRef: target.baseRef,
     status: "active",
     isDirty: false,
@@ -2691,8 +3155,12 @@ function planExecutionWorktrees(database, projectId, ticket, execution, timestam
   }));
 }
 
-function defaultWorktreeBranchName(ticket) {
-  return `${ticket.key.toLowerCase()}-${slugify(ticket.title).replaceAll("_", "-")}`.slice(0, 63);
+function defaultWorktreeBranchName(ticket, role = "developer", iteration = 1) {
+  const base = `${ticket.key.toLowerCase()}-${slugify(ticket.title).replaceAll("_", "-")}`;
+  if (role === "developer") {
+    return base.slice(0, 63);
+  }
+  return `${base}-${role}-iter-${iteration}`.slice(0, 63);
 }
 
 function normalizeRepoTargets(database, projectId, repoTargets) {
@@ -2927,15 +3395,41 @@ function insertTicketRepoTarget(database, ticketId, target, timestamp) {
     );
 }
 
+function insertArtifacts(database, projectId, ticketId, scope, artifacts, timestamp) {
+  for (const artifact of artifacts) {
+    database
+      .prepare(
+        `insert into artifacts (
+          id, project_id, ticket_id, execution_id, review_id, validation_run_id, merge_run_id,
+          kind, label, uri, metadata_json, created_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        `artifact_${randomUUID()}`,
+        projectId,
+        ticketId,
+        scope.executionId || null,
+        scope.reviewId || null,
+        scope.validationRunId || null,
+        scope.mergeRunId || null,
+        requiredText(artifact.kind, "artifact.kind"),
+        requiredText(artifact.label, "artifact.label"),
+        requiredText(artifact.uri, "artifact.uri"),
+        JSON.stringify(artifact.metadata || {}),
+        timestamp,
+      );
+  }
+}
+
 function insertProjectPolicy(database, projectId, policy, timestamp) {
   database
     .prepare(
       `insert into project_policies (
         id, project_id, require_reviewer, require_validator,
-        require_human_approval_before_merge, max_parallel_executions,
-        max_auto_continue_iterations, agent_created_ticket_default_state,
+        require_human_approval_before_merge, required_validation_command_profile_for_merge,
+        max_parallel_executions, max_auto_continue_iterations, agent_created_ticket_default_state,
         created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       `policy_${slugify(projectId)}`,
@@ -2943,6 +3437,7 @@ function insertProjectPolicy(database, projectId, policy, timestamp) {
       policy.requireReviewer ? 1 : 0,
       policy.requireValidator ? 1 : 0,
       policy.requireHumanApprovalBeforeMerge ? 1 : 0,
+      policy.requiredValidationCommandProfileForMerge || "",
       policy.maxParallelExecutions,
       policy.maxAutoContinueIterations,
       policy.agentCreatedTicketDefaultState,
@@ -3213,6 +3708,17 @@ function slugify(value) {
 
 function getProjectPolicyRow(database, projectId) {
   return database.prepare("select * from project_policies where project_id = ?").get(projectId);
+}
+
+function migrateSchema(database) {
+  const policyColumns = new Set(
+    database.prepare("pragma table_info(project_policies)").all().map((row) => row.name),
+  );
+  if (!policyColumns.has("required_validation_command_profile_for_merge")) {
+    database.exec(
+      "alter table project_policies add column required_validation_command_profile_for_merge text not null default ''",
+    );
+  }
 }
 
 function touchProjectUpdatedAt(database, projectId, timestamp) {

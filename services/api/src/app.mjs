@@ -48,6 +48,11 @@ export function createPoolServer(options = {}) {
         return;
       }
 
+      if (route.name === "eventStream") {
+        await streamProjectEvents(request, response, route, url, store);
+        return;
+      }
+
       const body = await readJsonBody(request);
       const result = handleRoute(route, url, body, store);
       sendJson(response, result.status, result.body);
@@ -293,6 +298,11 @@ function handleRoute(route, url, body, store) {
         status: 200,
         body: { events: store.listEvents(route.params.projectId, parseEventFilters(url)) },
       };
+    case "artifacts":
+      return {
+        status: 200,
+        body: { artifacts: store.listArtifacts(route.params.projectId, parseArtifactFilters(url)) },
+      };
     default:
       return { status: 404, body: { error: "not_found" } };
   }
@@ -396,6 +406,82 @@ function parseEventFilters(url) {
   return filters;
 }
 
+async function streamProjectEvents(request, response, route, url, store) {
+  if (!store.getProjectSummary(route.params.projectId)) {
+    sendJson(response, 404, { error: "not_found" });
+    return;
+  }
+
+  const filters = {
+    ...parseEventFilters(url),
+    order: "asc",
+    limit: Math.min(parseEventFilters(url).limit || 100, 200),
+  };
+  const seenEventIds = new Set();
+
+  response.writeHead(200, {
+    ...corsHeaders(),
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive",
+  });
+
+  const initialEvents = store.listEvents(route.params.projectId, filters);
+  for (const event of initialEvents) {
+    seenEventIds.add(event.id);
+  }
+  writeSseEvent(response, "snapshot", { events: initialEvents });
+
+  const pollTimer = setInterval(() => {
+    const nextEvents = store
+      .listEvents(route.params.projectId, filters)
+      .filter((event) => !seenEventIds.has(event.id));
+    for (const event of nextEvents) {
+      seenEventIds.add(event.id);
+      writeSseEvent(response, "event", event);
+    }
+  }, 500);
+  pollTimer.unref?.();
+
+  const heartbeatTimer = setInterval(() => {
+    writeSseEvent(response, "heartbeat", { now: new Date().toISOString() });
+  }, 15000);
+  heartbeatTimer.unref?.();
+
+  const cleanup = () => {
+    clearInterval(pollTimer);
+    clearInterval(heartbeatTimer);
+    if (!response.writableEnded) {
+      response.end();
+    }
+  };
+
+  request.on("close", cleanup);
+  request.on("error", cleanup);
+}
+
+function parseArtifactFilters(url) {
+  const filters = {};
+
+  for (const key of ["ticketId", "executionId", "reviewId", "validationRunId", "mergeRunId", "kind"]) {
+    const value = url.searchParams.get(key);
+    if (value) {
+      filters[key] = value.trim();
+    }
+  }
+
+  const limit = url.searchParams.get("limit");
+  if (limit) {
+    const parsedLimit = Number.parseInt(limit, 10);
+    if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+      throw new RequestError(400, `Invalid artifact limit filter: ${limit}`);
+    }
+    filters.limit = parsedLimit;
+  }
+
+  return filters;
+}
+
 function respondMaybe(value, key) {
   if (!value) {
     return { status: 404, body: { error: "not_found" } };
@@ -448,6 +534,11 @@ function sendText(response, status, body, contentType) {
     "content-type": contentType,
   });
   response.end(body);
+}
+
+function writeSseEvent(response, event, payload) {
+  response.write(`event: ${event}\n`);
+  response.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
 function corsHeaders() {
@@ -526,6 +617,8 @@ function matchRoute(method, pathname) {
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/worktrees$/, name: "worktrees", keys: ["projectId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/worktrees\/([^/]+)\/clean$/, name: "worktreeClean", keys: ["projectId", "worktreeId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/events$/, name: "events", keys: ["projectId"] },
+    { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/events\/stream$/, name: "eventStream", keys: ["projectId"] },
+    { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/artifacts$/, name: "artifacts", keys: ["projectId"] },
   ];
 
   for (const route of routes) {
@@ -584,6 +677,7 @@ function inferErrorStatus(error) {
     message.startsWith("Agent profile ") ||
     message.startsWith("No agent profile configured for role:") ||
     message.startsWith("approvedByKind and approvedByRef must be provided together") ||
+    message.startsWith("Invalid artifact limit filter:") ||
     message.startsWith("Cancelled executions cannot be continued") ||
     message.startsWith("Execution must be active or marked needs_continue before continuing") ||
     message === "A ticket cannot depend on itself" ||
@@ -604,7 +698,10 @@ function inferErrorStatus(error) {
     message.includes(" is not ready for review") ||
     message.includes(" is not ready for validation") ||
     message.includes(" is not ready for merge") ||
-    message.includes(" requires human approval before merge")
+    message.includes(" requires human approval before merge") ||
+    message.includes("Latest review must pass before merge") ||
+    message.includes("Latest validation must pass before merge") ||
+    message.includes("Latest validation must use ")
   ) {
     return 409;
   }
