@@ -59,9 +59,11 @@ export function createPoolServer(options = {}) {
       sendJson(response, result.status, result.body);
     } catch (error) {
       const status = error instanceof RequestError ? error.status : inferErrorStatus(error);
+      const reasonCode = error instanceof RequestError ? error.reasonCode : inferErrorReasonCode(error);
       sendJson(response, status, {
         error: status === 500 ? "internal_error" : status === 409 ? "conflict" : "bad_request",
         message: error instanceof Error ? error.message : String(error),
+        ...(reasonCode ? { reasonCode } : {}),
       });
     }
   });
@@ -575,6 +577,27 @@ function currentMergeReasonCode(mergeStatus) {
   return "merge_conflict";
 }
 
+function inferErrorReasonCode(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.startsWith("Unknown execution for ticket ")) return "unknown_execution";
+  if (message.startsWith("Execution already running for ")) return "execution_already_running";
+  if (message.startsWith("Project execution limit reached for ")) return "execution_capacity_reached";
+  if (message.includes(" reached the continuation limit of ")) return "execution_continue_limit_reached";
+  if (message.includes(" must be finished before review")) return "review_execution_not_finished";
+  if (message.includes(" must complete successfully before review")) return "review_execution_not_completed";
+  if (message.includes(" must be finished before validation")) return "validation_execution_not_finished";
+  if (message.includes(" must complete successfully before validation")) return "validation_execution_not_completed";
+  if (message.includes(" is not ready for review")) return "ticket_not_ready_for_review";
+  if (message.includes(" is not ready for validation")) return "ticket_not_ready_for_validation";
+  if (message.includes(" is not ready for merge")) return "ticket_not_ready";
+  if (message.includes(" requires human approval before merge")) return "human_approval_required";
+  if (message.includes("Latest review must pass before merge")) return "review_required";
+  if (message.includes("Latest validation must pass before merge")) return "validation_required";
+  if (message.includes("Latest validation must use ")) return "validation_profile_required";
+  if (message === "Cannot clean an active worktree") return "worktree_active";
+  return "";
+}
+
 function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
@@ -770,8 +793,9 @@ function inferErrorStatus(error) {
 }
 
 class RequestError extends Error {
-  constructor(status, message) {
+  constructor(status, message, reasonCode = "") {
     super(message);
     this.status = status;
+    this.reasonCode = reasonCode;
   }
 }

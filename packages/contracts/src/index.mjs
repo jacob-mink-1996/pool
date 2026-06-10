@@ -29,6 +29,8 @@ export function eventDto(event) {
     lane: event.lane || deriveEventLane(family),
     summary: event.summary,
     detail: event.detail,
+    reasonCode: event.reasonCode || "",
+    reasonSource: event.reasonSource || "",
     createdAt: event.createdAt,
   };
 }

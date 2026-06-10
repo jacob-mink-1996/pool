@@ -113,6 +113,8 @@ test("store can reconcile interrupted active executions after restart", () => {
   assert.match(recoveredExecution.summaryMd, /recovered after restart/i);
   assert.equal(ticket.state, "WORKING");
   assert.match(ticket.events.at(-1).summary, /failed/);
+  assert.equal(ticket.events.at(-1).reasonCode, "interrupted");
+  assert.equal(ticket.events.at(-1).reasonSource, "execution");
   store.close();
 });
 
@@ -779,6 +781,8 @@ test("store enforces merge validation-profile policy before merge", () => {
   assert.equal(mergeStatus.blockingReasons[0].source, "validation");
   assert.equal(mergeStatus.approval.required, false);
   assert.match(mergeStatus.statusSummary, /Latest validation must use ci profile before merge/);
+  assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").events.at(-1).reasonCode, "validation_profile_required");
+  assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").events.at(-1).reasonSource, "validation");
 
   assert.throws(
     () =>

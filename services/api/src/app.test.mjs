@@ -490,6 +490,7 @@ test("review and validation endpoints reject out-of-order evidence", async () =>
     );
     const earlyReviewBody = await earlyReviewResponse.json();
     assert.equal(earlyReviewResponse.status, 409);
+    assert.equal(earlyReviewBody.reasonCode, "review_execution_not_finished");
     assert.match(earlyReviewBody.message, /must be finished before review/);
 
     await fetch(`${baseUrl}/api/v1/projects/project_pool/executions/${executionBody.execution.id}/complete`, {
@@ -515,6 +516,7 @@ test("review and validation endpoints reject out-of-order evidence", async () =>
     );
     const earlyValidationBody = await earlyValidationResponse.json();
     assert.equal(earlyValidationResponse.status, 409);
+    assert.equal(earlyValidationBody.reasonCode, "ticket_not_ready_for_validation");
     assert.match(earlyValidationBody.message, /not ready for validation/);
   });
 });
@@ -781,6 +783,7 @@ test("API exposes a live SSE event stream for project activity", async () => {
     assert.equal(initialSnapshot.events[0].family.length > 0, true);
     assert.equal(initialSnapshot.events[0].lane.length > 0, true);
     assert.match(initialSnapshot.events[0].cursor, /:/);
+    assert.equal(typeof initialSnapshot.events[0].reasonCode, "string");
 
     await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/transition`, {
       method: "POST",
@@ -798,6 +801,7 @@ test("API exposes a live SSE event stream for project activity", async () => {
     assert.equal(nextEvent.family, "ticket");
     assert.equal(nextEvent.action, "transitioned");
     assert.equal(nextEvent.lane, "ticket");
+    assert.equal(typeof nextEvent.reasonCode, "string");
 
     abortController.abort();
   });

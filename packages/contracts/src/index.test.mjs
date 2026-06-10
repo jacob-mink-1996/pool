@@ -34,6 +34,8 @@ test("eventDto projects a stable event contract for live consumers", () => {
     type: "execution.completed",
     summary: "POOL-1 developer iteration 1 completed",
     detail: "Execution landed cleanly.",
+    reasonCode: "interrupted",
+    reasonSource: "execution",
     createdAt: "2026-06-10T05:10:00.000Z",
   });
 
@@ -41,6 +43,8 @@ test("eventDto projects a stable event contract for live consumers", () => {
   assert.equal(event.action, "completed");
   assert.equal(event.lane, "execution");
   assert.equal(event.cursor, "2026-06-10T05:10:00.000Z:17");
+  assert.equal(event.reasonCode, "interrupted");
+  assert.equal(event.reasonSource, "execution");
 });
 
 test("boardDto groups tickets by state", () => {
@@ -277,6 +281,8 @@ test("ticketDto includes projected events", () => {
           type: "ticket.created",
           summary: "Created",
           detail: "",
+          reasonCode: "",
+          reasonSource: "",
           createdAt: "2026-06-10T05:00:00.000Z",
         },
       ],

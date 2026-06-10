@@ -230,6 +230,8 @@ create table if not exists events (
   type text not null,
   summary text not null,
   detail text not null default '',
+  reason_code text not null default '',
+  reason_source text not null default '',
   created_at text not null
 );
 
@@ -1246,6 +1248,7 @@ export function createSqliteStore(options = {}) {
           type: "review.completed",
           summary: `${ticket.key} review ${verdict}`,
           detail: review.summaryMd || `${findings.length} finding${findings.length === 1 ? "" : "s"}`,
+          ...deriveReviewEventReason(review),
         });
       });
 
@@ -1309,6 +1312,13 @@ export function createSqliteStore(options = {}) {
       const commands = input.commands || [];
       const artifacts = input.artifacts || [];
       const validationIds = [];
+      const mergePolicyBlocks =
+        verdict === "passed"
+          ? buildMergePolicyBlocks(policy, getLatestReviewRow(database, projectId, ticketId), {
+              verdict,
+              command_profile: commandProfile,
+            })
+          : [];
 
       withTransaction(database, () => {
         for (const repoId of repoIds) {
@@ -1363,6 +1373,11 @@ export function createSqliteStore(options = {}) {
           detail:
             summaryMd ||
             `${repoIds.length} repo target${repoIds.length === 1 ? "" : "s"} · ${commands.length} command${commands.length === 1 ? "" : "s"}`,
+          ...deriveValidationEventReason({
+            verdict,
+            blockedKind: optionalText(input.blockedKind),
+            mergePolicyBlock: mergePolicyBlocks[0] || null,
+          }),
         });
       });
 
@@ -1472,6 +1487,8 @@ export function createSqliteStore(options = {}) {
           type: "merge.started",
           summary: `${ticket.key} merge started`,
           detail: `${mergeRun.strategy} · ${approvalDetail}`,
+          reasonCode: approvedByKind && approvedByRef ? "merge_approved" : "",
+          reasonSource: approvedByKind && approvedByRef ? "approval" : "",
         });
 
         insertEvent(database, {
@@ -1480,6 +1497,7 @@ export function createSqliteStore(options = {}) {
           type: "merge.completed",
           summary: `${ticket.key} merge ${status}`,
           detail: summaryMd || `${mergeRun.strategy} · ${approvalDetail}`,
+          ...deriveMergeEventReason(status),
         });
       });
 
@@ -1768,6 +1786,7 @@ export function createSqliteStore(options = {}) {
           type: "execution.completed",
           summary: `${ticket.key} ${execution.role} iteration ${execution.iteration} ${outcome}`,
           detail: summaryMd || remainingWorkMd || failureKind || blockedKind || "",
+          ...deriveExecutionEventReason({ outcome, failureKind, blockedKind }),
         });
       });
 
@@ -1881,6 +1900,8 @@ export function createSqliteStore(options = {}) {
           type: "execution.completed",
           summary: `${ticket.key} ${execution.role} iteration ${execution.iteration} cancelled`,
           detail: reason,
+          reasonCode: "cancelled",
+          reasonSource: "execution",
         });
       });
 
@@ -2732,7 +2753,7 @@ function mapProject(database, row) {
     .prepare("select role, adapter, model, config_json from agent_profiles where project_id = ? order by role asc")
     .all(row.id);
 
-  return {
+      return {
     id: row.id,
     slug: row.slug,
     name: row.name,
@@ -2841,6 +2862,8 @@ function mapEvent(row) {
     lane: deriveEventLane(family),
     summary: row.summary,
     detail: row.detail,
+    reasonCode: row.reason_code || "",
+    reasonSource: row.reason_source || "",
     createdAt: row.created_at,
   };
 }
@@ -2979,6 +3002,94 @@ function deriveEventLane(family) {
     default:
       return "system";
   }
+}
+
+function deriveExecutionEventReason({ outcome, failureKind, blockedKind }) {
+  if (outcome === "blocked") {
+    return {
+      reasonCode: blockedKind || "execution_blocked",
+      reasonSource: blockedKind ? "policy" : "execution",
+    };
+  }
+  if (outcome === "failed") {
+    return {
+      reasonCode: failureKind || blockedKind || "execution_failed",
+      reasonSource: failureKind ? "execution" : blockedKind ? "policy" : "execution",
+    };
+  }
+  if (outcome === "needs_continue") {
+    return {
+      reasonCode: "needs_continue",
+      reasonSource: "execution",
+    };
+  }
+  return {
+    reasonCode: "",
+    reasonSource: "",
+  };
+}
+
+function deriveReviewEventReason(review) {
+  if (review.verdict === "blocked") {
+    return {
+      reasonCode: review.blockedKind || "review_blocked",
+      reasonSource: review.blockedKind ? "policy" : "review",
+    };
+  }
+  if (review.verdict === "rework") {
+    return {
+      reasonCode: "review_rework",
+      reasonSource: "review",
+    };
+  }
+  return {
+    reasonCode: "",
+    reasonSource: "",
+  };
+}
+
+function deriveValidationEventReason({ verdict, blockedKind, mergePolicyBlock }) {
+  if (mergePolicyBlock?.code) {
+    return {
+      reasonCode: mergePolicyBlock.code,
+      reasonSource: mergePolicyBlock.source || "validation",
+    };
+  }
+  if (verdict === "blocked") {
+    return {
+      reasonCode: blockedKind || "validation_blocked",
+      reasonSource: blockedKind ? "policy" : "validation",
+    };
+  }
+  if (verdict === "failed") {
+    return {
+      reasonCode: "validation_failed",
+      reasonSource: "validation",
+    };
+  }
+  return {
+    reasonCode: "",
+    reasonSource: "",
+  };
+}
+
+function deriveMergeEventReason(status) {
+  if (status === "blocked") {
+    return {
+      reasonCode: "merge_blocked",
+      reasonSource: "merge",
+    };
+  }
+  if (status === "rework") {
+    return {
+      reasonCode: "merge_rework",
+      reasonSource: "merge",
+    };
+  }
+  return {
+    reasonCode: "",
+    reasonSource: "",
+  };
 }
 
 function buildBoardSummary(tickets) {
@@ -3575,7 +3686,9 @@ function insertRoleProfiles(database, projectId, roleProfiles, timestamp) {
 function insertEvent(database, input) {
   database
     .prepare(
-      "insert into events (id, project_id, repo_id, ticket_id, type, summary, detail, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
+      `insert into events (
+        id, project_id, repo_id, ticket_id, type, summary, detail, reason_code, reason_source, created_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       `event_${randomUUID()}`,
@@ -3585,6 +3698,8 @@ function insertEvent(database, input) {
       input.type,
       input.summary,
       input.detail || "",
+      input.reasonCode || "",
+      input.reasonSource || "",
       now(),
     );
 }
@@ -3823,6 +3938,14 @@ function migrateSchema(database) {
     database.exec(
       "alter table project_policies add column required_validation_command_profile_for_merge text not null default ''",
     );
+  }
+
+  const eventColumns = new Set(database.prepare("pragma table_info(events)").all().map((row) => row.name));
+  if (!eventColumns.has("reason_code")) {
+    database.exec("alter table events add column reason_code text not null default ''");
+  }
+  if (!eventColumns.has("reason_source")) {
+    database.exec("alter table events add column reason_source text not null default ''");
   }
 }
 
