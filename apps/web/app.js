@@ -54,6 +54,7 @@ window.addEventListener("error", (event) => {
 const uiState = {
   workspaceTab: "board",
   detailTab: "overview",
+  sidebarOpen: false,
   settingsDrawerOpen: false,
 };
 
@@ -69,6 +70,7 @@ async function bootstrap() {
   bindEvents();
   setWorkspaceTab(uiState.workspaceTab);
   setDetailTab(uiState.detailTab);
+  setSidebarOpen(false);
   setSettingsDrawerOpen(false);
   resetProjectCreateForm();
   resetReviewForm();
@@ -91,6 +93,18 @@ function bindEvents() {
     await selectProject(event.target.value);
   });
 
+  dom.sidebarToggleButton?.addEventListener("click", () => {
+    setSidebarOpen(!uiState.sidebarOpen);
+  });
+
+  dom.sidebarCloseButton?.addEventListener("click", () => {
+    setSidebarOpen(false);
+  });
+
+  dom.sidebarScrim?.addEventListener("click", () => {
+    setSidebarOpen(false);
+  });
+
   dom.refreshButton.addEventListener("click", async () => {
     if (!state.projectId) return;
     await withBusyState([dom.refreshButton], "Refreshing…", async () => {
@@ -102,6 +116,7 @@ function bindEvents() {
     if (!uiState.settingsDrawerOpen) {
       setWorkspaceTab("board");
     }
+    setSidebarOpen(false);
     setSettingsDrawerOpen(!uiState.settingsDrawerOpen);
   });
 
@@ -128,6 +143,10 @@ function bindEvents() {
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && uiState.settingsDrawerOpen) {
       setSettingsDrawerOpen(false);
+      return;
+    }
+    if (event.key === "Escape" && uiState.sidebarOpen) {
+      setSidebarOpen(false);
     }
   });
 
@@ -735,6 +754,7 @@ async function selectProject(projectId) {
   const nextProjectId = projectId?.trim();
   if (!nextProjectId) {
     closeLiveStream();
+    setSidebarOpen(false);
     renderNoProjectState();
     return;
   }
@@ -742,6 +762,7 @@ async function selectProject(projectId) {
   location.hash = nextProjectId;
   dom.projectSelect.value = nextProjectId;
   setWorkspaceTab("board");
+  setSidebarOpen(false);
   await loadBoard(nextProjectId);
 }
 
@@ -1242,6 +1263,7 @@ function renderProjectPolicy() {
 
 function renderNoProjectState() {
   closeLiveStream();
+  setSidebarOpen(false);
   setSettingsDrawerOpen(false);
   state.ticketDetail = null;
   state.project = null;
@@ -2305,6 +2327,13 @@ function setDetailTab(tab) {
   dom.detailTabPanels.forEach((panel) => {
     panel.hidden = panel.dataset.detailPanel !== tab;
   });
+}
+
+function setSidebarOpen(isOpen) {
+  uiState.sidebarOpen = isOpen;
+  dom.projectRail?.classList.toggle("is-open", isOpen);
+  dom.sidebarScrim.hidden = !isOpen;
+  dom.sidebarToggleButton?.setAttribute("aria-expanded", String(isOpen));
 }
 
 function setSettingsDrawerOpen(isOpen) {

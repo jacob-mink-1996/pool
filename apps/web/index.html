@@ -8,36 +8,37 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <div id="sidebar-scrim" class="sidebar-scrim" hidden></div>
     <div class="shell app-shell">
-      <aside class="panel project-rail">
+      <aside id="project-rail" class="panel project-rail">
         <div class="project-rail-header">
-          <p class="panel-kicker">Pool</p>
-          <h2>Projects</h2>
-          <p class="section-copy">Switch fast. Keep the board focused.</p>
+          <div>
+            <p class="panel-kicker">Pool</p>
+            <h2>Projects</h2>
+          </div>
+          <button id="sidebar-close-button" class="ghost-button sidebar-close-button" type="button">Close</button>
         </div>
         <div id="project-sidebar-list" class="project-sidebar-list"></div>
-      </aside>
-
-      <div class="workspace-shell">
-      <header class="panel topbar">
-        <div class="topbar-brand">
-          <p class="eyebrow">Pool</p>
-          <h1>Mission Control</h1>
-          <p class="topbar-copy">One project at a time. Board first.</p>
-        </div>
-        <div class="topbar-status">
+        <div class="project-rail-footer">
           <label class="field project-picker legacy-project-picker">
             <span>Project</span>
             <select id="project-select" aria-label="Select project"></select>
           </label>
-          <div class="live-indicator" aria-live="polite">
+          <div class="live-indicator rail-live-indicator" aria-live="polite">
             <span id="live-indicator-badge" class="state-badge subtle">Live idle</span>
             <span id="live-indicator-meta" class="live-indicator-meta">Waiting for a project stream.</span>
           </div>
+          <button id="refresh-button" class="ghost-button rail-action-button" type="button">Refresh board</button>
+          <button id="settings-toggle-button" class="ghost-button rail-action-button" type="button">Settings</button>
         </div>
-        <div class="topbar-actions">
-          <button id="refresh-button" class="ghost-button" type="button">Refresh board</button>
-          <button id="settings-toggle-button" class="ghost-button" type="button">Settings</button>
+      </aside>
+
+      <div class="workspace-shell">
+      <header class="panel workspace-header">
+        <button id="sidebar-toggle-button" class="ghost-button sidebar-toggle-button" type="button">Projects</button>
+        <div class="workspace-header-brand">
+          <p class="eyebrow">Pool</p>
+          <h1>Mission Control</h1>
         </div>
       </header>
       <div id="status-banner" class="status-banner" hidden></div>
@@ -225,14 +226,6 @@
             <div id="role-profile-list" class="repo-list"></div>
           </section>
           </section>
-          <section class="merge-queue-panel">
-            <div class="section-toolbar">
-              <div>
-                <h3>Kanban</h3>
-                <p class="section-copy">Swipe across lanes on phone. Scan left to right on desktop.</p>
-              </div>
-            </div>
-          </section>
           <div id="board-columns" class="board-columns" aria-live="polite"></div>
           </section>
           <section class="workspace-panel" data-workspace-panel="ops" hidden>
@@ -391,7 +384,7 @@
           </div>
 
           <div id="ticket-empty" class="empty-state">
-            Pick a ticket card to inspect repo targets, blockers, criteria, and activity.
+            Pick a ticket to inspect work and evidence.
           </div>
 
           <div id="ticket-detail" class="detail-content" hidden>

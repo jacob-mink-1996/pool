@@ -1,4 +1,8 @@
 export const dom = {
+  sidebarScrim: document.querySelector("#sidebar-scrim"),
+  projectRail: document.querySelector("#project-rail"),
+  sidebarToggleButton: document.querySelector("#sidebar-toggle-button"),
+  sidebarCloseButton: document.querySelector("#sidebar-close-button"),
   projectSidebarList: document.querySelector("#project-sidebar-list"),
   projectSelect: document.querySelector("#project-select"),
   refreshButton: document.querySelector("#refresh-button"),
