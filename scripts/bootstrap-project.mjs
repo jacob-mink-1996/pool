@@ -178,7 +178,7 @@ async function patchRoleProfiles({ baseUrl, projectId, ciCommand }) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       adapter: "codex",
-      model: "codex-latest",
+      model: "default",
       config: {},
     }),
   });
@@ -187,7 +187,7 @@ async function patchRoleProfiles({ baseUrl, projectId, ciCommand }) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       adapter: "codex",
-      model: "codex-latest",
+      model: "default",
       config: {},
     }),
   });

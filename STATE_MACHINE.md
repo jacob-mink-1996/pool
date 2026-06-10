@@ -113,8 +113,9 @@ Every execution should end in one of these outcomes:
 
 ### If outcome is `followup_created`
 
-- keep parent ticket in current or follow-on state based on execution summary
-- create linked child ticket in `PROPOSED` or `READY` according to policy
+- move the parent ticket to `DONE`; the lane completed by handing off child work
+- create linked child tickets in `PROPOSED` or `READY` according to refinement policy
+- only `autonomous` refinement may let agent-created child tickets leave refinement without user action
 
 ### If outcome is `failed`
 

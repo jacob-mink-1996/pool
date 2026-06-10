@@ -348,6 +348,7 @@ test("request parsers normalize project and ticket payloads", () => {
     maxParallelExecutions: 4,
     maxParallelMerges: 2,
     maxAutoContinueIterations: 7,
+    refinementMode: " user_participant ",
     agentCreatedTicketDefaultState: " READY ",
   });
   const roleProfile = parseUpdateRoleProfileInput({
@@ -374,6 +375,7 @@ test("request parsers normalize project and ticket payloads", () => {
     maxParallelExecutions: 4,
     maxParallelMerges: 2,
     maxAutoContinueIterations: 7,
+    refinementMode: "user_participant",
     agentCreatedTicketDefaultState: "READY",
   });
   assert.deepEqual(roleProfile, {

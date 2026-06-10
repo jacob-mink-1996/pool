@@ -35,6 +35,15 @@ try {
   await waitForScript("document.querySelectorAll('.ticket-card').length >= 2");
   await assertNoUiErrors();
   await assertScript("document.querySelector('.project-description') !== null", "project description is visible in the topbar");
+  await assertScript("document.documentElement.dataset.theme === 'light'", "summer theme is the default");
+  await clickText("Use night fishing theme");
+  await waitForScript("document.documentElement.dataset.theme === 'dark'");
+  await assertScript("getComputedStyle(document.body).backgroundColor !== 'rgb(238, 243, 242)'", "night fishing theme changes the page background");
+  await navigate(appUrl);
+  await waitForText("Define first transport contracts");
+  await waitForScript("document.documentElement.dataset.theme === 'dark'");
+  await clickText("Use summer theme");
+  await waitForScript("document.documentElement.dataset.theme === 'light'");
 
   await clickText("New project");
   await waitForScript("document.querySelector('.onboarding-dialog') !== null");
@@ -50,6 +59,12 @@ try {
   await clickText("Create project");
   await waitForText("Browser Onboarding Project");
   await assertScript("document.querySelector('.onboarding-dialog') === null", "onboarding closes after project creation");
+  await clickText("Settings");
+  await waitForScript("document.querySelector('.settings-drawer') !== null");
+  await setFormValue("Delete project", "deleteConfirmation", "Browser Onboarding Project");
+  await clickText("Delete project");
+  await waitForScript("document.querySelector('.settings-drawer') === null");
+  await waitForTextGone("Browser Onboarding Project");
   await clickText("Pool");
   await waitForText("Define first transport contracts");
   await assertNoUiErrors();
@@ -119,6 +134,10 @@ try {
   await waitForScript("document.querySelector('.ticket-detail') !== null");
   await waitForText("Start developer lane");
   await assertScript("document.querySelector('.ticket-detail .read-model') !== null", "ticket plan is read-only by default");
+  await waitForText("Danger Zone");
+  await waitForText("Type POOL-3 to confirm");
+  await assertScript("document.querySelector('[name=\"restartConfirmation\"]') !== null", "ticket restart confirmation is available");
+  await assertScript("Array.from(document.querySelectorAll('button')).some((button) => button.innerText.trim() === 'Restart ticket' && button.disabled)", "restart button is disabled before exact ticket key confirmation");
   await assertScript("document.querySelector('.ticket-detail [name=\"latestSummary\"]') === null", "ticket edit fields are not mounted before edit mode");
   await assertScript("document.querySelector('.ticket-detail [name=\"blockingTicketId\"]') === null", "scope dependency controls are not mounted before edit mode");
   await assertScript("document.querySelector('.ticket-detail [name=\"repoId\"]') === null", "scope repo controls are not mounted before edit mode");
@@ -380,7 +399,12 @@ async function setFormValue(submitText, fieldName, value) {
     if (!field) return false;
     const target = field instanceof RadioNodeList ? field[0] : field;
     target.scrollIntoView({ block: "center", inline: "center" });
-    target.value = value;
+    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(target), "value");
+    if (descriptor?.set) {
+      descriptor.set.call(target, value);
+    } else {
+      target.value = value;
+    }
     target.dispatchEvent(new Event("input", { bubbles: true }));
     target.dispatchEvent(new Event("change", { bubbles: true }));
     return true;

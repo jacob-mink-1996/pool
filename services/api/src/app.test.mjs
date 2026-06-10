@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -157,6 +157,30 @@ test("project creation bootstraps a blank Pool workspace", async () => {
     },
     { seedDemo: false, workspaceRoot: "/workspace/blank-pool" },
   );
+});
+
+test("project deletion removes the project from API listings", async () => {
+  await withServer(async (baseUrl) => {
+    const deleteResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool`, {
+      method: "DELETE",
+    });
+    const deleteBody = await deleteResponse.json();
+    assert.equal(deleteResponse.status, 200);
+    assert.equal(deleteBody.project.id, "project_pool");
+
+    const projectsResponse = await fetch(`${baseUrl}/api/v1/projects`);
+    const projectsBody = await projectsResponse.json();
+    assert.equal(projectsResponse.status, 200);
+    assert.deepEqual(projectsBody.projects, []);
+
+    const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/board`);
+    assert.equal(boardResponse.status, 404);
+
+    const secondDeleteResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool`, {
+      method: "DELETE",
+    });
+    assert.equal(secondDeleteResponse.status, 404);
+  });
 });
 
 test("board endpoint returns grouped lanes", async () => {
@@ -692,6 +716,47 @@ test("ticket detail can be patched through the API", async () => {
     assert.match(body.ticket.repoTargets[0].targetScopeMd, /Docs and operator workflow notes/);
     assert.equal(body.ticket.events.at(-1).type, "ticket.updated");
   });
+});
+
+test("ticket restart cancels active execution and deletes worktree through the API", async () => {
+  const workspaceRoot = mkdtempSync(join(tmpdir(), "pool-app-restart-workspace-"));
+  try {
+    await withServer(async (baseUrl) => {
+      const executionResponse = await fetch(
+        `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/executions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            role: "developer",
+            reason: "Start a run that restart will cancel.",
+          }),
+        },
+      );
+      const executionBody = await executionResponse.json();
+      const worktreePath = executionBody.execution.worktrees[0].path;
+      mkdirSync(worktreePath, { recursive: true });
+
+      const restartResponse = await fetch(
+        `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/restart`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ reason: "Restart from API test." }),
+        },
+      );
+      const restartBody = await restartResponse.json();
+
+      assert.equal(executionResponse.status, 201);
+      assert.equal(restartResponse.status, 200);
+      assert.equal(restartBody.ticket.state, "READY");
+      assert.equal(restartBody.ticket.executions[0].status, "cancelled");
+      assert.equal(restartBody.ticket.worktrees[0].status, "cleaned");
+      assert.equal(existsSync(worktreePath), false);
+    }, { workspaceRoot });
+  } finally {
+    rmSync(workspaceRoot, { recursive: true, force: true });
+  }
 });
 
 test("ticket patch rejects repo targets outside the project", async () => {

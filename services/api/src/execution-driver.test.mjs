@@ -64,6 +64,19 @@ test("execution driver can launch the codex adapter path and persist the final a
     fakeCodexPath,
     `#!/usr/bin/env node
 const fs = require("node:fs");
+if (process.argv.includes("-a")) {
+  process.stderr.write("obsolete approval flag used\\n");
+  process.exit(2);
+}
+if (!process.argv.includes('-c') || !process.argv.includes('approval_policy="never"')) {
+  process.stderr.write("missing approval policy config override\\n");
+  process.exit(2);
+}
+const modelIndex = process.argv.indexOf("-m");
+if (modelIndex >= 0 && process.argv[modelIndex + 1] === "codex-latest") {
+  process.stderr.write("legacy codex-latest model was passed explicitly\\n");
+  process.exit(2);
+}
 const outputIndex = process.argv.indexOf("-o");
 const outputFile = outputIndex >= 0 ? process.argv[outputIndex + 1] : "";
 let prompt = "";
@@ -112,6 +125,7 @@ process.stdin.on("end", () => {
     const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
     const finalMessageArtifact = completed.artifacts.find((artifact) => artifact.label === "Agent final message");
     const stdoutArtifact = completed.artifacts.find((artifact) => artifact.label === "Adapter stdout");
+    const promptPath = join(workspaceRoot, ".pool", "executions", execution.id, "prompt.md");
 
     assert.equal(completed.outcome, "completed");
     assert.equal(completed.summaryMd, "Codex adapter completed the ticket.");
@@ -121,6 +135,7 @@ process.stdin.on("end", () => {
     assert.ok(stdoutArtifact);
     assert.match(readFileSync(new URL(finalMessageArtifact.uri), "utf8"), /Final agent message/);
     assert.match(readFileSync(new URL(stdoutArtifact.uri), "utf8"), /fake codex stdout/);
+    assert.match(readFileSync(promptPath, "utf8"), /Refinement policy: user approved/);
   } finally {
     store.close();
     rmSync(fixtureDir, { recursive: true, force: true });

@@ -54,6 +54,8 @@ export const ticketPriorities = ["low", "medium", "high", "urgent"];
 
 export const dependencyTypes = ["finish_to_start"];
 
+export const refinementModes = ["autonomous", "user_approved", "user_participant", "user_only"];
+
 export const blockerKinds = [
   "needs_human_input",
   "needs_dependency",
@@ -115,4 +117,8 @@ export function isTicketPriority(value) {
 
 export function isDependencyType(value) {
   return dependencyTypes.includes(value);
+}
+
+export function isRefinementMode(value) {
+  return refinementModes.includes(value);
 }

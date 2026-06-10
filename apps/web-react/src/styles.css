@@ -1,5 +1,7 @@
-:root {
+:root,
+[data-theme="light"] {
   color-scheme: light;
+  --theme-name: "summer";
   --bg: #eef3f2;
   --panel: #ffffff;
   --panel-soft: #f8faf9;
@@ -14,13 +16,108 @@
   --red: #be4b3e;
   --green: #22765f;
   --shadow: 0 18px 45px rgba(23, 47, 59, 0.08);
+  --scroll-track: rgba(219, 228, 227, 0.45);
+  --scroll-thumb: rgba(23, 108, 121, 0.52);
+  --scroll-thumb-hover: rgba(23, 108, 121, 0.72);
+  --scroll-border: rgba(219, 228, 227, 0.45);
+  --project-create-bg: #f2faf9;
+  --pill-bg: #e8efee;
+  --field-bg: linear-gradient(180deg, #fff, #fbfdfc);
+  --control-bg: linear-gradient(180deg, #fff, #f6faf9);
+  --control-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 8px 18px rgba(23, 47, 59, 0.04);
+  --control-hover-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 10px 24px rgba(23, 47, 59, 0.08);
+  --primary-bg: linear-gradient(180deg, #1b7d89, var(--teal));
+  --danger-bg: linear-gradient(180deg, #c95749, var(--red));
+  --danger-card-bg: linear-gradient(180deg, #fffafa, #fff);
+  --settings-row-bg: #fff;
+  --lane-bg: linear-gradient(180deg, #fbfdfc, var(--panel-soft));
+  --lane-drop-bg: linear-gradient(180deg, #f7fbfb, #eef7f5);
+  --ticket-bg: linear-gradient(180deg, #fff, #fbfdfc);
+  --success-bg: rgba(34, 118, 95, 0.12);
+  --danger-soft-bg: rgba(190, 75, 62, 0.12);
+  --danger-border: rgba(190, 75, 62, 0.45);
+  --danger-soft-border: rgba(190, 75, 62, 0.24);
+  --info-bg: rgba(36, 93, 156, 0.1);
+  --warn-bg: rgba(168, 101, 22, 0.12);
+  --panel-translucent: rgba(255, 255, 255, 0.62);
+  --scrim-bg: rgba(10, 20, 28, 0.42);
+  --modal-scrim-bg: rgba(10, 20, 28, 0.46);
+  --modal-shadow: 0 24px 70px rgba(23, 47, 59, 0.18);
+  --tooltip-bg: #102c36;
+  --tooltip-fg: #fff;
+  --active-fg: #fff;
+  --hover-border: rgba(23, 108, 121, 0.42);
+  --focus-border: rgba(23, 108, 121, 0.68);
+  --focus-ring: 0 0 0 3px rgba(23, 108, 121, 0.12);
+  --drop-border: rgba(23, 108, 121, 0.58);
+  --drop-ring: inset 0 0 0 2px rgba(23, 108, 121, 0.11);
+  --ticket-hover-shadow: 0 10px 24px rgba(23, 47, 59, 0.09);
+  --ticket-drag-shadow: 0 18px 36px rgba(23, 47, 59, 0.16);
+  --tooltip-border: rgba(23, 47, 59, 0.16);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-name: "night fishing";
+  --bg: #07171b;
+  --panel: #102429;
+  --panel-soft: #142f34;
+  --panel-warm: #102a2f;
+  --line: #254449;
+  --line-strong: #386169;
+  --text: #e5f4f2;
+  --muted: #99b8ba;
+  --teal: #69d0c6;
+  --blue: #8bbcff;
+  --amber: #f0b96f;
+  --red: #f17e73;
+  --green: #79d9a7;
+  --shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
+  --scroll-track: rgba(20, 47, 52, 0.72);
+  --scroll-thumb: rgba(105, 208, 198, 0.46);
+  --scroll-thumb-hover: rgba(105, 208, 198, 0.72);
+  --scroll-border: rgba(20, 47, 52, 0.72);
+  --project-create-bg: #0d3035;
+  --pill-bg: #1c363a;
+  --field-bg: linear-gradient(180deg, #132d32, #10282d);
+  --control-bg: linear-gradient(180deg, #17343a, #112a2f);
+  --control-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 8px 18px rgba(0, 0, 0, 0.18);
+  --control-hover-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 12px 28px rgba(0, 0, 0, 0.26);
+  --primary-bg: linear-gradient(180deg, #2d9f9c, #176f79);
+  --danger-bg: linear-gradient(180deg, #ad4c45, #8d332f);
+  --danger-card-bg: linear-gradient(180deg, #2a1719, #151f22);
+  --settings-row-bg: #132b30;
+  --lane-bg: linear-gradient(180deg, #10282d, #0d2227);
+  --lane-drop-bg: linear-gradient(180deg, #133b3d, #0e3033);
+  --ticket-bg: linear-gradient(180deg, #152f35, #10272c);
+  --success-bg: rgba(121, 217, 167, 0.15);
+  --danger-soft-bg: rgba(241, 126, 115, 0.15);
+  --danger-border: rgba(241, 126, 115, 0.5);
+  --danger-soft-border: rgba(241, 126, 115, 0.28);
+  --info-bg: rgba(139, 188, 255, 0.14);
+  --warn-bg: rgba(240, 185, 111, 0.16);
+  --panel-translucent: rgba(16, 36, 41, 0.72);
+  --scrim-bg: rgba(2, 8, 10, 0.62);
+  --modal-scrim-bg: rgba(2, 8, 10, 0.68);
+  --modal-shadow: 0 28px 80px rgba(0, 0, 0, 0.46);
+  --tooltip-bg: #d8f5ee;
+  --tooltip-fg: #072126;
+  --active-fg: #ffffff;
+  --hover-border: rgba(105, 208, 198, 0.48);
+  --focus-border: rgba(105, 208, 198, 0.72);
+  --focus-ring: 0 0 0 3px rgba(105, 208, 198, 0.18);
+  --drop-border: rgba(105, 208, 198, 0.62);
+  --drop-ring: inset 0 0 0 2px rgba(105, 208, 198, 0.15);
+  --ticket-hover-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+  --ticket-drag-shadow: 0 20px 42px rgba(0, 0, 0, 0.38);
+  --tooltip-border: rgba(216, 245, 238, 0.16);
 }
 
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: rgba(23, 108, 121, 0.42) rgba(219, 228, 227, 0.52);
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
 }
 
 *::-webkit-scrollbar {
@@ -29,18 +126,18 @@
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(219, 228, 227, 0.45);
+  background: var(--scroll-track);
   border-radius: 999px;
 }
 
 *::-webkit-scrollbar-thumb {
-  border: 3px solid rgba(219, 228, 227, 0.45);
+  border: 3px solid var(--scroll-border);
   border-radius: 999px;
-  background: rgba(23, 108, 121, 0.52);
+  background: var(--scroll-thumb);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(23, 108, 121, 0.72);
+  background: var(--scroll-thumb-hover);
 }
 
 body {
@@ -213,7 +310,7 @@ h3 {
   border: 1px solid var(--teal);
   border-radius: 8px;
   padding: 0 10px;
-  background: #f2faf9;
+  background: var(--project-create-bg);
   color: var(--teal);
   font-weight: 800;
 }
@@ -300,7 +397,7 @@ h3 {
   min-height: 32px;
   border-radius: 999px;
   padding: 0 11px;
-  background: #e8efee;
+  background: var(--pill-bg);
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -308,12 +405,12 @@ h3 {
 }
 
 .live-live {
-  background: rgba(34, 118, 95, 0.12);
+  background: var(--success-bg);
   color: var(--green);
 }
 
 .live-reconnecting {
-  background: rgba(190, 75, 62, 0.12);
+  background: var(--danger-soft-bg);
   color: var(--red);
 }
 
@@ -361,28 +458,30 @@ h3 {
 .view-tabs button.is-active,
 .view-tabs button[data-state="active"] {
   background: var(--teal);
-  color: #fff;
+  color: var(--active-fg);
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .primary-button,
 .quiet-button,
-.icon-button {
+.icon-button,
+.danger-button {
   min-height: 38px;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   padding: 0 13px;
-  background: linear-gradient(180deg, #fff, #f6faf9);
+  background: var(--control-bg);
   color: var(--text);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 8px 18px rgba(23, 47, 59, 0.04);
+  box-shadow: var(--control-shadow);
   transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
 .primary-button:hover,
 .quiet-button:hover,
-.icon-button:hover {
-  border-color: rgba(23, 108, 121, 0.42);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 10px 24px rgba(23, 47, 59, 0.08);
+.icon-button:hover,
+.danger-button:hover {
+  border-color: var(--hover-border);
+  box-shadow: var(--control-hover-shadow);
 }
 
 .icon-button {
@@ -397,24 +496,33 @@ h3 {
 
 .primary-button {
   border-color: var(--teal);
-  background: linear-gradient(180deg, #1b7d89, var(--teal));
-  color: #fff;
+  background: var(--primary-bg);
+  color: var(--active-fg);
   font-weight: 700;
 }
 
 .icon-button.is-primary,
-.icon-button.is-active {
+.icon-button.is-active,
+.icon-button[aria-pressed="true"] {
   border-color: var(--teal);
-  background: linear-gradient(180deg, #1b7d89, var(--teal));
-  color: #fff;
+  background: var(--primary-bg);
+  color: var(--active-fg);
 }
 
 .quiet-button {
-  background: linear-gradient(180deg, #fff, var(--panel-soft));
+  background: var(--control-bg);
+}
+
+.danger-button {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--active-fg);
+  font-weight: 800;
 }
 
 .primary-button:disabled,
-.quiet-button:disabled {
+.quiet-button:disabled,
+.danger-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -529,7 +637,7 @@ h3 {
   min-width: 26px;
   min-height: 24px;
   border-radius: 999px;
-  background: #e8efee;
+  background: var(--pill-bg);
   font-size: 12px;
   font-weight: 800;
 }
@@ -582,7 +690,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--panel-translucent);
 }
 
 .repo-item {
@@ -617,12 +725,22 @@ h3 {
   color: var(--red);
 }
 
+.danger-card {
+  border-color: var(--danger-soft-border);
+  background: var(--danger-card-bg);
+}
+
+.danger-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .drawer-scrim {
   position: fixed;
   inset: 0;
   z-index: 28;
   border: 0;
-  background: rgba(10, 20, 28, 0.42);
+  background: var(--scrim-bg);
 }
 
 .settings-drawer {
@@ -637,7 +755,7 @@ h3 {
   border-radius: 12px;
   padding: 14px;
   background: var(--panel);
-  box-shadow: 0 24px 70px rgba(23, 47, 59, 0.18);
+  box-shadow: var(--modal-shadow);
 }
 
 .onboarding-dialog {
@@ -655,7 +773,7 @@ h3 {
   padding: 14px;
   overflow: auto;
   background: var(--panel);
-  box-shadow: 0 24px 70px rgba(23, 47, 59, 0.18);
+  box-shadow: var(--modal-shadow);
 }
 
 .drawer-heading {
@@ -718,7 +836,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 8px 10px;
-  background: #fff;
+  background: var(--settings-row-bg);
   color: var(--text);
   font-size: 14px;
   font-weight: 700;
@@ -728,6 +846,34 @@ h3 {
 .check-row input {
   flex: 0 0 auto;
   width: 18px;
+}
+
+.mode-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mode-pill {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: var(--settings-row-bg);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.mode-pill strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mode-pill.active {
+  border-color: var(--accent);
+  background: var(--pill-bg);
 }
 
 .field-error {
@@ -758,9 +904,9 @@ textarea {
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   padding: 9px 10px;
-  background: linear-gradient(180deg, #fff, #fbfdfc);
+  background: var(--field-bg);
   color: var(--text);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  box-shadow: var(--control-shadow);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -768,8 +914,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: 0;
-  border-color: rgba(23, 108, 121, 0.68);
-  box-shadow: 0 0 0 3px rgba(23, 108, 121, 0.12);
+  border-color: var(--focus-border);
+  box-shadow: var(--focus-ring);
 }
 
 select {
@@ -778,7 +924,7 @@ select {
   background-image:
     linear-gradient(45deg, transparent 50%, var(--muted) 50%),
     linear-gradient(135deg, var(--muted) 50%, transparent 50%),
-    linear-gradient(180deg, #fff, #fbfdfc);
+    var(--field-bg);
   background-position:
     calc(100% - 18px) calc(50% + 1px),
     calc(100% - 12px) calc(50% + 1px),
@@ -796,22 +942,22 @@ input[type="checkbox"] {
   margin: 0;
   padding: 0;
   border-radius: 5px;
-  background: linear-gradient(180deg, #fff, #f6faf9);
+  background: var(--control-bg);
 }
 
 input[type="checkbox"]::after {
   content: "";
   width: 8px;
   height: 4px;
-  border-bottom: 2px solid #fff;
-  border-left: 2px solid #fff;
+  border-bottom: 2px solid var(--active-fg);
+  border-left: 2px solid var(--active-fg);
   opacity: 0;
   transform: rotate(-45deg) translateY(-1px);
 }
 
 input[type="checkbox"]:checked {
   border-color: var(--teal);
-  background: linear-gradient(180deg, #1b7d89, var(--teal));
+  background: var(--primary-bg);
 }
 
 input[type="checkbox"]:checked::after {
@@ -858,14 +1004,14 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px;
-  background: linear-gradient(180deg, #fbfdfc, var(--panel-soft));
+  background: var(--lane-bg);
   transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
 .lane.is-drop-target {
-  border-color: rgba(23, 108, 121, 0.58);
-  background: linear-gradient(180deg, #f7fbfb, #eef7f5);
-  box-shadow: inset 0 0 0 2px rgba(23, 108, 121, 0.11);
+  border-color: var(--drop-border);
+  background: var(--lane-drop-bg);
+  box-shadow: var(--drop-ring);
 }
 
 .lane-header {
@@ -884,7 +1030,7 @@ textarea {
   min-width: 26px;
   min-height: 24px;
   border-radius: 999px;
-  background: #e8efee;
+  background: var(--pill-bg);
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -906,7 +1052,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 11px;
-  background: linear-gradient(180deg, #fff, #fbfdfc);
+  background: var(--ticket-bg);
   color: var(--text);
   text-align: left;
   cursor: grab;
@@ -916,15 +1062,15 @@ textarea {
 
 .ticket-card:hover,
 .ticket-card.is-selected {
-  border-color: rgba(23, 108, 121, 0.45);
-  box-shadow: 0 10px 24px rgba(23, 47, 59, 0.09);
+  border-color: var(--hover-border);
+  box-shadow: var(--ticket-hover-shadow);
 }
 
 .ticket-card.is-dragging {
   position: relative;
   z-index: 6;
-  border-color: rgba(23, 108, 121, 0.68);
-  box-shadow: 0 18px 36px rgba(23, 47, 59, 0.16);
+  border-color: var(--focus-border);
+  box-shadow: var(--ticket-drag-shadow);
   cursor: grabbing;
   opacity: 0.76;
 }
@@ -946,7 +1092,7 @@ textarea {
   width: fit-content;
   border-radius: 999px;
   padding: 4px 8px;
-  background: #e8efee;
+  background: var(--pill-bg);
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -955,25 +1101,25 @@ textarea {
 .state-ready,
 .state-ready-to-merge,
 .state-done {
-  background: rgba(34, 118, 95, 0.12);
+  background: var(--success-bg);
   color: var(--green);
 }
 
 .state-working,
 .state-reviewing,
 .state-validating {
-  background: rgba(36, 93, 156, 0.1);
+  background: var(--info-bg);
   color: var(--blue);
 }
 
 .state-rework,
 .state-proposed {
-  background: rgba(168, 101, 22, 0.12);
+  background: var(--warn-bg);
   color: var(--amber);
 }
 
 .state-blocked {
-  background: rgba(190, 75, 62, 0.12);
+  background: var(--danger-soft-bg);
   color: var(--red);
 }
 
@@ -1018,23 +1164,23 @@ textarea {
   inset: 0;
   z-index: 42;
   border: 0;
-  background: rgba(10, 20, 28, 0.46);
+  background: var(--modal-scrim-bg);
 }
 
 .tooltip-content {
   z-index: 60;
-  border: 1px solid rgba(23, 47, 59, 0.16);
+  border: 1px solid var(--tooltip-border);
   border-radius: 8px;
   padding: 6px 8px;
-  background: #102c36;
-  color: #fff;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
   font-size: 12px;
   font-weight: 700;
-  box-shadow: 0 12px 30px rgba(23, 47, 59, 0.16);
+  box-shadow: var(--ticket-hover-shadow);
 }
 
 .tooltip-arrow {
-  fill: #102c36;
+  fill: var(--tooltip-bg);
 }
 
 .detail-stack {
@@ -1144,7 +1290,7 @@ textarea {
 }
 
 .status.is-error {
-  border-color: rgba(190, 75, 62, 0.24);
+  border-color: var(--danger-soft-border);
   color: var(--red);
 }
 
@@ -1157,7 +1303,7 @@ textarea {
   inset: 0;
   z-index: 18;
   border: 0;
-  background: rgba(10, 20, 28, 0.42);
+  background: var(--scrim-bg);
 }
 
 @media (max-width: 1180px) {

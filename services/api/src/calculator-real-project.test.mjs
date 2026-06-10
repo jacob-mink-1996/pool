@@ -43,6 +43,7 @@ test("bounded real project goal can create runnable calculator tickets", async (
       requireReviewer: false,
       requireValidator: false,
       requireHumanApprovalBeforeMerge: false,
+      refinementMode: "autonomous",
       agentCreatedTicketDefaultState: "READY",
       maxParallelExecutions: 2,
       maxAutoContinueIterations: 2,

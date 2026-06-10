@@ -14,6 +14,8 @@ export type TicketState =
 
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
 
+export type RefinementMode = "autonomous" | "user_approved" | "user_participant" | "user_only";
+
 export type RoleName =
   | "product_manager"
   | "architect"
@@ -44,6 +46,7 @@ export type ProjectPolicy = {
   maxParallelExecutions: number;
   maxParallelMerges: number;
   maxAutoContinueIterations: number;
+  refinementMode: RefinementMode;
   agentCreatedTicketDefaultState: TicketState;
 };
 
@@ -73,6 +76,7 @@ export type ProjectPolicyInput = {
   maxParallelExecutions: number;
   maxParallelMerges: number;
   maxAutoContinueIterations: number;
+  refinementMode: RefinementMode;
   agentCreatedTicketDefaultState: TicketState;
 };
 

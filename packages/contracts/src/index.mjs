@@ -1,5 +1,6 @@
 import {
   isDependencyType,
+  isRefinementMode,
   isRoleName,
   isExecutionOutcome,
   isMergeStatus,
@@ -378,6 +379,14 @@ export function parseUpdateProjectPolicyInput(body) {
     requireHumanApprovalBeforeMerge: optionalBoolean(body, "requireHumanApprovalBeforeMerge"),
     requiredValidationCommandProfileForMerge: optionalPatchedString(body, "requiredValidationCommandProfileForMerge"),
   });
+
+  if (hasOwn(body, "refinementMode")) {
+    const refinementMode = requiredString(body, "refinementMode");
+    if (!isRefinementMode(refinementMode)) {
+      throw new Error(`Invalid refinement mode: ${refinementMode}`);
+    }
+    parsed.refinementMode = refinementMode;
+  }
 
   if (hasOwn(body, "maxParallelExecutions")) {
     parsed.maxParallelExecutions = requiredPositiveInteger(body, "maxParallelExecutions");

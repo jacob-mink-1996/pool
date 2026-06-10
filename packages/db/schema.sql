@@ -33,6 +33,7 @@ create table if not exists project_policies (
   max_parallel_executions integer not null default 1,
   max_parallel_merges integer not null default 1,
   max_auto_continue_iterations integer not null default 3,
+  refinement_mode text not null default 'user_approved',
   agent_created_ticket_default_state text not null,
   created_at timestamptz not null,
   updated_at timestamptz not null

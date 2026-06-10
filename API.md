@@ -77,6 +77,12 @@ lightweight ticket cards with:
 
 Update project metadata.
 
+### `DELETE /api/v1/projects/:projectId`
+
+Delete a project and all Pool-managed child records for it, including repos,
+tickets, dependencies, executions, worktrees, reviews, validations, artifacts,
+merge runs, events, policies, and role profiles.
+
 ### `GET /api/v1/projects/:projectId/policy`
 
 Return project delivery policy.
@@ -91,7 +97,9 @@ Expected fields:
 - `requireValidator`
 - `requireHumanApprovalBeforeMerge`
 - `maxParallelExecutions`
+- `maxParallelMerges`
 - `maxAutoContinueIterations`
+- `refinementMode`
 - `agentCreatedTicketDefaultState`
 
 ## Repo Endpoints
@@ -183,6 +191,21 @@ Expected fields:
 
 This is useful for human/operator actions and policy-driven transitions.
 
+### `POST /api/v1/projects/:projectId/tickets/:ticketId/restart`
+
+Dangerous operator action that restarts a ticket from a clean slate.
+
+Effects:
+
+- cancels active executions for the ticket
+- marks recorded ticket worktrees as cleaned
+- deletes recorded worktree directories under `.pool/worktrees`
+- moves the ticket back to `READY`
+
+Expected fields:
+
+- `reason`
+
 ## Dependency Endpoints
 
 ### `POST /api/v1/projects/:projectId/tickets/:ticketId/dependencies`
@@ -240,9 +263,12 @@ Expected fields:
 
 `followupTickets[]` uses the normal ticket creation fields, excluding
 `parentTicketId`. Pool persists these as child tickets of the completed
-execution's ticket and defaults missing `state` to the project's
-`agentCreatedTicketDefaultState`. This is the bounded mechanism for a goal or
-refinement lane to extend itself into runnable tickets.
+execution's ticket. Child ticket readiness is governed by `refinementMode`:
+`autonomous` may honor `agentCreatedTicketDefaultState` or an agent-requested
+state, while `user_approved`, `user_participant`, and `user_only` keep
+agent-created follow-ups in refinement (`PROPOSED`, or `DRAFT` when explicitly
+requested) until a user transitions them. This is the bounded mechanism for a
+goal or refinement lane to extend itself into runnable tickets.
 
 ### `POST /api/v1/projects/:projectId/executions/:executionId/continue`
 
@@ -345,7 +371,7 @@ Useful filters:
 - `ticketId`
 - `status`
 
-### `POST /api/v1/projects/:projectId/worktrees/:worktreeId/cleanup`
+### `POST /api/v1/projects/:projectId/worktrees/:worktreeId/clean`
 
 Request cleanup of a stale or finished worktree.
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { defaultProjectPolicy, defaultRoleProfiles } from "../../config/src/index.mjs";
 import {
@@ -18,7 +19,7 @@ import {
   validationRunDto,
   worktreeDto,
 } from "../../contracts/src/index.mjs";
-import { boardStates, isRoleName, isTicketState } from "../../domain/src/index.mjs";
+import { boardStates, isRefinementMode, isRoleName, isTicketState } from "../../domain/src/index.mjs";
 
 const SQLITE_SCHEMA = `
 pragma foreign_keys = on;
@@ -44,6 +45,7 @@ create table if not exists project_policies (
   max_parallel_executions integer not null default 1,
   max_parallel_merges integer not null default 1,
   max_auto_continue_iterations integer not null default 3,
+  refinement_mode text not null default 'user_approved',
   agent_created_ticket_default_state text not null,
   created_at text not null,
   updated_at text not null
@@ -302,7 +304,7 @@ export function createSqliteStore(options = {}) {
       const timestamp = now();
       const slug = requiredText(input.slug, "slug");
       const name = requiredText(input.name, "name");
-      const workspaceRoot = requiredText(input.workspaceRoot, "workspaceRoot");
+      const workspaceRoot = normalizeFilesystemPath(requiredText(input.workspaceRoot, "workspaceRoot"));
       const id = `project_${slugify(slug)}`;
       const policy = defaultProjectPolicy();
       const roleProfiles = defaultRoleProfiles();
@@ -350,6 +352,7 @@ export function createSqliteStore(options = {}) {
       applyTextPatch(updates, changedFields, input, existing, "workspaceRoot", {
         column: "workspace_root",
         required: true,
+        transform: normalizeFilesystemPath,
       });
       applyTextPatch(updates, changedFields, input, existing, "defaultBaseBranch", {
         column: "default_base_branch",
@@ -383,6 +386,19 @@ export function createSqliteStore(options = {}) {
       });
 
       return this.getProjectSummary(projectId);
+    },
+
+    deleteProject(projectId) {
+      const existing = this.getProjectSummary(projectId);
+      if (!existing) {
+        return null;
+      }
+
+      withTransaction(database, () => {
+        database.prepare("delete from projects where id = ?").run(projectId);
+      });
+
+      return existing;
     },
 
     getProjectPolicy(projectId) {
@@ -428,6 +444,7 @@ export function createSqliteStore(options = {}) {
       applyPositiveIntegerPatch(updates, changedFields, input, existing, "maxAutoContinueIterations", {
         column: "max_auto_continue_iterations",
       });
+      applyRefinementModePatch(updates, changedFields, input, existing);
       applyTextPatch(updates, changedFields, input, existing, "agentCreatedTicketDefaultState", {
         column: "agent_created_ticket_default_state",
         required: true,
@@ -643,7 +660,7 @@ export function createSqliteStore(options = {}) {
       const timestamp = now();
       const slug = requiredText(input.slug, "slug");
       const name = requiredText(input.name, "name");
-      const localPath = requiredText(input.localPath, "localPath");
+      const localPath = normalizeFilesystemPath(requiredText(input.localPath, "localPath"));
       const repo = {
         id: `repo_${slugify(projectId)}_${slugify(slug)}`,
         projectId,
@@ -700,6 +717,7 @@ export function createSqliteStore(options = {}) {
       applyTextPatch(updates, changedFields, input, existing, "localPath", {
         column: "local_path",
         required: true,
+        transform: normalizeFilesystemPath,
       });
       applyTextPatch(updates, changedFields, input, existing, "remoteUrl", { column: "remote_url" });
       applyTextPatch(updates, changedFields, input, existing, "defaultBranch", {
@@ -2048,7 +2066,7 @@ export function createSqliteStore(options = {}) {
         this.createTicket(projectId, {
           ...followupTicket,
           parentTicketId: execution.ticket_id,
-          state: followupTicket.state || policy.agent_created_ticket_default_state,
+          state: deriveAgentCreatedTicketState(policy, followupTicket.state),
         });
       }
 
@@ -2213,6 +2231,96 @@ export function createSqliteStore(options = {}) {
       });
 
       return worktreeDto(mapWorktree(getWorktreeRow(database, projectId, worktreeId)));
+    },
+
+    restartTicket(projectId, ticketId, input = {}) {
+      const ticket = getTicketRow(database, projectId, ticketId);
+      if (!ticket) {
+        return null;
+      }
+
+      const timestamp = now();
+      const reason = optionalText(input.reason, `Restart requested for ${ticket.key}`);
+      const targetState = optionalText(input.targetState, "READY");
+      if (!isTicketState(targetState)) {
+        throw new Error(`Invalid ticket state: ${targetState}`);
+      }
+
+      const runningExecutions = database
+        .prepare("select * from executions where project_id = ? and ticket_id = ? and status = 'running'")
+        .all(projectId, ticketId);
+      const worktrees = listWorktreeRows(database, projectId, { ticketId }).map(mapWorktree);
+      const worktreesToDelete = worktrees.filter((worktree) => worktree.status !== "cleaned");
+      for (const worktree of worktreesToDelete) {
+        assertDeletableWorktreePath(worktree.path);
+      }
+
+      withTransaction(database, () => {
+        for (const execution of runningExecutions) {
+          database
+            .prepare(
+              `update executions
+               set status = ?, outcome = ?, summary_md = ?, failure_kind = ?, claim_token = '', claim_expires_at = null, finished_at = ?, updated_at = ?
+               where project_id = ? and id = ?`,
+            )
+            .run("cancelled", "failed", reason, "restart_cancelled", timestamp, timestamp, projectId, execution.id);
+
+          insertEvent(database, {
+            projectId,
+            ticketId,
+            type: "execution.completed",
+            summary: `${ticket.key} ${execution.role} iteration ${execution.iteration} cancelled for restart`,
+            detail: reason,
+            reasonCode: "restart_cancelled",
+            reasonSource: "execution",
+          });
+        }
+
+        for (const worktree of worktreesToDelete) {
+          database
+            .prepare(
+              `update worktrees
+               set status = ?, cleaned_at = ?, updated_at = ?
+               where project_id = ? and id = ?`,
+            )
+            .run("cleaned", timestamp, timestamp, projectId, worktree.id);
+
+          insertEvent(database, {
+            projectId,
+            repoId: worktree.repoId,
+            ticketId,
+            type: "worktree.cleaned",
+            summary: `${ticket.key} worktree deleted for ${worktree.repoName}`,
+            detail: `${reason}\n${worktree.path}`,
+            reasonCode: "restart_deleted",
+            reasonSource: "worktree",
+          });
+        }
+
+        database
+          .prepare(
+            `update tickets
+             set state = ?, latest_summary = ?, updated_at = ?
+             where project_id = ? and id = ?`,
+          )
+          .run(targetState, reason, timestamp, projectId, ticketId);
+
+        insertEvent(database, {
+          projectId,
+          ticketId,
+          type: "ticket.updated",
+          summary: `${ticket.key} restarted`,
+          detail: reason,
+          reasonCode: "ticket_restarted",
+          reasonSource: "operator",
+        });
+      });
+
+      for (const worktree of worktreesToDelete) {
+        deleteWorktreePath(worktree.path);
+      }
+
+      return this.getTicket(projectId, ticketId);
     },
 
     listEvents(projectId, filters = {}) {
@@ -3057,6 +3165,7 @@ function mapProjectPolicy(row) {
     maxParallelExecutions: Number(row.max_parallel_executions),
     maxParallelMerges: Number(row.max_parallel_merges),
     maxAutoContinueIterations: Number(row.max_auto_continue_iterations),
+    refinementMode: row.refinement_mode || "user_approved",
     agentCreatedTicketDefaultState: row.agent_created_ticket_default_state,
   };
 }
@@ -3530,14 +3639,14 @@ function deriveTicketStateForExecutionOutcome(currentState, outcome, blockedKind
     if (outcome === "completed" || outcome === "needs_continue") return "REVIEWING";
     if (outcome === "blocked") return "BLOCKED";
     if (outcome === "failed" && blockedKind) return "BLOCKED";
-    if (outcome === "followup_created") return currentState;
+    if (outcome === "followup_created") return "DONE";
     return "REVIEWING";
   }
   if (role === "validator") {
     if (outcome === "completed" || outcome === "needs_continue") return "VALIDATING";
     if (outcome === "blocked") return "BLOCKED";
     if (outcome === "failed" && blockedKind) return "BLOCKED";
-    if (outcome === "followup_created") return currentState;
+    if (outcome === "followup_created") return "DONE";
     return "VALIDATING";
   }
   if (outcome === "completed") {
@@ -3554,8 +3663,16 @@ function deriveTicketStateForExecutionOutcome(currentState, outcome, blockedKind
   if (outcome === "needs_continue") return "WORKING";
   if (outcome === "blocked") return "BLOCKED";
   if (outcome === "failed" && blockedKind) return "BLOCKED";
-  if (outcome === "followup_created") return currentState;
+  if (outcome === "followup_created") return "DONE";
   return "WORKING";
+}
+
+function deriveAgentCreatedTicketState(policy, requestedState) {
+  const defaultState = requestedState || policy.agentCreatedTicketDefaultState || policy.agent_created_ticket_default_state;
+  if ((policy.refinementMode || policy.refinement_mode) === "autonomous") {
+    return defaultState;
+  }
+  return defaultState === "DRAFT" ? "DRAFT" : "PROPOSED";
 }
 
 function deriveTicketStateForExecutionStart(role) {
@@ -3949,8 +4066,8 @@ function insertProjectPolicy(database, projectId, policy, timestamp) {
         id, project_id, require_reviewer, require_validator,
         require_human_approval_before_merge, required_validation_command_profile_for_merge,
         max_parallel_executions, max_parallel_merges, max_auto_continue_iterations,
-        agent_created_ticket_default_state, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        refinement_mode, agent_created_ticket_default_state, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       `policy_${slugify(projectId)}`,
@@ -3962,6 +4079,7 @@ function insertProjectPolicy(database, projectId, policy, timestamp) {
       policy.maxParallelExecutions,
       policy.maxParallelMerges ?? 1,
       policy.maxAutoContinueIterations,
+      policy.refinementMode || "user_approved",
       policy.agentCreatedTicketDefaultState,
       timestamp,
       timestamp,
@@ -4170,6 +4288,31 @@ function optionalText(value, fallback = "") {
   return value.trim() || fallback;
 }
 
+function normalizeFilesystemPath(value) {
+  const text = requiredText(value, "path");
+  if (text === "~") {
+    return homedir();
+  }
+  if (text.startsWith("~/")) {
+    return resolve(homedir(), text.slice(2));
+  }
+  return text;
+}
+
+function deleteWorktreePath(worktreePath) {
+  const resolvedPath = resolve(worktreePath);
+  assertDeletableWorktreePath(resolvedPath);
+  rmSync(resolvedPath, { recursive: true, force: true });
+}
+
+function assertDeletableWorktreePath(worktreePath) {
+  const resolvedPath = resolve(worktreePath);
+  const marker = `${sep}.pool${sep}worktrees${sep}`;
+  if (!resolvedPath.includes(marker)) {
+    throw new Error(`Refusing to delete non-Pool worktree path: ${worktreePath}`);
+  }
+}
+
 function applyTicketTextPatch(updates, changedFields, input, existing, field, options = {}) {
   applyTextPatch(updates, changedFields, input, existing, field, options);
 }
@@ -4184,7 +4327,8 @@ function applyTextPatch(updates, changedFields, input, existing, field, options 
     throw new Error(`Field ${field} must be a string`);
   }
 
-  const value = options.required ? requiredText(rawValue, field) : rawValue.trim();
+  const textValue = options.required ? requiredText(rawValue, field) : rawValue.trim();
+  const value = options.transform ? options.transform(textValue) : textValue;
   const column = options.column || camelToSnake(field);
   if (existing[column] === value) {
     return;
@@ -4231,6 +4375,24 @@ function applyPositiveIntegerPatch(updates, changedFields, input, existing, fiel
   changedFields.push(field);
 }
 
+function applyRefinementModePatch(updates, changedFields, input, existing) {
+  if (!hasOwn(input, "refinementMode")) {
+    return;
+  }
+
+  const refinementMode = requiredText(input.refinementMode, "refinementMode");
+  if (!isRefinementMode(refinementMode)) {
+    throw new Error(`Invalid refinement mode: ${refinementMode}`);
+  }
+
+  if (existing.refinement_mode === refinementMode) {
+    return;
+  }
+
+  updates.refinement_mode = refinementMode;
+  changedFields.push("refinementMode");
+}
+
 function camelToSnake(value) {
   return value.replace(/[A-Z]/g, (char) => `_${char.toLowerCase()}`);
 }
@@ -4258,6 +4420,9 @@ function migrateSchema(database) {
   }
   if (!policyColumns.has("max_parallel_merges")) {
     database.exec("alter table project_policies add column max_parallel_merges integer not null default 1");
+  }
+  if (!policyColumns.has("refinement_mode")) {
+    database.exec("alter table project_policies add column refinement_mode text not null default 'user_approved'");
   }
 
   const eventColumns = new Set(database.prepare("pragma table_info(events)").all().map((row) => row.name));

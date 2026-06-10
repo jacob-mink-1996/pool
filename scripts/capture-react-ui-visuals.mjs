@@ -35,6 +35,18 @@ try {
   await waitForText("Define first transport contracts");
   await assertScript("document.documentElement.scrollHeight <= window.innerHeight && document.body.scrollHeight <= window.innerHeight", "desktop body does not own vertical scrolling");
   await screenshot("01-desktop-board");
+  await clickText("Use night fishing theme");
+  await waitForScript("document.documentElement.dataset.theme === 'dark'");
+  await delay(180);
+  await screenshot("01a-desktop-board-night-fishing");
+  await clickText("Settings");
+  await waitForScript("document.querySelector('.settings-drawer') !== null");
+  await delay(180);
+  await screenshot("01b-desktop-settings-night-fishing");
+  await clickSelector(".settings-drawer .drawer-heading button[aria-label='Close settings']");
+  await waitForScript("document.querySelector('.settings-drawer') === null");
+  await clickText("Use summer theme");
+  await waitForScript("document.documentElement.dataset.theme === 'light'");
   await clickText("Collapse project rail");
   await waitForScript("document.querySelector('.app-shell.is-rail-collapsed') !== null");
   await delay(180);

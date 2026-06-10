@@ -16,10 +16,18 @@ import type {
   Repo,
   RepoInput,
   RepoUpdateInput,
+  RefinementMode,
   RoleName,
   RoleProfile,
   TicketState,
 } from "./types";
+
+const refinementModes: Array<{ value: RefinementMode; label: string; detail: string }> = [
+  { value: "autonomous", label: "Autonomous", detail: "Agent-created tickets may leave refinement automatically." },
+  { value: "user_approved", label: "User approved", detail: "Pool proposes refined tickets; a user approves readiness." },
+  { value: "user_participant", label: "User participant", detail: "Pool and the user collaborate before readiness." },
+  { value: "user_only", label: "User only", detail: "Only user action brings tickets out of refinement." },
+];
 
 export function SettingsDrawer({
   projectId,
@@ -27,6 +35,7 @@ export function SettingsDrawer({
   repos,
   isOpen,
   onClose,
+  onDeleteProject,
   onRefresh,
 }: {
   projectId: string;
@@ -34,6 +43,7 @@ export function SettingsDrawer({
   repos: Repo[];
   isOpen: boolean;
   onClose: () => void;
+  onDeleteProject: () => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState("");
@@ -46,6 +56,18 @@ export function SettingsDrawer({
     try {
       await work();
       await onRefresh();
+    } catch (settingsError) {
+      setError(settingsError instanceof Error ? settingsError.message : String(settingsError));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const runDelete = async () => {
+    setBusy("Deleting project");
+    setError("");
+    try {
+      await onDeleteProject();
     } catch (settingsError) {
       setError(settingsError instanceof Error ? settingsError.message : String(settingsError));
     } finally {
@@ -105,10 +127,56 @@ export function SettingsDrawer({
                 <RoleProfiles project={project} busy={busy} onSubmit={(role, input) => run(`Saving ${role}`, () => updateRoleProfile(projectId, role, input))} />
               ) : null}
             </section>
+            <DeleteProjectSection project={project} busy={busy} onDelete={runDelete} />
           </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+function DeleteProjectSection({
+  project,
+  busy,
+  onDelete,
+}: {
+  project: Project;
+  busy: string;
+  onDelete: () => Promise<void>;
+}) {
+  const [confirmation, setConfirmation] = useState("");
+  const canDelete = confirmation === project.name && !busy;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canDelete) return;
+    await onDelete();
+  }
+
+  return (
+    <form className="settings-card settings-card-wide danger-card" onSubmit={handleSubmit}>
+      <div className="section-heading">
+        <div>
+          <h3>Delete Project</h3>
+          <span className="section-note">Permanent</span>
+        </div>
+      </div>
+      <p>
+        Delete this project and all Pool-managed tickets, repos, executions, reviews, validations, merge records, events, and artifacts.
+      </p>
+      <label>
+        <span>Type {project.name} to confirm</span>
+        <input
+          name="deleteConfirmation"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.currentTarget.value)}
+          autoComplete="off"
+        />
+      </label>
+      <button className="danger-button" type="submit" disabled={!canDelete}>
+        {busy === "Deleting project" ? busy : "Delete project"}
+      </button>
+    </form>
   );
 }
 
@@ -190,6 +258,7 @@ function PolicyForm({
       maxParallelExecutions: Number(form.get("maxParallelExecutions") || 1),
       maxParallelMerges: Number(form.get("maxParallelMerges") || 1),
       maxAutoContinueIterations: Number(form.get("maxAutoContinueIterations") || 1),
+      refinementMode: String(form.get("refinementMode") || "user_approved") as RefinementMode,
       agentCreatedTicketDefaultState: String(form.get("agentCreatedTicketDefaultState") || "PROPOSED") as TicketState,
     });
   }
@@ -227,6 +296,20 @@ function PolicyForm({
             {ticketStates.map((state) => <option key={state} value={state}>{prettyState(state)}</option>)}
           </select>
         </label>
+        <label>
+          <span>Refinement mode</span>
+          <select name="refinementMode" defaultValue={policy?.refinementMode || "user_approved"}>
+            {refinementModes.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="mode-list">
+        {refinementModes.map((mode) => (
+          <span key={mode.value} className={mode.value === (policy?.refinementMode || "user_approved") ? "mode-pill active" : "mode-pill"}>
+            <strong>{mode.label}</strong>
+            {mode.detail}
+          </span>
+        ))}
       </div>
       <button className="primary-button" type="submit" disabled={Boolean(busy)}>
         {busy === "Saving policy" ? busy : "Save policy"}

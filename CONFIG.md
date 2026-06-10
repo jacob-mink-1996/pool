@@ -74,8 +74,10 @@ policy:
   requireValidator: true
   requireHumanApprovalBeforeMerge: true
   maxParallelExecutions: 4
+  maxParallelMerges: 1
   maxAutoContinueIterations: 5
-  agentCreatedTicketsDefaultState: PROPOSED
+  refinementMode: user_approved
+  agentCreatedTicketDefaultState: PROPOSED
 
 roles:
   developer:

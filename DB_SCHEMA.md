@@ -70,8 +70,11 @@ Suggested fields:
 - `require_reviewer` boolean not null default true
 - `require_validator` boolean not null default true
 - `require_human_approval_before_merge` boolean not null default true
+- `required_validation_command_profile_for_merge` text not null default ''
 - `max_parallel_executions` integer not null default 1
+- `max_parallel_merges` integer not null default 1
 - `max_auto_continue_iterations` integer not null default 3
+- `refinement_mode` text not null default `user_approved`
 - `agent_created_ticket_default_state` text not null
 - `created_at` timestamptz not null
 - `updated_at` timestamptz not null

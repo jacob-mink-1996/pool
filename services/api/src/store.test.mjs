@@ -1,5 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 import { createStore } from "./store.mjs";
 
@@ -31,6 +35,53 @@ test("store updates project metadata and records a project event", () => {
   store.close();
 });
 
+test("store expands home-relative project and repo paths before persistence", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: false });
+  const project = store.createProject({
+    name: "Home Paths",
+    slug: "home-paths",
+    workspaceRoot: "~/src/pool",
+  });
+  const repo = store.createRepo(project.id, {
+    name: "Home Repo",
+    slug: "home-repo",
+    localPath: "~/src/pool",
+  });
+  const updatedProject = store.updateProject(project.id, {
+    workspaceRoot: "~/src/pool-updated",
+  });
+  const updatedRepo = store.updateRepo(project.id, repo.id, {
+    localPath: "~/src/pool-updated",
+  });
+
+  assert.equal(project.workspaceRoot, join(homedir(), "src/pool"));
+  assert.equal(repo.localPath, join(homedir(), "src/pool"));
+  assert.equal(updatedProject.workspaceRoot, join(homedir(), "src/pool-updated"));
+  assert.equal(updatedRepo.localPath, join(homedir(), "src/pool-updated"));
+  store.close();
+});
+
+test("store deletes projects and releases their slug", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+
+  const deleted = store.deleteProject("project_pool");
+  const recreated = store.createProject({
+    name: "Pool Fresh",
+    slug: "pool",
+    workspaceRoot: "/workspace/pool-fresh",
+    defaultBaseBranch: "main",
+  });
+
+  assert.equal(deleted.id, "project_pool");
+  assert.equal(store.getProjectSummary("project_pool")?.name, "Pool Fresh");
+  assert.equal(store.getProjectBoard("project_missing"), null);
+  assert.equal(store.listProjects().length, 1);
+  assert.equal(recreated.id, "project_pool");
+  assert.equal(recreated.ticketCount, 0);
+  assert.equal(recreated.repoCount, 0);
+  store.close();
+});
+
 test("store updates project policy and role profiles", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
@@ -41,6 +92,7 @@ test("store updates project policy and role profiles", () => {
     maxParallelExecutions: 5,
     maxParallelMerges: 2,
     maxAutoContinueIterations: 8,
+    refinementMode: "user_participant",
     agentCreatedTicketDefaultState: "READY",
   });
   const updatedRoleProfile = store.updateRoleProfile("project_pool", "developer", {
@@ -56,6 +108,7 @@ test("store updates project policy and role profiles", () => {
   assert.equal(updatedPolicy.maxParallelExecutions, 5);
   assert.equal(updatedPolicy.maxParallelMerges, 2);
   assert.equal(updatedPolicy.maxAutoContinueIterations, 8);
+  assert.equal(updatedPolicy.refinementMode, "user_participant");
   assert.equal(updatedPolicy.agentCreatedTicketDefaultState, "READY");
 
   assert.equal(updatedRoleProfile.role, "developer");
@@ -69,6 +122,7 @@ test("store updates project policy and role profiles", () => {
   const project = store.getProjectSummary("project_pool");
   assert.equal(project.policy.maxParallelExecutions, 5);
   assert.equal(project.policy.maxParallelMerges, 2);
+  assert.equal(project.policy.refinementMode, "user_participant");
   assert.equal(project.policy.agentCreatedTicketDefaultState, "READY");
   assert.equal(project.roleProfiles.find((profile) => profile.role === "developer").adapter, "codex-cli");
   assert.equal(store.listEvents("project_pool").at(-1).summary, "Pool developer profile updated");
@@ -515,6 +569,71 @@ test("store persists execution history and routes ticket state from outcomes", (
   store.close();
 });
 
+test("store completes follow-up parent tickets and gates child readiness by refinement mode", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  store.updateProjectPolicy("project_pool", {
+    refinementMode: "user_approved",
+    agentCreatedTicketDefaultState: "READY",
+  });
+
+  const started = store.createExecution("project_pool", "ticket_project_pool_1", {
+    role: "architect",
+    reason: "Refine the pool project into follow-up tickets.",
+  });
+  store.completeExecution("project_pool", started.id, {
+    outcome: "followup_created",
+    summaryMd: "Created implementation follow-ups.",
+    followupTickets: [
+      {
+        title: "Implement refinement exit controls",
+        brief: "Expose and enforce refinement exit policy.",
+        state: "READY",
+        assignedRole: "developer",
+      },
+    ],
+  });
+
+  const parent = store.getTicket("project_pool", "ticket_project_pool_1");
+  const child = store.listTickets("project_pool", { parentTicketId: parent.id }).at(-1);
+
+  assert.equal(parent.state, "DONE");
+  assert.equal(started.worktrees[0].status, "active");
+  assert.equal(store.getExecution("project_pool", started.id).worktrees[0].status, "handoff");
+  assert.equal(child.state, "PROPOSED");
+
+  store.updateProjectPolicy("project_pool", {
+    refinementMode: "autonomous",
+    agentCreatedTicketDefaultState: "READY",
+  });
+  const autonomousParent = store.createTicket("project_pool", {
+    title: "Autonomous refinement parent",
+    brief: "Creates ready child tickets automatically.",
+    assignedRole: "architect",
+    state: "READY",
+  });
+  const autonomousExecution = store.createExecution("project_pool", autonomousParent.id, {
+    role: "architect",
+    reason: "Autonomous refinement.",
+  });
+  store.completeExecution("project_pool", autonomousExecution.id, {
+    outcome: "followup_created",
+    summaryMd: "Created an autonomous follow-up.",
+    followupTickets: [
+      {
+        title: "Ready autonomous child",
+        brief: "This child can execute without user approval.",
+        assignedRole: "developer",
+      },
+    ],
+  });
+
+  const autonomousTicket = store.getTicket("project_pool", autonomousParent.id);
+  assert.equal(autonomousTicket.state, "DONE");
+  assert.equal(store.listTickets("project_pool", { parentTicketId: autonomousParent.id }).at(-1).state, "READY");
+
+  store.close();
+});
+
 test("store persists review and validation evidence and advances the ticket loop", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
@@ -933,6 +1052,38 @@ test("store enforces project execution concurrency limits", () => {
   );
 
   store.close();
+});
+
+test("store restarts tickets by cancelling runs and deleting worktrees", () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-restart-ticket-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const store = createStore({ filename: ":memory:", seedDemo: true, workspaceRoot });
+
+  try {
+    const started = store.createExecution("project_pool", "ticket_project_pool_1", {
+      role: "developer",
+      reason: "Start work that will be restarted.",
+    });
+    const worktreePath = started.worktrees[0].path;
+    mkdirSync(worktreePath, { recursive: true });
+
+    const restarted = store.restartTicket("project_pool", "ticket_project_pool_1", {
+      reason: "Operator restart from test.",
+    });
+    const execution = store.getExecution("project_pool", started.id);
+    const cleanedWorktree = restarted.worktrees.find((worktree) => worktree.id === started.worktrees[0].id);
+
+    assert.equal(restarted.state, "READY");
+    assert.equal(restarted.latestSummary, "Operator restart from test.");
+    assert.equal(execution.status, "cancelled");
+    assert.equal(execution.failureKind, "restart_cancelled");
+    assert.equal(cleanedWorktree.status, "cleaned");
+    assert.equal(existsSync(worktreePath), false);
+    assert.equal(restarted.events.some((event) => event.reasonCode === "ticket_restarted"), true);
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
 });
 
 test("store enforces continuation budgets before mutating the active run", () => {

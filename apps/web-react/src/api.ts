@@ -107,6 +107,13 @@ export async function updateProject(projectId: string, input: ProjectUpdateInput
   return payload.project;
 }
 
+export async function deleteProject(projectId: string): Promise<Project> {
+  const payload = await fetchJson<{ project: Project }>(`/api/v1/projects/${projectId}`, {
+    method: "DELETE",
+  });
+  return payload.project;
+}
+
 export async function updateProjectPolicy(projectId: string, input: ProjectPolicyInput): Promise<Project["policy"]> {
   const payload = await fetchJson<{ policy: Project["policy"] }>(`/api/v1/projects/${projectId}/policy`, {
     method: "PATCH",
@@ -229,6 +236,18 @@ export async function transitionTicket(
 ): Promise<TicketDetail> {
   const payload = await fetchJson<{ ticket: TicketDetail }>(
     `/api/v1/projects/${projectId}/tickets/${ticketId}/transition`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  return payload.ticket;
+}
+
+export async function restartTicket(projectId: string, ticketId: string, input: { reason: string }): Promise<TicketDetail> {
+  const payload = await fetchJson<{ ticket: TicketDetail }>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/restart`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },

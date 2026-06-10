@@ -782,16 +782,23 @@ function buildCodexArgs(adapterRun, { project, execution, runtime }) {
     "--skip-git-repo-check",
     "-s",
     adapterRun.sandbox,
-    "-a",
-    adapterRun.approvalPolicy,
+    "-c",
+    `approval_policy=${JSON.stringify(adapterRun.approvalPolicy)}`,
     "-o",
     runtime.finalMessagePath,
-    "-m",
-    adapterRun.model,
-    "-",
   ];
 
+  if (shouldPassCodexModel(adapterRun.model)) {
+    args.push("-m", adapterRun.model);
+  }
+
+  args.push("-");
+
   return args;
+}
+
+function shouldPassCodexModel(model) {
+  return Boolean(model && model !== "default" && model !== "codex-latest");
 }
 
 function buildCodexPrompt(project, ticket, execution, adapterRun, runtime) {
@@ -804,11 +811,13 @@ function buildCodexPrompt(project, ticket, execution, adapterRun, runtime) {
 
   const preamble = adapterRun.promptPreamble ? `${adapterRun.promptPreamble}\n\n` : "";
   const resultContract = buildCodexResultContract(execution.role, runtime.resultPath);
+  const refinementPolicy = describeRefinementMode(project.policy?.refinementMode);
   return `${preamble}You are the ${execution.role} lane for Pool ticket ${ticket.key}.
 
 Operate inside the provided worktree and make the required code changes directly.
 
 Project: ${project.name}
+Refinement policy: ${refinementPolicy}
 Ticket: ${ticket.key} - ${ticket.title}
 Brief: ${ticket.brief}
 Acceptance criteria:
@@ -873,6 +882,19 @@ The JSON file at ${resultPath} should include the top-level execution outcome pl
   }
 
   return shared.join("\n");
+}
+
+function describeRefinementMode(refinementMode = "user_approved") {
+  if (refinementMode === "autonomous") {
+    return "autonomous; agent-created follow-up tickets may be READY when the lane has enough evidence.";
+  }
+  if (refinementMode === "user_participant") {
+    return "user participant; create follow-up tickets as PROPOSED refinement items for user collaboration before READY.";
+  }
+  if (refinementMode === "user_only") {
+    return "user only; create follow-up tickets as PROPOSED or DRAFT and do not mark them READY.";
+  }
+  return "user approved; create follow-up tickets as PROPOSED unless a user later approves them for READY.";
 }
 
 async function fileExists(filename) {

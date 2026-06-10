@@ -100,6 +100,9 @@ function handleRoute(route, url, body, store) {
       if (route.method === "GET") {
         return respondMaybe(store.getProjectSummary(route.params.projectId), "project");
       }
+      if (route.method === "DELETE") {
+        return respondMaybe(store.deleteProject(route.params.projectId), "project");
+      }
       return respondMaybe(
         store.updateProject(route.params.projectId, parseUpdateProjectInput(body)),
         "project",
@@ -200,6 +203,11 @@ function handleRoute(route, url, body, store) {
           route.params.ticketId,
           parseTicketTransitionInput(body),
         ),
+        "ticket",
+      );
+    case "ticketRestart":
+      return respondMaybe(
+        store.restartTicket(route.params.projectId, route.params.ticketId, body || {}),
         "ticket",
       );
     case "ticketExecutions":
@@ -680,6 +688,7 @@ function matchRoute(method, pathname) {
     { method: "GET", pattern: /^\/api\/v1\/projects$/, name: "projects" },
     { method: "POST", pattern: /^\/api\/v1\/projects$/, name: "projects" },
     { method: "PATCH", pattern: /^\/api\/v1\/projects\/([^/]+)$/, name: "project", keys: ["projectId"] },
+    { method: "DELETE", pattern: /^\/api\/v1\/projects\/([^/]+)$/, name: "project", keys: ["projectId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/policy$/, name: "projectPolicy", keys: ["projectId"] },
     { method: "PATCH", pattern: /^\/api\/v1\/projects\/([^/]+)\/policy$/, name: "projectPolicy", keys: ["projectId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/agent-profiles$/, name: "projectAgentProfiles", keys: ["projectId"] },
@@ -705,6 +714,7 @@ function matchRoute(method, pathname) {
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/tickets\/([^/]+)\/dependencies$/, name: "ticketDependencies", keys: ["projectId", "ticketId"] },
     { method: "DELETE", pattern: /^\/api\/v1\/projects\/([^/]+)\/tickets\/([^/]+)\/dependencies\/([^/]+)$/, name: "ticketDependency", keys: ["projectId", "ticketId", "dependencyId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/tickets\/([^/]+)\/transition$/, name: "ticketTransition", keys: ["projectId", "ticketId"] },
+    { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/tickets\/([^/]+)\/restart$/, name: "ticketRestart", keys: ["projectId", "ticketId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)$/, name: "execution", keys: ["projectId", "executionId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)\/complete$/, name: "executionComplete", keys: ["projectId", "executionId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)\/continue$/, name: "executionContinue", keys: ["projectId", "executionId"] },

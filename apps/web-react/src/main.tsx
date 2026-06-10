@@ -5,7 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragMoveEvent } from "@dnd-kit/core";
-import { Check, ChevronLeft, ChevronRight, Menu, Pencil, Plus, RefreshCw, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Menu, Moon, Pencil, Plus, RefreshCw, SlidersHorizontal, Sun, X } from "lucide-react";
 import {
   completeExecution,
   addDependency,
@@ -15,6 +15,7 @@ import {
   createReview,
   createTicket,
   createValidation,
+  deleteProject,
   getBoard,
   getProject,
   getTicket,
@@ -25,6 +26,7 @@ import {
   listRepos,
   mergeTicket,
   removeDependency,
+  restartTicket,
   startExecution,
   transitionTicket,
   updateTicket,
@@ -58,6 +60,12 @@ import { SettingsDrawer } from "./ProjectSettings";
 import "./styles.css";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
+type ThemeMode = "light" | "dark";
+
+function initialThemeMode(): ThemeMode {
+  const storedTheme = window.localStorage.getItem("pool-theme");
+  return storedTheme === "dark" || storedTheme === "light" ? storedTheme : "light";
+}
 
 function App() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -80,6 +88,12 @@ function App() {
   const [isProjectOnboardingOpen, setProjectOnboardingOpen] = useState(false);
   const [activeView, setActiveView] = useState<"board" | "ops">("board");
   const [liveStatus, setLiveStatus] = useState("idle");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeMode;
+    window.localStorage.setItem("pool-theme", themeMode);
+  }, [themeMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,6 +306,36 @@ function App() {
     setRailOpen(false);
   };
 
+  const handleDeleteProject = async () => {
+    if (!projectId) return;
+    const deletedProjectId = projectId;
+    setMessage("");
+    await deleteProject(deletedProjectId);
+    const nextProjects = await listProjects();
+    const nextProjectId = nextProjects.find((candidate) => candidate.id !== deletedProjectId)?.id || "";
+    setProjects(nextProjects);
+    setProjectId(nextProjectId);
+    setProject(null);
+    setBoard(null);
+    setRepos([]);
+    setMergeQueue([]);
+    setEvents([]);
+    setArtifacts([]);
+    setSelectedTicketId("");
+    setTicket(null);
+    setDetailOpen(false);
+    setComposerOpen(false);
+    setSettingsOpen(false);
+    setRailOpen(false);
+    setLoadState("ready");
+    if (nextProjectId) {
+      window.history.replaceState(null, "", `#${nextProjectId}`);
+    } else {
+      window.history.replaceState(null, "", window.location.pathname);
+      setProjectOnboardingOpen(true);
+    }
+  };
+
   return (
     <Tooltip.Provider delayDuration={250}>
     <div className={`app-shell ${isRailCollapsed ? "is-rail-collapsed" : ""}`}>
@@ -325,6 +369,13 @@ function App() {
             </div>
           </div>
           <div className="topbar-actions">
+            <IconButton
+              label={themeMode === "dark" ? "Use summer theme" : "Use night fishing theme"}
+              pressed={themeMode === "dark"}
+              onClick={() => setThemeMode((mode) => (mode === "dark" ? "light" : "dark"))}
+            >
+              {themeMode === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </IconButton>
             <span className={`live-pill live-${liveStatus}`}>{liveStatus}</span>
           </div>
         </header>
@@ -387,6 +438,7 @@ function App() {
         repos={repos}
         isOpen={isSettingsOpen}
         onClose={() => flushSync(() => setSettingsOpen(false))}
+        onDeleteProject={handleDeleteProject}
         onRefresh={refresh}
       />
       <ProjectOnboardingDialog
@@ -459,19 +511,28 @@ function IconButton({
   label,
   className = "",
   disabled = false,
+  pressed,
   onClick,
   children,
 }: {
   label: string;
   className?: string;
   disabled?: boolean;
+  pressed?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
-        <button className={`icon-button ${className}`.trim()} type="button" aria-label={label} disabled={disabled} onClick={onClick}>
+        <button
+          className={`icon-button ${className}`.trim()}
+          type="button"
+          aria-label={label}
+          aria-pressed={pressed}
+          disabled={disabled}
+          onClick={onClick}
+        >
           {children}
         </button>
       </Tooltip.Trigger>
@@ -854,6 +915,14 @@ function TicketDetailPanel({
             onRefresh={onRefresh}
             onFullRefresh={onFullRefresh}
           />
+          <TicketDangerZone
+            projectId={projectId}
+            ticket={ticket}
+            busy={busy}
+            onRun={runAction}
+            onRefresh={onRefresh}
+            onFullRefresh={onFullRefresh}
+          />
           <section className="detail-section">
             <h3>Merge Readiness</h3>
             <p>{ticket.mergeStatus?.statusSummary || (ticket.mergeStatus?.canMerge ? "Ready to merge." : "Not ready to merge yet.")}</p>
@@ -1144,6 +1213,61 @@ function WorktreeAndArtifactSection({
           </article>
         ))}
       </div>
+    </section>
+  );
+}
+
+function TicketDangerZone({
+  projectId,
+  ticket,
+  busy,
+  onRun,
+  onRefresh,
+  onFullRefresh,
+}: {
+  projectId: string;
+  ticket: TicketDetail;
+  busy: string;
+  onRun: (label: string, work: () => Promise<void>) => Promise<void>;
+  onRefresh: (ticketId?: string) => Promise<void>;
+  onFullRefresh: () => Promise<void>;
+}) {
+  const [confirmation, setConfirmation] = useState("");
+  const activeRuns = ticket.executions.filter((execution) => execution.status === "running").length;
+  const deletableWorktrees = ticket.worktrees.filter((worktree) => worktree.status !== "cleaned").length;
+  const canRestart = confirmation === ticket.key && !busy;
+
+  async function handleRestart(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canRestart) return;
+    await onRun("Restarting ticket", async () => {
+      await restartTicket(projectId, ticket.id, {
+        reason: `Restarted ${ticket.key} from ticket detail. Cancelled ${activeRuns} active run(s) and deleted ${deletableWorktrees} worktree(s).`,
+      });
+      setConfirmation("");
+      await onRefresh(ticket.id);
+      await onFullRefresh();
+    });
+  }
+
+  return (
+    <section className="detail-section danger-card">
+      <div className="section-heading">
+        <h3>Danger Zone</h3>
+        <span>Restart</span>
+      </div>
+      <p>
+        Restarting moves this ticket back to Ready, cancels active runs, and deletes any recorded worktree directories for this ticket.
+      </p>
+      <form className="subform inline-form" onSubmit={handleRestart}>
+        <label>
+          <span>Type {ticket.key} to confirm</span>
+          <input name="restartConfirmation" value={confirmation} onChange={(event) => setConfirmation(event.currentTarget.value)} />
+        </label>
+        <button className="danger-button" type="submit" disabled={!canRestart}>
+          Restart ticket
+        </button>
+      </form>
     </section>
   );
 }
