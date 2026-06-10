@@ -1,15 +1,16 @@
 :root {
-  --bg: #f6f1e8;
-  --bg-accent: #efe4d2;
-  --surface: rgba(255, 252, 247, 0.8);
-  --surface-strong: #fffaf2;
-  --line: rgba(64, 47, 30, 0.12);
-  --text: #1e1a16;
-  --muted: #6f6254;
-  --warm: #d68b36;
-  --teal: #1c7d7b;
-  --red: #b3473a;
-  --shadow: 0 24px 80px rgba(103, 68, 28, 0.12);
+  color-scheme: light;
+  --bg: #dcf6ff;
+  --bg-accent: #92d8ff;
+  --surface: rgba(244, 253, 255, 0.78);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --line: rgba(14, 93, 127, 0.14);
+  --text: #0f3951;
+  --muted: #4a7086;
+  --warm: #ffc857;
+  --teal: #0f8e9d;
+  --red: #d65d47;
+  --shadow: 0 24px 80px rgba(15, 88, 123, 0.16);
   --radius: 24px;
   --font-sans: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", serif;
@@ -27,11 +28,13 @@ body {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(28, 125, 123, 0.12), transparent 28rem),
-    radial-gradient(circle at top right, rgba(214, 139, 54, 0.18), transparent 26rem),
-    linear-gradient(180deg, var(--bg) 0%, #f2eadf 100%);
+    radial-gradient(circle at 14% 16%, rgba(255, 255, 255, 0.82), transparent 0 11rem),
+    radial-gradient(circle at 88% 12%, rgba(255, 213, 122, 0.5), transparent 0 13rem),
+    radial-gradient(circle at 20% 78%, rgba(39, 181, 212, 0.2), transparent 0 18rem),
+    linear-gradient(180deg, #83d7ff 0%, var(--bg) 23%, #d7f4ff 58%, #f4fff7 100%);
   color: var(--text);
   font-family: var(--font-sans);
+  background-attachment: fixed;
 }
 
 button,
@@ -44,7 +47,7 @@ select {
 .shell {
   width: min(1500px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: 2rem 0 3rem;
+  padding: max(1rem, env(safe-area-inset-top)) 0 max(3rem, env(safe-area-inset-bottom));
 }
 
 .hero {
@@ -56,8 +59,25 @@ select {
   margin-bottom: 1.5rem;
   border: 1px solid var(--line);
   border-radius: calc(var(--radius) + 4px);
-  background: linear-gradient(135deg, rgba(255, 250, 242, 0.92), rgba(248, 240, 226, 0.82));
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(225, 248, 255, 0.74)),
+    linear-gradient(180deg, rgba(148, 223, 255, 0.45), rgba(255, 255, 255, 0));
   box-shadow: var(--shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% -35% auto;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.75), transparent 0 26%),
+    radial-gradient(circle at center, rgba(50, 187, 221, 0.28), transparent 0 66%);
+  pointer-events: none;
 }
 
 .eyebrow,
@@ -172,7 +192,8 @@ select {
   margin-bottom: 1rem;
   border: 1px solid rgba(64, 47, 30, 0.09);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.58);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(228, 248, 255, 0.56));
 }
 
 .project-create-form {
@@ -197,7 +218,7 @@ select {
 .snapshot-card {
   border: 1px solid rgba(64, 47, 30, 0.09);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .snapshot-metric {
@@ -299,7 +320,7 @@ select {
   padding: 1rem;
   border: 1px solid rgba(64, 47, 30, 0.09);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .ticket-create-actions {
@@ -334,8 +355,9 @@ select {
   min-height: 16rem;
   padding: 0.9rem;
   border-radius: 22px;
-  border: 1px solid rgba(64, 47, 30, 0.09);
-  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(14, 93, 127, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(215, 244, 255, 0.52));
   animation: rise 220ms ease both;
 }
 
@@ -364,7 +386,7 @@ select {
 
 .ticket-card {
   width: 100%;
-  padding: 0.95rem;
+  padding: 1rem;
   border: 1px solid transparent;
   border-radius: 18px;
   background: var(--surface-strong);
@@ -477,11 +499,11 @@ select {
   padding: 1rem;
   border: 1px solid rgba(64, 47, 30, 0.09);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .detail-overview-section {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(246, 241, 232, 0.85));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(220, 246, 255, 0.9));
 }
 
 .ticket-overview-cards {
@@ -524,7 +546,7 @@ select {
 .empty-state {
   padding: 1rem;
   border-radius: 18px;
-  background: rgba(64, 47, 30, 0.05);
+  background: rgba(15, 142, 157, 0.08);
   color: var(--muted);
 }
 
@@ -546,7 +568,8 @@ select {
 .primary-button {
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 0.72rem 0.9rem;
+  min-height: 2.9rem;
+  padding: 0.78rem 0.95rem;
   background: rgba(255, 255, 255, 0.88);
   color: var(--text);
 }
@@ -572,7 +595,7 @@ select {
 }
 
 .primary-button {
-  background: linear-gradient(135deg, var(--teal), #155d5d);
+  background: linear-gradient(135deg, #14a8b7, #0b7180);
   color: white;
 }
 
@@ -621,7 +644,7 @@ select {
   padding: 1rem;
   border: 1px solid rgba(64, 47, 30, 0.09);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .form-actions {
@@ -688,7 +711,7 @@ select {
   padding: 0.9rem 1rem;
   border: 1px solid rgba(64, 47, 30, 0.09);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.76);
   white-space: pre-wrap;
   line-height: 1.5;
 }
@@ -990,6 +1013,91 @@ select {
   color: #58473a;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #07111d;
+    --bg-accent: #10233a;
+    --surface: rgba(10, 22, 37, 0.8);
+    --surface-strong: rgba(16, 32, 51, 0.92);
+    --line: rgba(156, 205, 255, 0.12);
+    --text: #eff7ff;
+    --muted: #a6bed1;
+    --warm: #ffc96b;
+    --teal: #79d8d6;
+    --red: #ff8570;
+    --shadow: 0 28px 90px rgba(0, 0, 0, 0.34);
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 14% 18%, rgba(255, 249, 182, 0.22), transparent 0 1.2rem),
+      radial-gradient(circle at 24% 30%, rgba(255, 235, 120, 0.14), transparent 0 0.8rem),
+      radial-gradient(circle at 82% 24%, rgba(255, 249, 182, 0.2), transparent 0 1rem),
+      radial-gradient(circle at 76% 68%, rgba(255, 235, 120, 0.12), transparent 0 0.9rem),
+      radial-gradient(circle at 30% 10%, rgba(255, 255, 255, 0.55), transparent 0 0.12rem),
+      radial-gradient(circle at 40% 18%, rgba(255, 255, 255, 0.62), transparent 0 0.1rem),
+      radial-gradient(circle at 70% 12%, rgba(255, 255, 255, 0.45), transparent 0 0.13rem),
+      radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.62), transparent 0 0.12rem),
+      radial-gradient(circle at 18% 78%, rgba(42, 86, 124, 0.45), transparent 0 16rem),
+      linear-gradient(180deg, #06111f 0%, #0d1d31 32%, #11253b 64%, #0f2235 100%);
+  }
+
+  .hero {
+    background:
+      radial-gradient(circle at 80% 20%, rgba(255, 244, 160, 0.16), transparent 0 8rem),
+      linear-gradient(135deg, rgba(9, 24, 40, 0.92), rgba(18, 36, 54, 0.88));
+  }
+
+  .hero::after {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255, 240, 143, 0.34), transparent 0 18%),
+      radial-gradient(circle at center, rgba(94, 142, 84, 0.16), transparent 0 64%);
+    filter: blur(2px);
+  }
+
+  .project-create-card,
+  .ticket-create-form,
+  .merge-queue-panel,
+  .mission-snapshot,
+  .project-settings-form,
+  .repo-registry,
+  .detail-section,
+  .ticket-edit-form,
+  .snapshot-metric,
+  .snapshot-card,
+  .board-column,
+  .markdown-block,
+  .collection-item,
+  .timeline-item {
+    background: rgba(12, 28, 45, 0.78);
+  }
+
+  .detail-overview-section {
+    background: linear-gradient(135deg, rgba(12, 28, 45, 0.88), rgba(15, 38, 51, 0.94));
+  }
+
+  .field select,
+  .field input,
+  .field textarea,
+  .ghost-button,
+  .primary-button {
+    background: rgba(11, 24, 40, 0.94);
+  }
+
+  .empty-state,
+  .state-badge.subtle,
+  .repo-pill {
+    background: rgba(156, 205, 255, 0.09);
+  }
+
+  .board-column.done,
+  .state-badge.done {
+    background: rgba(140, 165, 194, 0.14);
+    color: #c3d8e6;
+  }
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -1012,12 +1120,16 @@ select {
   .ticket-overview-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .merge-queue-panel:first-of-type {
+    position: static;
+  }
 }
 
 @media (max-width: 760px) {
   .shell {
-    width: min(100vw - 1rem, 100%);
-    padding-top: 0.75rem;
+    width: min(100vw - 0.75rem, 100%);
+    padding-top: max(0.55rem, env(safe-area-inset-top));
   }
 
   .hero,
@@ -1038,11 +1150,13 @@ select {
 
   .hero {
     align-items: start;
+    padding: 1rem;
+    gap: 1rem;
   }
 
   .board-panel,
   .detail-panel {
-    padding: 1rem;
+    padding: 0.85rem;
   }
 
   .section-toolbar,
@@ -1057,6 +1171,75 @@ select {
   .form-actions,
   .ticket-create-actions {
     display: grid;
+  }
+
+  .hero-actions,
+  .ticket-create-actions,
+  .form-actions,
+  .activity-filter-actions,
+  .worktree-item-actions,
+  .artifact-item-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions > *,
+  .ticket-create-actions > *,
+  .form-actions > *,
+  .activity-filter-actions > *,
+  .worktree-item-actions > *,
+  .artifact-item-actions > * {
+    width: 100%;
+  }
+
+  .live-indicator,
+  .project-picker,
+  .ghost-button,
+  .primary-button,
+  .compact-field {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .panel-header,
+  .ticket-card-topline,
+  .ticket-card-decision,
+  .dependency-item,
+  .artifact-group-header {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .project-create-card,
+  .ticket-create-form,
+  .merge-queue-panel,
+  .mission-snapshot,
+  .project-settings-form,
+  .repo-registry,
+  .detail-section,
+  .ticket-edit-form {
+    padding: 0.85rem;
+    border-radius: 18px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 11vw, 2.9rem);
+  }
+
+  .hero-copy,
+  .section-copy,
+  .ticket-card-summary,
+  .ticket-card-decision,
+  .ticket-live-note,
+  .live-indicator-meta {
+    font-size: 0.94rem;
+  }
+
+  .field select,
+  .field input,
+  .field textarea,
+  .ghost-button,
+  .primary-button {
+    font-size: 16px;
   }
 
   .compact-field {
