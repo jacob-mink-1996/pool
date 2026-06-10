@@ -24,6 +24,7 @@
           <button id="refresh-button" class="ghost-button" type="button">Refresh board</button>
         </div>
       </header>
+      <div id="status-banner" class="status-banner" hidden></div>
 
       <main class="layout">
         <section class="panel board-panel">
@@ -75,6 +76,31 @@
           </div>
 
           <div id="project-workspace">
+          <section class="mission-snapshot">
+            <div class="section-toolbar">
+              <div>
+                <h3>Mission Snapshot</h3>
+                <p class="section-copy">A fast operator read on throughput, blockers, and where attention is needed next.</p>
+              </div>
+            </div>
+            <div id="snapshot-metrics" class="snapshot-metrics"></div>
+            <div class="snapshot-grid">
+              <article class="snapshot-card">
+                <div class="snapshot-card-header">
+                  <h4>Lane Pressure</h4>
+                  <p class="section-copy">Queues that are building up right now.</p>
+                </div>
+                <div id="snapshot-lanes" class="snapshot-list"></div>
+              </article>
+              <article class="snapshot-card">
+                <div class="snapshot-card-header">
+                  <h4>Role Loadout</h4>
+                  <p class="section-copy">Who the current backlog is leaning on.</p>
+                </div>
+                <div id="snapshot-roles" class="snapshot-list"></div>
+              </article>
+            </div>
+          </section>
           <div class="control-grid">
             <form id="project-settings-form" class="project-settings-form">
               <div class="section-toolbar">
@@ -304,25 +330,99 @@
 
           <div id="ticket-detail" class="detail-content" hidden>
             <p id="ticket-brief" class="ticket-brief"></p>
+            <section class="detail-section detail-overview-section">
+              <div class="section-toolbar">
+                <div>
+                  <h3>Operator Overview</h3>
+                  <p class="section-copy">What matters right now for this ticket, before you dig into the raw evidence.</p>
+                </div>
+              </div>
+              <div id="ticket-overview-cards" class="ticket-overview-cards"></div>
+            </section>
 
-            <form id="state-form" class="state-form">
-              <label class="field">
-                <span>Move ticket</span>
-                <select id="state-select" aria-label="Move ticket to state"></select>
-              </label>
-              <label class="field reason-field">
-                <span>Reason</span>
-                <input
-                  id="state-reason"
-                  type="text"
-                  placeholder="Why is this transition happening?"
-                  maxlength="160"
-                />
-              </label>
-              <button class="primary-button" type="submit">Apply</button>
-            </form>
+            <section class="detail-section">
+              <div class="section-toolbar">
+                <div>
+                  <h3>Routing + Planning</h3>
+                  <p class="section-copy">Move the ticket, update the brief, and keep scope and ownership tight.</p>
+                </div>
+              </div>
+              <form id="state-form" class="state-form">
+                <label class="field">
+                  <span>Move ticket</span>
+                  <select id="state-select" aria-label="Move ticket to state"></select>
+                </label>
+                <label class="field reason-field">
+                  <span>Reason</span>
+                  <input
+                    id="state-reason"
+                    type="text"
+                    placeholder="Why is this transition happening?"
+                    maxlength="160"
+                  />
+                </label>
+                <button class="primary-button" type="submit">Apply</button>
+              </form>
 
-            <section class="execution-section">
+              <form id="ticket-edit-form" class="ticket-edit-form">
+                <div class="detail-grid">
+                  <label class="field">
+                    <span>Title</span>
+                    <input id="ticket-title-input" type="text" maxlength="120" />
+                  </label>
+                  <label class="field">
+                    <span>Priority</span>
+                    <select id="ticket-priority-select" aria-label="Ticket priority"></select>
+                  </label>
+                  <label class="field">
+                    <span>Assigned Role</span>
+                    <select id="ticket-role-select" aria-label="Assigned role"></select>
+                  </label>
+                  <label class="field">
+                    <span>Latest Summary</span>
+                    <input id="ticket-summary-input" type="text" maxlength="160" />
+                  </label>
+                </div>
+
+                <label class="field">
+                  <span>Parent Ticket</span>
+                  <select id="ticket-parent-select" aria-label="Parent ticket"></select>
+                </label>
+
+                <label class="field">
+                  <span>Brief</span>
+                  <textarea id="ticket-brief-input" rows="4"></textarea>
+                </label>
+
+                <div class="detail-grid">
+                  <label class="field">
+                    <span>Acceptance Criteria</span>
+                    <textarea id="acceptance-criteria-input" rows="6"></textarea>
+                  </label>
+                  <label class="field">
+                    <span>Definition of Done</span>
+                    <textarea id="definition-of-done-input" rows="6"></textarea>
+                  </label>
+                </div>
+
+                <div class="form-actions">
+                  <button class="primary-button" type="submit">Save ticket</button>
+                </div>
+              </form>
+
+              <div class="detail-grid supporting-grid">
+                <section>
+                  <h3>Acceptance Criteria</h3>
+                  <pre id="acceptance-criteria" class="markdown-block"></pre>
+                </section>
+                <section>
+                  <h3>Definition of Done</h3>
+                  <pre id="definition-of-done" class="markdown-block"></pre>
+                </section>
+              </div>
+            </section>
+
+            <section class="detail-section execution-section">
               <div class="section-toolbar">
                 <div>
                   <h3>Execution Lane</h3>
@@ -374,7 +474,7 @@
               <div id="execution-list" class="collection"></div>
             </section>
 
-            <section>
+            <section class="detail-section">
               <div class="section-toolbar">
                 <div>
                   <h3>Reviews</h3>
@@ -443,7 +543,7 @@
               <div id="review-list" class="collection"></div>
             </section>
 
-            <section>
+            <section class="detail-section">
               <div class="section-toolbar">
                 <div>
                   <h3>Validations</h3>
@@ -493,7 +593,7 @@
               <div id="validation-list" class="collection"></div>
             </section>
 
-            <section>
+            <section class="detail-section">
               <div class="section-toolbar">
                 <div>
                   <h3>Merge Readiness</h3>
@@ -553,64 +653,7 @@
               </label>
             </section>
 
-            <form id="ticket-edit-form" class="ticket-edit-form">
-              <div class="detail-grid">
-                <label class="field">
-                  <span>Title</span>
-                  <input id="ticket-title-input" type="text" maxlength="120" />
-                </label>
-                <label class="field">
-                  <span>Priority</span>
-                  <select id="ticket-priority-select" aria-label="Ticket priority"></select>
-                </label>
-                <label class="field">
-                  <span>Assigned Role</span>
-                  <select id="ticket-role-select" aria-label="Assigned role"></select>
-                </label>
-                <label class="field">
-                  <span>Latest Summary</span>
-                  <input id="ticket-summary-input" type="text" maxlength="160" />
-                </label>
-              </div>
-
-              <label class="field">
-                <span>Parent Ticket</span>
-                <select id="ticket-parent-select" aria-label="Parent ticket"></select>
-              </label>
-
-              <label class="field">
-                <span>Brief</span>
-                <textarea id="ticket-brief-input" rows="4"></textarea>
-              </label>
-
-              <div class="detail-grid">
-                <label class="field">
-                  <span>Acceptance Criteria</span>
-                  <textarea id="acceptance-criteria-input" rows="6"></textarea>
-                </label>
-                <label class="field">
-                  <span>Definition of Done</span>
-                  <textarea id="definition-of-done-input" rows="6"></textarea>
-                </label>
-              </div>
-
-              <div class="form-actions">
-                <button class="primary-button" type="submit">Save ticket</button>
-              </div>
-            </form>
-
-            <div class="detail-grid supporting-grid">
-              <section>
-                <h3>Acceptance Criteria</h3>
-                <pre id="acceptance-criteria" class="markdown-block"></pre>
-              </section>
-              <section>
-                <h3>Definition of Done</h3>
-                <pre id="definition-of-done" class="markdown-block"></pre>
-              </section>
-            </div>
-
-            <section>
+            <section class="detail-section">
               <div class="section-toolbar">
                 <div>
                   <h3>Repo Targets</h3>
@@ -653,7 +696,7 @@
               <div id="repo-targets" class="collection"></div>
             </section>
 
-            <section>
+            <section class="detail-section">
               <div class="section-toolbar">
                 <h3>Dependencies</h3>
                 <form id="dependency-form" class="dependency-form">
@@ -667,7 +710,7 @@
               <div id="dependencies" class="collection"></div>
             </section>
 
-            <section>
+            <section class="detail-section">
               <div class="section-toolbar">
                 <div>
                   <h3>Worktrees</h3>
@@ -677,7 +720,7 @@
               <div id="worktrees" class="collection"></div>
             </section>
 
-            <section>
+            <section class="detail-section">
               <h3>Timeline</h3>
               <div id="event-timeline" class="timeline"></div>
             </section>
@@ -688,9 +731,13 @@
 
     <template id="ticket-card-template">
       <button class="ticket-card" type="button">
-        <span class="ticket-key"></span>
+        <div class="ticket-card-topline">
+          <span class="ticket-key"></span>
+          <span class="ticket-card-updated"></span>
+        </div>
         <strong class="ticket-card-title"></strong>
         <p class="ticket-card-summary"></p>
+        <p class="ticket-card-decision"></p>
         <div class="ticket-card-meta"></div>
       </button>
     </template>

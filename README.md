@@ -66,15 +66,35 @@ This repository now contains the first real MVP implementation track:
 - API service with durable project/repo/ticket/event storage in `services/api`
 - board and ticket read models backed by shared contracts
 - operator web surface in `apps/web` for project settings, delivery policy, agent profiles, board operations, and ticket execution control
+- mission-control style frontend polish for board summaries, decision-oriented ticket cards, and a grouped ticket detail rail
 
-### Run The API MVP
+### Run The API And Frontend
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open the API health endpoint:
+The operator UI is served by the API process, so once it is running you can open:
+
+```text
+http://127.0.0.1:4318/
+```
+
+The root workspace now also exposes explicit frontend aliases:
+
+```bash
+npm run dev:web
+npm run start:web
+```
+
+If you prefer to launch from the frontend workspace directly:
+
+```bash
+npm --workspace apps/web run dev
+```
+
+The API health endpoint stays available at:
 
 ```text
 http://127.0.0.1:4318/api/v1/health

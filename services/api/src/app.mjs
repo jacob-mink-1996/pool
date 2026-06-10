@@ -1,5 +1,6 @@
 import http from "node:http";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { extname } from "node:path";
 import { isTicketState } from "../../../packages/domain/src/index.mjs";
 import {
   parseAddDependencyInput,
@@ -528,12 +529,12 @@ function sendJson(response, status, body) {
   response.end(`${JSON.stringify(body, null, 2)}\n`);
 }
 
-function sendText(response, status, body, contentType) {
+function sendText(response, status, body, contentType, method = "GET") {
   response.writeHead(status, {
     ...corsHeaders(),
     "content-type": contentType,
   });
-  response.end(body);
+  response.end(method === "HEAD" ? "" : body);
 }
 
 function writeSseEvent(response, event, payload) {
@@ -550,20 +551,15 @@ function corsHeaders() {
 }
 
 function serveWebSurface(request, response, url) {
-  if ((request.method || "GET") !== "GET") {
+  const method = request.method || "GET";
+  if (method !== "GET" && method !== "HEAD") {
     return false;
   }
 
-  if (url.pathname === "/" || url.pathname === "/index.html") {
-    sendText(response, 200, webAssets.indexHtml, "text/html; charset=utf-8");
-    return true;
-  }
-  if (url.pathname === "/app.js") {
-    sendText(response, 200, webAssets.appJs, "text/javascript; charset=utf-8");
-    return true;
-  }
-  if (url.pathname === "/styles.css") {
-    sendText(response, 200, webAssets.stylesCss, "text/css; charset=utf-8");
+  const assetPath = url.pathname === "/" ? "/index.html" : url.pathname;
+  const asset = webAssets.get(assetPath);
+  if (asset) {
+    sendText(response, 200, asset.body, asset.contentType, method);
     return true;
   }
 
@@ -571,11 +567,43 @@ function serveWebSurface(request, response, url) {
 }
 
 function loadWebAssets() {
-  return {
-    indexHtml: readFileSync(new URL("../../../apps/web/index.html", import.meta.url), "utf8"),
-    appJs: readFileSync(new URL("../../../apps/web/app.js", import.meta.url), "utf8"),
-    stylesCss: readFileSync(new URL("../../../apps/web/styles.css", import.meta.url), "utf8"),
-  };
+  const root = new URL("../../../apps/web/", import.meta.url);
+  const assets = new Map();
+  walkWebAssetTree(root, "", assets);
+  return assets;
+}
+
+function walkWebAssetTree(directoryUrl, prefix, assets) {
+  for (const entry of readdirSync(directoryUrl, { withFileTypes: true })) {
+    const childUrl = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, directoryUrl);
+    const childPath = `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) {
+      walkWebAssetTree(childUrl, childPath, assets);
+      continue;
+    }
+
+    assets.set(childPath, {
+      body: readFileSync(childUrl, "utf8"),
+      contentType: contentTypeForExtension(extname(entry.name)),
+    });
+  }
+}
+
+function contentTypeForExtension(extension) {
+  switch (extension) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".js":
+      return "text/javascript; charset=utf-8";
+    case ".json":
+      return "application/json; charset=utf-8";
+    case ".svg":
+      return "image/svg+xml";
+    default:
+      return "text/plain; charset=utf-8";
+  }
 }
 
 function matchRoute(method, pathname) {
