@@ -549,10 +549,11 @@ function sendJson(response, status, body) {
   response.end(`${JSON.stringify(body, null, 2)}\n`);
 }
 
-function sendText(response, status, body, contentType, method = "GET") {
+function sendText(response, status, body, contentType, method = "GET", extraHeaders = {}) {
   response.writeHead(status, {
     ...corsHeaders(),
     "content-type": contentType,
+    ...extraHeaders,
   });
   response.end(method === "HEAD" ? "" : body);
 }
@@ -617,7 +618,9 @@ function serveWebSurface(request, response, url) {
   const assetPath = url.pathname === "/" ? "/index.html" : url.pathname;
   const asset = webAssets.get(assetPath);
   if (asset) {
-    sendText(response, 200, asset.body, asset.contentType, method);
+    sendText(response, 200, asset.body, asset.contentType, method, {
+      "cache-control": "no-store",
+    });
     return true;
   }
 

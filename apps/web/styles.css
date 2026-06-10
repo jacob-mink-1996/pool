@@ -1375,8 +1375,45 @@ select {
     transform: translateX(0);
   }
 
+  .project-rail-header {
+    align-items: center;
+  }
+
+  .project-rail-header > div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+
+  .project-rail-header .panel-kicker {
+    margin: 0;
+  }
+
+  .project-rail-header h2 {
+    font-size: 1rem;
+    line-height: 1.1;
+  }
+
   .project-sidebar-list {
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 0.45rem;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .project-rail-button {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+    padding: 0.72rem 0.95rem;
+    border-radius: 16px;
+    text-align: left;
+  }
+
+  .legacy-project-picker {
+    display: none !important;
   }
 
   .workspace-header {

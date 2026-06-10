@@ -87,6 +87,7 @@ function bindEvents() {
       return;
     }
     await selectProject(button.dataset.projectId);
+    setSidebarOpen(false);
   });
 
   dom.projectSelect.addEventListener("change", async (event) => {
