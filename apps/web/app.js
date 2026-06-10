@@ -51,6 +51,11 @@ window.addEventListener("error", (event) => {
   }
 });
 
+const uiState = {
+  workspaceTab: "board",
+  settingsDrawerOpen: false,
+};
+
 async function bootstrap() {
   await loadMeta();
   renderStateOptions();
@@ -61,6 +66,8 @@ async function bootstrap() {
   renderCreateFormOptions();
   renderBoardFilterOptions();
   bindEvents();
+  setWorkspaceTab(uiState.workspaceTab);
+  setSettingsDrawerOpen(false);
   resetProjectCreateForm();
   resetReviewForm();
   resetValidationForm();
@@ -70,15 +77,16 @@ async function bootstrap() {
 }
 
 function bindEvents() {
-  dom.projectSelect.addEventListener("change", async (event) => {
-    const nextProjectId = event.target.value;
-    if (!nextProjectId) {
-      closeLiveStream();
-      renderNoProjectState();
+  dom.projectSidebarList.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-project-id]");
+    if (!button) {
       return;
     }
-    location.hash = nextProjectId;
-    await loadBoard(nextProjectId);
+    await selectProject(button.dataset.projectId);
+  });
+
+  dom.projectSelect.addEventListener("change", async (event) => {
+    await selectProject(event.target.value);
   });
 
   dom.refreshButton.addEventListener("click", async () => {
@@ -86,6 +94,33 @@ function bindEvents() {
     await withBusyState([dom.refreshButton], "Refreshing…", async () => {
       await loadBoard(state.projectId, { keepSelection: true });
     });
+  });
+
+  dom.settingsToggleButton.addEventListener("click", () => {
+    if (!uiState.settingsDrawerOpen) {
+      setWorkspaceTab("board");
+    }
+    setSettingsDrawerOpen(!uiState.settingsDrawerOpen);
+  });
+
+  dom.settingsCloseButton?.addEventListener("click", () => {
+    setSettingsDrawerOpen(false);
+  });
+
+  dom.settingsScrim?.addEventListener("click", () => {
+    setSettingsDrawerOpen(false);
+  });
+
+  dom.workspaceTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setWorkspaceTab(button.dataset.workspaceTab || "board");
+    });
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && uiState.settingsDrawerOpen) {
+      setSettingsDrawerOpen(false);
+    }
   });
 
   dom.boardFilterForm.addEventListener("submit", async (event) => {
@@ -211,6 +246,7 @@ function bindEvents() {
     location.hash = payload.project.id;
     dom.projectCreateForm.reset();
     resetProjectCreateForm();
+    setSettingsDrawerOpen(false);
     await refreshProjects({ projectId: payload.project.id });
   });
 
@@ -328,6 +364,7 @@ function bindEvents() {
 
     dom.ticketCreateForm.reset();
     resetCreateFormDefaults();
+    setWorkspaceTab("board");
     await loadBoard(state.projectId, { keepSelection: false, ticketId: payload.ticket.id });
   });
 
@@ -686,6 +723,20 @@ function bindEvents() {
   });
 }
 
+async function selectProject(projectId) {
+  const nextProjectId = projectId?.trim();
+  if (!nextProjectId) {
+    closeLiveStream();
+    renderNoProjectState();
+    return;
+  }
+
+  location.hash = nextProjectId;
+  dom.projectSelect.value = nextProjectId;
+  setWorkspaceTab("board");
+  await loadBoard(nextProjectId);
+}
+
 function renderStateOptions() {
   dom.stateSelect.innerHTML = "";
   for (const ticketState of stateOptions) {
@@ -755,11 +806,31 @@ function renderBoardFilterOptions() {
 
 function renderProjectOptions() {
   dom.projectSelect.innerHTML = "";
+  dom.projectSidebarList.innerHTML = "";
+
+  if (state.projects.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "collection-empty";
+    empty.textContent = "No projects yet.";
+    dom.projectSidebarList.append(empty);
+    return;
+  }
+
   for (const project of state.projects) {
     const option = document.createElement("option");
     option.value = project.id;
     option.textContent = project.name;
     dom.projectSelect.append(option);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.projectId = project.id;
+    button.className = `project-rail-button${project.id === state.projectId ? " is-active" : ""}`;
+    button.innerHTML = `
+      <strong>${escapeHtml(project.name)}</strong>
+      <span>${escapeHtml(project.defaultBaseBranch || "main")}</span>
+    `;
+    dom.projectSidebarList.append(button);
   }
 }
 
@@ -773,22 +844,25 @@ function renderBoardFilters() {
 async function refreshProjects(options = {}) {
   const projectsPayload = await fetchJson("/api/v1/projects");
   state.projects = projectsPayload.projects || [];
-  renderProjectOptions();
 
   if (state.projects.length === 0) {
+    renderProjectOptions();
     renderNoProjectState();
     return;
   }
 
   const requestedProjectId = options.projectId || location.hash.slice(1);
   const nextProject = state.projects.find((project) => project.id === requestedProjectId) || state.projects[0];
+  state.projectId = nextProject.id;
   location.hash = nextProject.id;
+  renderProjectOptions();
   dom.projectSelect.value = nextProject.id;
   await loadBoard(nextProject.id, options.loadBoardOptions);
 }
 
 async function loadBoard(projectId, options = {}) {
   state.projectId = projectId;
+  renderProjectOptions();
   setProjectWorkspaceVisible(true);
   dom.boardColumns.innerHTML = "";
   dom.boardTitle.textContent = "Loading board...";
@@ -817,6 +891,7 @@ async function loadBoard(projectId, options = {}) {
     state.artifacts = artifactsPayload.artifacts || [];
     state.board = buildBoardState(projectPayload.project, state.tickets, boardPayload.board?.columns);
     syncProjectSummary(projectPayload.project);
+    setSettingsDrawerOpen(false);
     renderProjectSettings();
     renderProjectPolicy();
     renderMissionSnapshot();
@@ -1159,6 +1234,7 @@ function renderProjectPolicy() {
 
 function renderNoProjectState() {
   closeLiveStream();
+  setSettingsDrawerOpen(false);
   state.ticketDetail = null;
   state.project = null;
   state.projectId = "";
@@ -1171,6 +1247,7 @@ function renderNoProjectState() {
   state.artifacts = [];
   dom.projectSelect.innerHTML = "";
   dom.projectSelect.disabled = true;
+  renderProjectOptions();
   dom.refreshButton.disabled = true;
   dom.boardTitle.textContent = "Create your first project";
   dom.boardMeta.textContent = "No Pool spaces are registered yet.";
@@ -2197,6 +2274,24 @@ function resetMergeForm() {
 function setProjectWorkspaceVisible(isVisible) {
   dom.projectWorkspace.hidden = !isVisible;
   dom.projectEmpty.hidden = isVisible;
+  dom.projectCreateCard.hidden = isVisible;
+}
+
+function setWorkspaceTab(tab) {
+  uiState.workspaceTab = tab;
+  dom.workspaceTabButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.workspaceTab === tab);
+  });
+  dom.workspacePanels.forEach((panel) => {
+    panel.hidden = panel.dataset.workspacePanel !== tab;
+  });
+}
+
+function setSettingsDrawerOpen(isOpen) {
+  uiState.settingsDrawerOpen = isOpen;
+  dom.settingsDrawer.hidden = !isOpen;
+  dom.settingsScrim.hidden = !isOpen;
+  dom.settingsToggleButton?.classList.toggle("is-active", isOpen);
 }
 
 async function loadMeta() {

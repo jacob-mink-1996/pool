@@ -50,6 +50,81 @@ select {
   padding: max(1rem, env(safe-area-inset-top)) 0 max(3rem, env(safe-area-inset-bottom));
 }
 
+.app-shell {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.workspace-shell {
+  min-width: 0;
+}
+
+.project-rail {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.project-rail-header h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+}
+
+.project-sidebar-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.project-rail-button {
+  display: grid;
+  gap: 0.18rem;
+  width: 100%;
+  padding: 0.8rem 0.85rem;
+  border: 1px solid rgba(14, 93, 127, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.project-rail-button strong,
+.project-rail-button span {
+  margin: 0;
+}
+
+.project-rail-button span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.project-rail-button:hover,
+.project-rail-button:focus-visible,
+.project-rail-button.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(15, 142, 157, 0.4);
+  box-shadow: 0 16px 30px rgba(15, 88, 123, 0.12);
+}
+
+.project-rail-button.is-active {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(201, 239, 255, 0.92));
+}
+
+.legacy-project-picker {
+  display: none;
+}
+
 .hero {
   display: flex;
   justify-content: space-between;
@@ -148,6 +223,14 @@ select {
   box-shadow: 0 12px 30px rgba(103, 68, 28, 0.08);
 }
 
+.settings-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 17, 29, 0.34);
+  backdrop-filter: blur(6px);
+  z-index: 20;
+}
+
 .status-banner.is-success {
   border-color: rgba(28, 125, 123, 0.24);
   color: #155d5d;
@@ -199,6 +282,72 @@ select {
 .project-create-form {
   display: grid;
   gap: 0.9rem;
+}
+
+.workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.workspace-tab-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.62rem 0.9rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.workspace-tab-button.is-active,
+.workspace-tab-button:hover,
+.workspace-tab-button:focus-visible {
+  color: var(--text);
+  border-color: rgba(15, 142, 157, 0.38);
+  transform: translateY(-1px);
+}
+
+.workspace-tab-button.is-active {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(201, 239, 255, 0.92));
+}
+
+.workspace-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-drawer {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(860px, calc(100vw - 2rem));
+  padding: 1rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(247, 254, 255, 0.96), rgba(225, 247, 255, 0.94));
+  box-shadow: 0 28px 90px rgba(7, 35, 54, 0.24);
+  z-index: 30;
+}
+
+.settings-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.settings-drawer-header h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
 }
 
 .control-grid {
@@ -1077,6 +1226,11 @@ select {
     background: linear-gradient(135deg, rgba(12, 28, 45, 0.88), rgba(15, 38, 51, 0.94));
   }
 
+  .project-rail-button,
+  .workspace-tab-button {
+    background: rgba(11, 24, 40, 0.94);
+  }
+
   .field select,
   .field input,
   .field textarea,
@@ -1096,6 +1250,10 @@ select {
     background: rgba(140, 165, 194, 0.14);
     color: #c3d8e6;
   }
+
+  .settings-drawer {
+    background: linear-gradient(180deg, rgba(9, 24, 40, 0.98), rgba(15, 37, 54, 0.97));
+  }
 }
 
 @keyframes rise {
@@ -1110,6 +1268,21 @@ select {
 }
 
 @media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .project-rail {
+    position: static;
+  }
+
+  .project-sidebar-list {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 1fr);
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
@@ -1146,6 +1319,18 @@ select {
   .ticket-overview-cards {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .app-shell {
+    gap: 0.75rem;
+  }
+
+  .project-rail {
+    padding: 0.85rem;
+  }
+
+  .project-sidebar-list {
+    grid-auto-columns: minmax(150px, 72vw);
   }
 
   .hero {
@@ -1200,6 +1385,16 @@ select {
     width: 100%;
   }
 
+  .workspace-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workspace-tab-button {
+    width: 100%;
+    text-align: center;
+  }
+
   .panel-header,
   .ticket-card-topline,
   .ticket-card-decision,
@@ -1232,6 +1427,14 @@ select {
   .ticket-live-note,
   .live-indicator-meta {
     font-size: 0.94rem;
+  }
+
+  .settings-drawer {
+    inset: auto 0 0 0;
+    top: 4.5rem;
+    width: 100vw;
+    border-radius: 24px 24px 0 0;
+    padding: 0.9rem;
   }
 
   .field select,

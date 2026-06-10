@@ -8,17 +8,27 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="shell">
+    <div class="shell app-shell">
+      <aside class="panel project-rail">
+        <div class="project-rail-header">
+          <p class="panel-kicker">Pool</p>
+          <h2>Projects</h2>
+          <p class="section-copy">Switch projects and keep the board clean.</p>
+        </div>
+        <div id="project-sidebar-list" class="project-sidebar-list"></div>
+      </aside>
+
+      <div class="workspace-shell">
       <header class="hero">
         <div>
           <p class="eyebrow">Autonomous Delivery Control Plane</p>
-          <h1>Pool Mission Control</h1>
+          <h1>Mission Control</h1>
           <p class="hero-copy">
-            Shape backlog, watch execution lanes, and inspect the evidence without living in agent transcripts.
+            One project at a time. Hold the line on focus, evidence, and flow.
           </p>
         </div>
         <div class="hero-actions">
-          <label class="field project-picker">
+          <label class="field project-picker legacy-project-picker">
             <span>Project</span>
             <select id="project-select" aria-label="Select project"></select>
           </label>
@@ -27,9 +37,11 @@
             <span id="live-indicator-meta" class="live-indicator-meta">Waiting for a project stream.</span>
           </div>
           <button id="refresh-button" class="ghost-button" type="button">Refresh board</button>
+          <button id="settings-toggle-button" class="ghost-button" type="button">Settings</button>
         </div>
       </header>
       <div id="status-banner" class="status-banner" hidden></div>
+      <div id="settings-scrim" class="settings-scrim" hidden></div>
 
       <main class="layout">
         <section class="panel board-panel">
@@ -40,7 +52,7 @@
             </div>
             <p id="board-meta" class="panel-meta"></p>
           </div>
-          <section class="project-create-card">
+          <section id="project-create-card" class="project-create-card">
             <div class="section-toolbar">
               <div>
                 <h3>Create Project</h3>
@@ -83,6 +95,12 @@
           </div>
 
           <div id="project-workspace">
+          <div class="workspace-tabs">
+            <button class="workspace-tab-button is-active" type="button" data-workspace-tab="board">Kanban</button>
+            <button class="workspace-tab-button" type="button" data-workspace-tab="ops">Ops</button>
+            <button class="workspace-tab-button" type="button" data-workspace-tab="create">New Ticket</button>
+          </div>
+          <section class="workspace-panel" data-workspace-panel="board">
           <section class="mission-snapshot">
             <div class="section-toolbar">
               <div>
@@ -108,6 +126,14 @@
               </article>
             </div>
           </section>
+          <section id="settings-drawer" class="settings-drawer" hidden>
+            <div class="settings-drawer-header">
+              <div>
+                <p class="panel-kicker">Controls</p>
+                <h3>Project Settings</h3>
+              </div>
+              <button id="settings-close-button" class="ghost-button" type="button">Close</button>
+            </div>
           <div class="control-grid">
             <form id="project-settings-form" class="project-settings-form">
               <div class="section-toolbar">
@@ -223,37 +249,7 @@
             </div>
             <div id="role-profile-list" class="repo-list"></div>
           </section>
-          <form id="ticket-create-form" class="ticket-create-form">
-            <div class="detail-grid">
-              <label class="field">
-                <span>New Ticket Title</span>
-                <input id="create-title-input" type="text" maxlength="120" />
-              </label>
-              <label class="field">
-                <span>Initial State</span>
-                <select id="create-state-select" aria-label="New ticket initial state"></select>
-              </label>
-              <label class="field">
-                <span>Priority</span>
-                <select id="create-priority-select" aria-label="New ticket priority"></select>
-              </label>
-              <label class="field">
-                <span>Assigned Role</span>
-                <select id="create-role-select" aria-label="New ticket role"></select>
-              </label>
-            </div>
-            <label class="field">
-              <span>Brief</span>
-              <textarea id="create-brief-input" rows="3"></textarea>
-            </label>
-            <div class="ticket-create-actions">
-              <label class="field compact-field">
-                <span>Repo Target</span>
-                <select id="create-repo-select" aria-label="New ticket repo target"></select>
-              </label>
-              <button class="primary-button" type="submit">Create ticket</button>
-            </div>
-          </form>
+          </section>
           <section class="merge-queue-panel">
             <div class="section-toolbar">
               <div>
@@ -284,6 +280,9 @@
               </div>
             </form>
           </section>
+          <div id="board-columns" class="board-columns" aria-live="polite"></div>
+          </section>
+          <section class="workspace-panel" data-workspace-panel="ops" hidden>
           <section class="merge-queue-panel">
             <div class="section-toolbar">
               <div>
@@ -336,7 +335,40 @@
             </div>
             <div id="recent-artifacts" class="collection"></div>
           </section>
-          <div id="board-columns" class="board-columns" aria-live="polite"></div>
+          </section>
+          <section class="workspace-panel" data-workspace-panel="create" hidden>
+          <form id="ticket-create-form" class="ticket-create-form">
+            <div class="detail-grid">
+              <label class="field">
+                <span>New Ticket Title</span>
+                <input id="create-title-input" type="text" maxlength="120" />
+              </label>
+              <label class="field">
+                <span>Initial State</span>
+                <select id="create-state-select" aria-label="New ticket initial state"></select>
+              </label>
+              <label class="field">
+                <span>Priority</span>
+                <select id="create-priority-select" aria-label="New ticket priority"></select>
+              </label>
+              <label class="field">
+                <span>Assigned Role</span>
+                <select id="create-role-select" aria-label="New ticket role"></select>
+              </label>
+            </div>
+            <label class="field">
+              <span>Brief</span>
+              <textarea id="create-brief-input" rows="3"></textarea>
+            </label>
+            <div class="ticket-create-actions">
+              <label class="field compact-field">
+                <span>Repo Target</span>
+                <select id="create-repo-select" aria-label="New ticket repo target"></select>
+              </label>
+              <button class="primary-button" type="submit">Create ticket</button>
+            </div>
+          </form>
+          </section>
           </div>
         </section>
 
@@ -796,6 +828,7 @@
           </div>
         </aside>
       </main>
+      </div>
     </div>
 
     <template id="ticket-card-template">
