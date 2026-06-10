@@ -214,7 +214,10 @@ async function mergeTicketRepos(ticket, repos, runtime) {
       return {
         strategy,
         status: mergeResult.status,
-        summaryMd: `${ticket.key} merge needs rework in ${repo.slug}.`,
+        summaryMd:
+          mergeResult.status === "blocked"
+            ? `${ticket.key} merge blocked in ${repo.slug}.`
+            : `${ticket.key} merge needs rework in ${repo.slug}.`,
         artifacts,
       };
     }
@@ -266,6 +269,50 @@ async function prepareRepoMergeRuntime(runtime, repoSlug) {
 async function materializeMergeCandidate({ ticket, repo, sourceWorktree, baseRef, strategy, runtime }) {
   if (!(await isGitRepository(repo.localPath))) {
     throw new Error(`Repo ${repo.slug} is not a git repository: ${repo.localPath}`);
+  }
+
+  const targetReadiness = await inspectTargetWorktreeReadiness(repo, baseRef);
+  if (!targetReadiness.ready) {
+    await writeFile(runtime.stdoutPath, targetReadiness.stdout || "", "utf8");
+    await writeFile(runtime.stderrPath, targetReadiness.stderr || "", "utf8");
+    await writeFile(
+      runtime.summaryPath,
+      JSON.stringify(
+        {
+          repoId: repo.id,
+          repoSlug: repo.slug,
+          strategy,
+          baseRef,
+          sourceBranch: sourceWorktree.branchName,
+          status: "blocked",
+          reason: targetReadiness.reason,
+          detail: targetReadiness.detail,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    return {
+      status: "blocked",
+      artifacts: [
+        {
+          kind: "report",
+          label: `${repo.slug} merge blocked`,
+          uri: pathToFileURL(runtime.summaryPath).href,
+        },
+        {
+          kind: "log",
+          label: `${repo.slug} merge stdout`,
+          uri: pathToFileURL(runtime.stdoutPath).href,
+        },
+        {
+          kind: "log",
+          label: `${repo.slug} merge stderr`,
+          uri: pathToFileURL(runtime.stderrPath).href,
+        },
+      ],
+    };
   }
 
   if (await fileExists(runtime.mergeWorktreePath)) {
@@ -378,6 +425,58 @@ async function materializeMergeCandidate({ ticket, repo, sourceWorktree, baseRef
       .trim()
       .split("\n")
       .filter(Boolean);
+    const publish = await runProcess("git", ["-C", repo.localPath, "merge", "--ff-only", commitSha], {
+      cwd: repo.localPath,
+      env: process.env,
+    });
+    await writeFile(runtime.stdoutPath, `${merge.stdout || ""}${commit.stdout || ""}${publish.stdout || ""}`, "utf8");
+    await writeFile(runtime.stderrPath, `${merge.stderr || ""}${commit.stderr || ""}${publish.stderr || ""}`, "utf8");
+    if (publish.exitCode !== 0) {
+      if (isRetryableGitFailure(publish)) {
+        throw createRetryableError(`Temporary git publish failure for ${repo.slug}: ${publish.stderr || publish.stdout}`.trim());
+      }
+      const detail = publish.stderr || publish.stdout || `Could not fast-forward ${baseRef} to ${commitSha}.`;
+      await writeFile(
+        runtime.summaryPath,
+        JSON.stringify(
+          {
+            repoId: repo.id,
+            repoSlug: repo.slug,
+            strategy,
+            baseRef,
+            sourceBranch: sourceWorktree.branchName,
+            commitSha,
+            changedFiles,
+            status: "blocked",
+            reason: "publish_failed",
+            detail,
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+      return {
+        status: "blocked",
+        artifacts: [
+          {
+            kind: "report",
+            label: `${repo.slug} merge publish blocked`,
+            uri: pathToFileURL(runtime.summaryPath).href,
+          },
+          {
+            kind: "log",
+            label: `${repo.slug} merge stdout`,
+            uri: pathToFileURL(runtime.stdoutPath).href,
+          },
+          {
+            kind: "log",
+            label: `${repo.slug} merge stderr`,
+            uri: pathToFileURL(runtime.stderrPath).href,
+          },
+        ],
+      };
+    }
 
     await writeFile(
       runtime.summaryPath,
@@ -390,6 +489,7 @@ async function materializeMergeCandidate({ ticket, repo, sourceWorktree, baseRef
           sourceBranch: sourceWorktree.branchName,
           commitSha,
           changedFiles,
+          publishedRef: baseRef,
           mergeWorktreePath: runtime.mergeWorktreePath,
         },
         null,
@@ -410,6 +510,7 @@ async function materializeMergeCandidate({ ticket, repo, sourceWorktree, baseRef
             baseRef,
             sourceBranch: sourceWorktree.branchName,
             commitSha,
+            publishedRef: baseRef,
           },
         },
         {
@@ -438,6 +539,60 @@ async function buildConflictSummary(worktreePath) {
     env: process.env,
   });
   return status.stdout.trim() || status.stderr.trim() || "Merge conflict encountered.";
+}
+
+async function inspectTargetWorktreeReadiness(repo, baseRef) {
+  const branch = await runProcess("git", ["-C", repo.localPath, "symbolic-ref", "--short", "HEAD"], {
+    cwd: repo.localPath,
+    env: process.env,
+  });
+  if (branch.exitCode !== 0) {
+    return {
+      ready: false,
+      reason: "detached_target_worktree",
+      detail: branch.stderr || branch.stdout || `Repo ${repo.slug} target worktree is detached.`,
+      stdout: branch.stdout,
+      stderr: branch.stderr,
+    };
+  }
+
+  const currentBranch = branch.stdout.trim();
+  if (currentBranch !== baseRef) {
+    return {
+      ready: false,
+      reason: "wrong_target_branch",
+      detail: `Repo ${repo.slug} is on ${currentBranch}; expected ${baseRef}.`,
+      stdout: branch.stdout,
+      stderr: branch.stderr,
+    };
+  }
+
+  const status = await runProcess("git", ["-C", repo.localPath, "status", "--porcelain"], {
+    cwd: repo.localPath,
+    env: process.env,
+  });
+  if (status.exitCode !== 0) {
+    return {
+      ready: false,
+      reason: "target_status_failed",
+      detail: status.stderr || status.stdout || `Could not inspect ${repo.slug} target worktree status.`,
+      stdout: status.stdout,
+      stderr: status.stderr,
+    };
+  }
+
+  const dirty = status.stdout.trim();
+  if (dirty) {
+    return {
+      ready: false,
+      reason: "dirty_target_worktree",
+      detail: `Repo ${repo.slug} has uncommitted changes on ${baseRef}:\n${dirty}`,
+      stdout: status.stdout,
+      stderr: status.stderr,
+    };
+  }
+
+  return { ready: true, reason: "", detail: "", stdout: "", stderr: "" };
 }
 
 async function buildDriverFailureArtifacts(runtime, summaryMd) {

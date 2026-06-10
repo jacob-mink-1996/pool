@@ -76,7 +76,77 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
     assert.equal(mergeSummary.repoSlug, "pool");
     assert.equal(mergeSummary.baseRef, "main");
     assert.equal(mergeSummary.sourceBranch, execution.worktrees[0].branchName);
+    assert.equal(mergeSummary.publishedRef, "main");
     assert.deepEqual(mergeSummary.changedFiles, ["feature.txt"]);
+    assert.equal(readFileSync(join(repoRoot, "feature.txt"), "utf8"), "merge me\n");
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("merge driver blocks when the target repo worktree is dirty", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-dirty-target-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const repoRoot = join(fixtureDir, "repo");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    execFileSync("git", ["init", "-b", "main", repoRoot]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
+    execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
+
+    store.updateRepo("project_pool", "repo_project_pool_pool", {
+      name: "pool",
+      localPath: repoRoot,
+      remoteUrl: "",
+      defaultBranch: "main",
+      isPrimary: true,
+    });
+    store.updateProjectPolicy("project_pool", {
+      requireReviewer: false,
+      requireValidator: false,
+      requireHumanApprovalBeforeMerge: false,
+      maxParallelMerges: 2,
+    });
+    store.updateRoleProfile("project_pool", "developer", {
+      adapter: "shell",
+      model: "fixture",
+      config: {
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+      },
+    });
+
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Prepare merge-ready implementation.",
+    });
+
+    const executionDriver = createExecutionDriver({ store, logger: silentLogger() });
+    await executionDriver.pollOnce();
+    writeFileSync(join(repoRoot, "dirty.txt"), "uncommitted local work\n", "utf8");
+
+    const mergeDriver = createMergeDriver({ store, logger: silentLogger() });
+    await mergeDriver.pollOnce();
+
+    const blockedTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const blockedArtifact = blockedTicket.mergeStatus.latestRun.artifacts.find((artifact) =>
+      artifact.label.includes("merge blocked"),
+    );
+
+    assert.equal(blockedTicket.state, "BLOCKED");
+    assert.equal(blockedTicket.mergeStatus.latestRun.status, "blocked");
+    assert.ok(blockedArtifact);
+    assert.match(readFileSync(new URL(blockedArtifact.uri), "utf8"), /dirty_target_worktree/);
+    assert.throws(() => readFileSync(join(repoRoot, "feature.txt"), "utf8"), /ENOENT/);
+    assert.equal(execution.worktrees[0].branchName.includes("pool-2"), true);
   } finally {
     store.close();
     rmSync(fixtureDir, { recursive: true, force: true });
