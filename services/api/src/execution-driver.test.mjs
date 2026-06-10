@@ -345,6 +345,43 @@ test("execution driver reconciles interrupted active executions on startup", asy
   }
 });
 
+test("execution driver claim discipline prevents duplicate worker execution", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-claims-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const claimCounterPath = join(fixtureDir, "claim-counter.txt");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    writeFileSync(claimCounterPath, "0", "utf8");
+    store.updateRoleProfile("project_pool", "developer", {
+      adapter: "shell",
+      model: "fixture",
+      config: {
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const count=Number(fs.readFileSync('${claimCounterPath}','utf8')); fs.writeFileSync('${claimCounterPath}', String(count + 1)); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Claim-safe completion.' }));"`,
+      },
+    });
+
+    store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Prove duplicate workers cannot both run.",
+    });
+
+    const driverA = createExecutionDriver({ store, logger: silentLogger() });
+    const driverB = createExecutionDriver({ store, logger: silentLogger() });
+
+    await Promise.all([driverA.pollOnce(), driverB.pollOnce()]);
+
+    assert.equal(readFileSync(claimCounterPath, "utf8"), "1");
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 function silentLogger() {
   return {
     error() {},

@@ -118,6 +118,71 @@ test("store can reconcile interrupted active executions after restart", () => {
   store.close();
 });
 
+test("store execution claims prevent duplicate workers until the lease expires", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Claim this execution.",
+  });
+
+  const firstClaim = store.claimExecution("project_pool", execution.id, {
+    claimToken: "worker-a",
+    claimedAt: "2026-06-10T13:00:00.000Z",
+    leaseMs: 10_000,
+  });
+  const secondClaim = store.claimExecution("project_pool", execution.id, {
+    claimToken: "worker-b",
+    claimedAt: "2026-06-10T13:00:05.000Z",
+    leaseMs: 10_000,
+  });
+  const expiredClaim = store.claimExecution("project_pool", execution.id, {
+    claimToken: "worker-b",
+    claimedAt: "2026-06-10T13:00:11.000Z",
+    leaseMs: 10_000,
+  });
+
+  assert.ok(firstClaim);
+  assert.equal(secondClaim, null);
+  assert.ok(expiredClaim);
+  store.close();
+});
+
+test("store can reconcile interrupted active merge runs after restart", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  store.updateProjectPolicy("project_pool", {
+    requireReviewer: false,
+    requireValidator: false,
+    requireHumanApprovalBeforeMerge: false,
+  });
+  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    role: "developer",
+    reason: "Get a merge-ready ticket before restart recovery.",
+  });
+  store.completeExecution("project_pool", execution.id, {
+    outcome: "completed",
+    summaryMd: "Merge-ready implementation completed.",
+  });
+  const started = store.startMergeRun("project_pool", "ticket_project_pool_2", {
+    strategy: "squash",
+    approvedByKind: "system",
+    approvedByRef: "pool-auto",
+    claimToken: "merge-worker",
+    startedAt: "2026-06-10T13:00:00.000Z",
+    leaseMs: 10_000,
+  });
+
+  const recovered = store.reconcileActiveMergeRuns();
+  const mergeStatus = store.getMergeStatus("project_pool", "ticket_project_pool_2");
+  const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+
+  assert.ok(started);
+  assert.equal(recovered.length, 1);
+  assert.equal(mergeStatus.latestRun.status, "blocked");
+  assert.equal(ticket.state, "BLOCKED");
+  assert.equal(ticket.events.at(-1).reasonCode, "interrupted");
+  store.close();
+});
+
 test("store filters tickets by parent ticket id", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
   const parent = store.createTicket("project_pool", {

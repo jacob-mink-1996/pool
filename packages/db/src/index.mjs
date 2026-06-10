@@ -129,6 +129,8 @@ create table if not exists executions (
   expected_next_evidence_md text not null default '',
   failure_kind text not null default '',
   blocked_kind text not null default '',
+  claim_token text not null default '',
+  claim_expires_at text,
   started_at text not null,
   finished_at text,
   created_at text not null,
@@ -218,8 +220,11 @@ create table if not exists merge_runs (
   approved_by_kind text not null default '',
   approved_by_ref text not null default '',
   summary_md text not null default '',
+  failure_kind text not null default '',
+  claim_token text not null default '',
+  claim_expires_at text,
   started_at text not null,
-  finished_at text not null
+  finished_at text
 );
 
 create table if not exists events (
@@ -1394,6 +1399,225 @@ export function createSqliteStore(options = {}) {
       return buildMergeStatus(database, mapTicket(ticket), worktrees);
     },
 
+    listActiveMergeRuns(projectId = "") {
+      const rows = projectId
+        ? database
+            .prepare(
+              `select project_id, id
+               from merge_runs
+               where project_id = ? and status = 'running' and finished_at is null
+               order by started_at asc`,
+            )
+            .all(projectId)
+        : database
+            .prepare(
+              `select project_id, id
+               from merge_runs
+               where status = 'running' and finished_at is null
+               order by started_at asc`,
+            )
+            .all();
+
+      return rows.map((row) => this.getMergeRun(row.project_id, row.id)).filter(Boolean);
+    },
+
+    getMergeRun(projectId, mergeRunId) {
+      const row = database.prepare("select * from merge_runs where project_id = ? and id = ?").get(projectId, mergeRunId);
+      if (!row) {
+        return null;
+      }
+      const artifacts = getArtifactsByMergeRunId(database, [mergeRunId]).get(mergeRunId) || [];
+      return mergeRunDto({ ...mapMergeRun(row), artifacts });
+    },
+
+    startMergeRun(projectId, ticketId, input = {}) {
+      const ticket = getTicketRow(database, projectId, ticketId);
+      if (!ticket) {
+        return null;
+      }
+      if (ticket.state !== "READY_TO_MERGE") {
+        throw new Error(`Ticket ${ticket.key} is not ready for merge`);
+      }
+
+      const policy = requiredProjectPolicy(database, projectId);
+      const latestReview = getLatestReviewRow(database, projectId, ticketId);
+      const latestValidation = getLatestValidationRunRow(database, projectId, ticketId);
+      const requiresHumanApproval = readPolicyBoolean(
+        policy,
+        "requireHumanApprovalBeforeMerge",
+        "require_human_approval_before_merge",
+      );
+      const mergePolicyBlock = describeMergePolicyBlock(policy, latestReview, latestValidation);
+      const approvedByKind = optionalText(input.approvedByKind);
+      const approvedByRef = optionalText(input.approvedByRef);
+
+      if (mergePolicyBlock) {
+        throw new Error(mergePolicyBlock);
+      }
+      if (input.requireApproval !== false && requiresHumanApproval && (!approvedByKind || !approvedByRef)) {
+        throw new Error(`Ticket ${ticket.key} requires human approval before merge`);
+      }
+
+      const timestamp = optionalText(input.startedAt, now());
+      const claimToken = requiredText(input.claimToken, "claimToken");
+      const leaseMs = Number.isInteger(input.leaseMs) && input.leaseMs > 0 ? input.leaseMs : 30_000;
+      const mergeRun = {
+        id: `merge_${randomUUID()}`,
+        projectId,
+        ticketId,
+        status: "running",
+        strategy: requiredText(input.strategy, "strategy"),
+        approvedByKind,
+        approvedByRef,
+        summaryMd: optionalText(input.summaryMd, `${ticket.key} merge running`),
+        failureKind: "",
+        claimToken,
+        claimExpiresAt: addMs(timestamp, leaseMs),
+        startedAt: timestamp,
+        finishedAt: null,
+      };
+      const approvalDetail =
+        approvedByKind && approvedByRef ? `Approved by ${approvedByKind}:${approvedByRef}` : "No approval recorded";
+
+      const started = withTransaction(database, () => {
+        const latestRun = getLatestMergeRunRow(database, projectId, ticketId);
+        if (latestRun?.status === "running" && !latestRun.finished_at && !isExpiredIso(latestRun.claim_expires_at, timestamp)) {
+          return false;
+        }
+        if (latestRun?.status === "running" && !latestRun.finished_at && isExpiredIso(latestRun.claim_expires_at, timestamp)) {
+          database
+            .prepare(
+              `update merge_runs
+               set status = 'blocked', failure_kind = 'interrupted', summary_md = ?, claim_token = '', claim_expires_at = null, finished_at = ?, started_at = started_at
+               where project_id = ? and id = ?`,
+            )
+            .run(
+              "Pool recovered after restart before this merge lane reported a final result.",
+              timestamp,
+              projectId,
+              latestRun.id,
+            );
+        }
+
+        database
+          .prepare(
+            `insert into merge_runs (
+              id, project_id, ticket_id, status, strategy, approved_by_kind,
+              approved_by_ref, summary_md, failure_kind, claim_token, claim_expires_at, started_at, finished_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            mergeRun.id,
+            mergeRun.projectId,
+            mergeRun.ticketId,
+            mergeRun.status,
+            mergeRun.strategy,
+            mergeRun.approvedByKind,
+            mergeRun.approvedByRef,
+            mergeRun.summaryMd,
+            mergeRun.failureKind,
+            mergeRun.claimToken,
+            mergeRun.claimExpiresAt,
+            mergeRun.startedAt,
+            mergeRun.finishedAt,
+          );
+
+        database
+          .prepare("update tickets set latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
+          .run(mergeRun.summaryMd, timestamp, projectId, ticketId);
+
+        insertEvent(database, {
+          projectId,
+          ticketId,
+          type: "merge.started",
+          summary: `${ticket.key} merge started`,
+          detail: `${mergeRun.strategy} · ${approvalDetail}`,
+          reasonCode: approvedByKind && approvedByRef ? "merge_approved" : "",
+          reasonSource: approvedByKind && approvedByRef ? "approval" : "",
+        });
+        return true;
+      });
+
+      return started ? this.getMergeRun(projectId, mergeRun.id) : null;
+    },
+
+    completeMergeRun(projectId, mergeRunId, input = {}) {
+      const mergeRun = database.prepare("select * from merge_runs where project_id = ? and id = ?").get(projectId, mergeRunId);
+      if (!mergeRun) {
+        return null;
+      }
+      if (mergeRun.finished_at) {
+        return this.getMergeRun(projectId, mergeRunId);
+      }
+
+      const ticket = getTicketRow(database, projectId, mergeRun.ticket_id);
+      const timestamp = optionalText(input.finishedAt, now());
+      const status = optionalText(input.status, "completed");
+      const summaryMd = optionalText(input.summaryMd);
+      const failureKind = optionalText(input.failureKind);
+      const artifacts = input.artifacts || [];
+      const ticketSummary =
+        summaryMd ||
+        `${ticket.key} merge ${status === "completed" ? "completed" : status === "blocked" ? "blocked" : "needs rework"}`;
+      const nextState = deriveTicketStateForMergeStatus(status);
+      const approvalDetail =
+        mergeRun.approved_by_kind && mergeRun.approved_by_ref
+          ? `Approved by ${mergeRun.approved_by_kind}:${mergeRun.approved_by_ref}`
+          : "No approval recorded";
+
+      withTransaction(database, () => {
+        database
+          .prepare(
+            `update merge_runs
+             set status = ?, summary_md = ?, failure_kind = ?, claim_token = '', claim_expires_at = null, finished_at = ?
+             where project_id = ? and id = ?`,
+          )
+          .run(status, summaryMd, failureKind, timestamp, projectId, mergeRunId);
+
+        insertArtifacts(
+          database,
+          projectId,
+          mergeRun.ticket_id,
+          {
+            mergeRunId,
+          },
+          artifacts,
+          timestamp,
+        );
+
+        database
+          .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
+          .run(nextState, ticketSummary, timestamp, projectId, mergeRun.ticket_id);
+
+        insertEvent(database, {
+          projectId,
+          ticketId: mergeRun.ticket_id,
+          type: "merge.completed",
+          summary: `${ticket.key} merge ${status}`,
+          detail: summaryMd || `${mergeRun.strategy} · ${approvalDetail}`,
+          ...deriveMergeEventReason(status, failureKind),
+        });
+      });
+
+      return this.getMergeRun(projectId, mergeRunId);
+    },
+
+    reconcileActiveMergeRuns(input = {}) {
+      const summaryMd = optionalText(
+        input.summaryMd,
+        "Pool recovered after restart before this merge lane reported a final result.",
+      );
+      return this.listActiveMergeRuns()
+        .map((mergeRun) =>
+          this.completeMergeRun(mergeRun.projectId, mergeRun.id, {
+            status: "blocked",
+            summaryMd,
+            failureKind: "interrupted",
+          }),
+        )
+        .filter(Boolean);
+    },
+
     mergeTicket(projectId, ticketId, input) {
       const ticket = getTicketRow(database, projectId, ticketId);
       if (!ticket) {
@@ -1445,62 +1669,22 @@ export function createSqliteStore(options = {}) {
       const approvalDetail =
         approvedByKind && approvedByRef ? `Approved by ${approvedByKind}:${approvedByRef}` : "No approval recorded";
 
-      withTransaction(database, () => {
-        database
-          .prepare(
-            `insert into merge_runs (
-              id, project_id, ticket_id, status, strategy, approved_by_kind,
-              approved_by_ref, summary_md, started_at, finished_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(
-            mergeRun.id,
-            mergeRun.projectId,
-            mergeRun.ticketId,
-            mergeRun.status,
-            mergeRun.strategy,
-            mergeRun.approvedByKind,
-            mergeRun.approvedByRef,
-            mergeRun.summaryMd,
-            mergeRun.startedAt,
-            mergeRun.finishedAt,
-          );
-
-        insertArtifacts(
-          database,
-          projectId,
-          ticketId,
-          {
-            mergeRunId: mergeRun.id,
-          },
-          artifacts,
-          timestamp,
-        );
-
-        database
-          .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
-          .run(nextState, ticketSummary, timestamp, projectId, ticketId);
-
-        insertEvent(database, {
-          projectId,
-          ticketId,
-          type: "merge.started",
-          summary: `${ticket.key} merge started`,
-          detail: `${mergeRun.strategy} · ${approvalDetail}`,
-          reasonCode: approvedByKind && approvedByRef ? "merge_approved" : "",
-          reasonSource: approvedByKind && approvedByRef ? "approval" : "",
-        });
-
-        insertEvent(database, {
-          projectId,
-          ticketId,
-          type: "merge.completed",
-          summary: `${ticket.key} merge ${status}`,
-          detail: summaryMd || `${mergeRun.strategy} · ${approvalDetail}`,
-          ...deriveMergeEventReason(status),
-        });
+      const started = this.startMergeRun(projectId, ticketId, {
+        strategy: mergeRun.strategy,
+        approvedByKind,
+        approvedByRef,
+        summaryMd: `${ticket.key} merge started`,
+        claimToken: `manual-${mergeRun.id}`,
+        startedAt: timestamp,
+        requireApproval: status === "completed",
       });
-
+      this.completeMergeRun(projectId, started.id, {
+        status,
+        summaryMd: ticketSummary,
+        failureKind: status === "blocked" ? "merge_blocked" : "",
+        artifacts,
+        finishedAt: timestamp,
+      });
       return this.getMergeStatus(projectId, ticketId);
     },
 
@@ -1536,6 +1720,47 @@ export function createSqliteStore(options = {}) {
         .filter(Boolean);
     },
 
+    claimExecution(projectId, executionId, input = {}) {
+      const claimToken = requiredText(input.claimToken, "claimToken");
+      const claimedAt = optionalText(input.claimedAt, now());
+      const leaseMs = Number.isInteger(input.leaseMs) && input.leaseMs > 0 ? input.leaseMs : 30_000;
+      const leaseExpiresAt = addMs(claimedAt, leaseMs);
+
+      const claimed = withTransaction(database, () => {
+        const execution = getExecutionRow(database, projectId, executionId);
+        if (!execution || execution.finished_at || execution.status !== "running") {
+          return false;
+        }
+        if (execution.claim_token && execution.claim_token !== claimToken && !isExpiredIso(execution.claim_expires_at, claimedAt)) {
+          return false;
+        }
+
+        database
+          .prepare(
+            `update executions
+             set claim_token = ?, claim_expires_at = ?, updated_at = ?
+             where project_id = ? and id = ?`,
+          )
+          .run(claimToken, leaseExpiresAt, claimedAt, projectId, executionId);
+        return true;
+      });
+
+      return claimed ? this.getExecution(projectId, executionId) : null;
+    },
+
+    releaseExecutionClaim(projectId, executionId, input = {}) {
+      const claimToken = requiredText(input.claimToken, "claimToken");
+      const releasedAt = optionalText(input.releasedAt, now());
+      database
+        .prepare(
+          `update executions
+           set claim_token = '', claim_expires_at = null, updated_at = ?
+           where project_id = ? and id = ? and claim_token = ? and finished_at is null`,
+        )
+        .run(releasedAt, projectId, executionId, claimToken);
+      return this.getExecution(projectId, executionId);
+    },
+
     reconcileActiveExecutions(input = {}) {
       const activeExecutions = this.listActiveExecutions();
       const summaryMd = optionalText(
@@ -1554,6 +1779,7 @@ export function createSqliteStore(options = {}) {
             summaryMd,
             remainingWorkMd,
             failureKind: "interrupted",
+            releaseClaim: true,
           }),
         )
         .filter(Boolean);
@@ -1614,6 +1840,8 @@ export function createSqliteStore(options = {}) {
         expectedNextEvidenceMd: "",
         failureKind: "",
         blockedKind: "",
+        claimToken: "",
+        claimExpiresAt: null,
         startedAt: timestamp,
         finishedAt: null,
         createdAt: timestamp,
@@ -1627,8 +1855,8 @@ export function createSqliteStore(options = {}) {
             `insert into executions (
               id, project_id, ticket_id, agent_profile_id, role, iteration, status, outcome,
               summary_md, remaining_work_md, expected_next_evidence_md, failure_kind, blocked_kind,
-              started_at, finished_at, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              claim_token, claim_expires_at, started_at, finished_at, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             execution.id,
@@ -1644,6 +1872,8 @@ export function createSqliteStore(options = {}) {
             execution.expectedNextEvidenceMd,
             execution.failureKind,
             execution.blockedKind,
+            execution.claimToken,
+            execution.claimExpiresAt,
             execution.startedAt,
             execution.finishedAt,
             execution.createdAt,
@@ -1723,6 +1953,7 @@ export function createSqliteStore(options = {}) {
       const expectedNextEvidenceMd = optionalText(input.expectedNextEvidenceMd);
       const failureKind = optionalText(input.failureKind);
       const blockedKind = optionalText(input.blockedKind);
+      const releaseClaim = input.releaseClaim !== false;
       const artifacts = input.artifacts || [];
       const embeddedReview = input.review || null;
       const embeddedValidation = input.validation || null;
@@ -1744,7 +1975,7 @@ export function createSqliteStore(options = {}) {
             `update executions
              set status = ?, outcome = ?, summary_md = ?, remaining_work_md = ?,
                  expected_next_evidence_md = ?, failure_kind = ?, blocked_kind = ?,
-                 finished_at = ?, updated_at = ?
+                 claim_token = ?, claim_expires_at = ?, finished_at = ?, updated_at = ?
              where project_id = ? and id = ?`,
           )
           .run(
@@ -1755,6 +1986,8 @@ export function createSqliteStore(options = {}) {
             expectedNextEvidenceMd,
             failureKind,
             blockedKind,
+            releaseClaim ? "" : execution.claim_token,
+            releaseClaim ? null : execution.claim_expires_at,
             timestamp,
             timestamp,
             projectId,
@@ -1881,7 +2114,7 @@ export function createSqliteStore(options = {}) {
         database
           .prepare(
             `update executions
-             set status = ?, outcome = ?, summary_md = ?, failure_kind = ?, finished_at = ?, updated_at = ?
+             set status = ?, outcome = ?, summary_md = ?, failure_kind = ?, claim_token = '', claim_expires_at = null, finished_at = ?, updated_at = ?
              where project_id = ? and id = ?`,
           )
           .run("cancelled", "failed", reason, "cancelled", timestamp, timestamp, projectId, executionId);
@@ -2902,6 +3135,8 @@ function mapExecution(row) {
     expectedNextEvidenceMd: row.expected_next_evidence_md,
     failureKind: row.failure_kind,
     blockedKind: row.blocked_kind,
+    claimToken: row.claim_token || "",
+    claimExpiresAt: row.claim_expires_at || "",
     startedAt: row.started_at,
     finishedAt: row.finished_at,
   };
@@ -2952,6 +3187,9 @@ function mapMergeRun(row) {
     approvedByKind: row.approved_by_kind,
     approvedByRef: row.approved_by_ref,
     summaryMd: row.summary_md,
+    failureKind: row.failure_kind || "",
+    claimToken: row.claim_token || "",
+    claimExpiresAt: row.claim_expires_at || "",
     startedAt: row.started_at,
     finishedAt: row.finished_at,
   };
@@ -3073,11 +3311,11 @@ function deriveValidationEventReason({ verdict, blockedKind, mergePolicyBlock })
   };
 }
 
-function deriveMergeEventReason(status) {
+function deriveMergeEventReason(status, failureKind = "") {
   if (status === "blocked") {
     return {
-      reasonCode: "merge_blocked",
-      reasonSource: "merge",
+      reasonCode: failureKind || "merge_blocked",
+      reasonSource: failureKind ? "merge" : "merge",
     };
   }
   if (status === "rework") {
@@ -3140,6 +3378,24 @@ function buildMergeStatus(database, ticket, worktrees = []) {
       canMerge: false,
       readiness: "closed",
       statusSummary: "Merge recorded and ticket closed.",
+      blockingReasons: [],
+      uncleanedWorktreeCount,
+      latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
+    };
+  }
+
+  if (latestRun?.status === "running" && !latestRun?.finished_at) {
+    return {
+      projectId: ticket.projectId,
+      ticketId: ticket.id,
+      ticketKey: ticket.key,
+      ticketTitle: ticket.title,
+      ticketState: ticket.state,
+      requiresHumanApproval,
+      approval,
+      canMerge: false,
+      readiness: "running",
+      statusSummary: "Merge run in progress.",
       blockingReasons: [],
       uncleanedWorktreeCount,
       latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
@@ -3838,6 +4094,17 @@ function now() {
   return new Date().toISOString();
 }
 
+function addMs(timestamp, milliseconds) {
+  return new Date(new Date(timestamp).getTime() + milliseconds).toISOString();
+}
+
+function isExpiredIso(timestamp, referenceTimestamp = now()) {
+  if (!timestamp) {
+    return true;
+  }
+  return new Date(timestamp).getTime() <= new Date(referenceTimestamp).getTime();
+}
+
 function requiredText(value, fieldName) {
   const text = optionalText(value);
   if (!text) {
@@ -3946,6 +4213,25 @@ function migrateSchema(database) {
   }
   if (!eventColumns.has("reason_source")) {
     database.exec("alter table events add column reason_source text not null default ''");
+  }
+
+  const executionColumns = new Set(database.prepare("pragma table_info(executions)").all().map((row) => row.name));
+  if (!executionColumns.has("claim_token")) {
+    database.exec("alter table executions add column claim_token text not null default ''");
+  }
+  if (!executionColumns.has("claim_expires_at")) {
+    database.exec("alter table executions add column claim_expires_at text");
+  }
+
+  const mergeRunColumns = new Set(database.prepare("pragma table_info(merge_runs)").all().map((row) => row.name));
+  if (!mergeRunColumns.has("failure_kind")) {
+    database.exec("alter table merge_runs add column failure_kind text not null default ''");
+  }
+  if (!mergeRunColumns.has("claim_token")) {
+    database.exec("alter table merge_runs add column claim_token text not null default ''");
+  }
+  if (!mergeRunColumns.has("claim_expires_at")) {
+    database.exec("alter table merge_runs add column claim_expires_at text");
   }
 }
 

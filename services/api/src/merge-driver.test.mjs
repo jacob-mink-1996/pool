@@ -82,6 +82,49 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
   }
 });
 
+test("merge driver reconciles interrupted active merge runs on startup", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-reconcile-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    store.updateProjectPolicy("project_pool", {
+      requireReviewer: false,
+      requireValidator: false,
+      requireHumanApprovalBeforeMerge: false,
+    });
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Prepare a merge-ready ticket for recovery test.",
+    });
+    store.completeExecution("project_pool", execution.id, {
+      outcome: "completed",
+      summaryMd: "Implementation completed for merge recovery.",
+    });
+    store.startMergeRun("project_pool", "ticket_project_pool_2", {
+      strategy: "squash",
+      approvedByKind: "system",
+      approvedByRef: "pool-auto",
+      claimToken: "merge-worker",
+    });
+
+    const driver = createMergeDriver({ store, logger: silentLogger() });
+    await driver.reconcileOnStart();
+
+    const mergeStatus = store.getMergeStatus("project_pool", "ticket_project_pool_2");
+    const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+    assert.equal(mergeStatus.latestRun.status, "blocked");
+    assert.equal(ticket.events.at(-1).reasonCode, "interrupted");
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 function silentLogger() {
   return {
     error() {},

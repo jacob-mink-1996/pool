@@ -1,9 +1,11 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const DEFAULT_POLL_INTERVAL_MS = 2000;
+const DEFAULT_LEASE_MS = 30_000;
 
 export function createExecutionDriver(options = {}) {
   if (!options.store) {
@@ -13,17 +15,20 @@ export function createExecutionDriver(options = {}) {
   return new ExecutionDriver({
     store: options.store,
     pollIntervalMs: options.pollIntervalMs || DEFAULT_POLL_INTERVAL_MS,
+    leaseMs: options.leaseMs || DEFAULT_LEASE_MS,
     logger: options.logger || console,
   });
 }
 
 class ExecutionDriver {
-  constructor({ store, pollIntervalMs, logger }) {
+  constructor({ store, pollIntervalMs, leaseMs, logger }) {
     this.store = store;
     this.pollIntervalMs = pollIntervalMs;
+    this.leaseMs = leaseMs;
     this.logger = logger;
     this.timer = null;
     this.inFlight = new Map();
+    this.claimToken = `execution-driver-${randomUUID()}`;
   }
 
   start() {
@@ -84,6 +89,14 @@ class ExecutionDriver {
   }
 
   async runExecution(execution) {
+    const claimedExecution = this.store.claimExecution(execution.projectId, execution.id, {
+      claimToken: this.claimToken,
+      leaseMs: this.leaseMs,
+    });
+    if (!claimedExecution) {
+      return;
+    }
+
     const freshExecution = this.store.getExecution(execution.projectId, execution.id);
     if (!freshExecution || freshExecution.finishedAt) {
       return;
@@ -125,6 +138,13 @@ class ExecutionDriver {
         });
       }
       throw error;
+    } finally {
+      const latestExecution = this.store.getExecution(execution.projectId, execution.id);
+      if (latestExecution && !latestExecution.finishedAt) {
+        this.store.releaseExecutionClaim(execution.projectId, execution.id, {
+          claimToken: this.claimToken,
+        });
+      }
     }
   }
 }

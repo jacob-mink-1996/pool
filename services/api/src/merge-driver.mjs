@@ -1,9 +1,11 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const DEFAULT_POLL_INTERVAL_MS = 2000;
+const DEFAULT_LEASE_MS = 30_000;
 
 export function createMergeDriver(options = {}) {
   if (!options.store) {
@@ -13,17 +15,20 @@ export function createMergeDriver(options = {}) {
   return new MergeDriver({
     store: options.store,
     pollIntervalMs: options.pollIntervalMs || DEFAULT_POLL_INTERVAL_MS,
+    leaseMs: options.leaseMs || DEFAULT_LEASE_MS,
     logger: options.logger || console,
   });
 }
 
 class MergeDriver {
-  constructor({ store, pollIntervalMs, logger }) {
+  constructor({ store, pollIntervalMs, leaseMs, logger }) {
     this.store = store;
     this.pollIntervalMs = pollIntervalMs;
+    this.leaseMs = leaseMs;
     this.logger = logger;
     this.timer = null;
     this.inFlight = new Map();
+    this.claimToken = `merge-driver-${randomUUID()}`;
   }
 
   start() {
@@ -31,7 +36,7 @@ class MergeDriver {
       return;
     }
 
-    this.pollOnce().catch((error) => {
+    this.reconcileOnStart().catch((error) => {
       this.logger.error?.("[pool-merge-driver] startup poll failed", error);
     });
 
@@ -75,6 +80,14 @@ class MergeDriver {
     await Promise.all(started);
   }
 
+  async reconcileOnStart() {
+    const recovered = this.store.reconcileActiveMergeRuns();
+    if (recovered.length > 0) {
+      this.logger.info?.(`[pool-merge-driver] reconciled ${recovered.length} interrupted merge run(s)`);
+    }
+    await this.pollOnce();
+  }
+
   async runMerge(queueItem) {
     const ticket = this.store.getTicket(queueItem.projectId, queueItem.id);
     if (!ticket || ticket.state !== "READY_TO_MERGE") {
@@ -85,29 +98,36 @@ class MergeDriver {
       return;
     }
 
+    const startedRun = this.store.startMergeRun(queueItem.projectId, queueItem.id, {
+      strategy: "squash",
+      approvedByKind: "system",
+      approvedByRef: "pool-auto",
+      summaryMd: `Pool started auto-merge for ${ticket.key}.`,
+      claimToken: this.claimToken,
+      leaseMs: this.leaseMs,
+    });
+    if (!startedRun) {
+      return;
+    }
+
     const repos = new Map((this.store.listRepos(queueItem.projectId) || []).map((repo) => [repo.id, repo]));
     const mergeRuntime = await prepareMergeRuntime(project, ticket);
 
     try {
       const mergeOutcome = await mergeTicketRepos(ticket, repos, mergeRuntime);
-      this.store.mergeTicket(queueItem.projectId, queueItem.id, {
-        strategy: mergeOutcome.strategy,
+      this.store.completeMergeRun(queueItem.projectId, startedRun.id, {
         status: mergeOutcome.status,
-        approvedByKind: "system",
-        approvedByRef: "pool-auto",
         summaryMd: mergeOutcome.summaryMd,
         artifacts: mergeOutcome.artifacts,
       });
     } catch (error) {
       const summaryMd = error instanceof Error ? error.message : String(error);
       const artifacts = await buildDriverFailureArtifacts(mergeRuntime, summaryMd);
-      this.store.mergeTicket(queueItem.projectId, queueItem.id, {
-        strategy: "squash",
+      this.store.completeMergeRun(queueItem.projectId, startedRun.id, {
         status: "blocked",
-        approvedByKind: "system",
-        approvedByRef: "pool-auto",
         summaryMd,
         artifacts,
+        failureKind: "driver_error",
       });
       throw error;
     }
