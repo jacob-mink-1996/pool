@@ -79,6 +79,8 @@ export const dom = {
   ticketStateBadge: document.querySelector("#ticket-state-badge"),
   ticketEmpty: document.querySelector("#ticket-empty"),
   ticketDetail: document.querySelector("#ticket-detail"),
+  detailTabButtons: [...document.querySelectorAll("[data-detail-tab]")],
+  detailTabPanels: [...document.querySelectorAll("[data-detail-panel]")],
   ticketBrief: document.querySelector("#ticket-brief"),
   ticketOverviewCards: document.querySelector("#ticket-overview-cards"),
   executionCreateForm: document.querySelector("#execution-create-form"),

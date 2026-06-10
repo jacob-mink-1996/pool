@@ -13,21 +13,19 @@
         <div class="project-rail-header">
           <p class="panel-kicker">Pool</p>
           <h2>Projects</h2>
-          <p class="section-copy">Switch projects and keep the board clean.</p>
+          <p class="section-copy">Switch fast. Keep the board focused.</p>
         </div>
         <div id="project-sidebar-list" class="project-sidebar-list"></div>
       </aside>
 
       <div class="workspace-shell">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">Autonomous Delivery Control Plane</p>
+      <header class="panel topbar">
+        <div class="topbar-brand">
+          <p class="eyebrow">Pool</p>
           <h1>Mission Control</h1>
-          <p class="hero-copy">
-            One project at a time. Hold the line on focus, evidence, and flow.
-          </p>
+          <p class="topbar-copy">One project at a time. Board first.</p>
         </div>
-        <div class="hero-actions">
+        <div class="topbar-status">
           <label class="field project-picker legacy-project-picker">
             <span>Project</span>
             <select id="project-select" aria-label="Select project"></select>
@@ -36,6 +34,8 @@
             <span id="live-indicator-badge" class="state-badge subtle">Live idle</span>
             <span id="live-indicator-meta" class="live-indicator-meta">Waiting for a project stream.</span>
           </div>
+        </div>
+        <div class="topbar-actions">
           <button id="refresh-button" class="ghost-button" type="button">Refresh board</button>
           <button id="settings-toggle-button" class="ghost-button" type="button">Settings</button>
         </div>
@@ -52,7 +52,7 @@
             </div>
             <p id="board-meta" class="panel-meta"></p>
           </div>
-          <section id="project-create-card" class="project-create-card">
+          <section id="project-create-card" class="project-create-card" hidden>
             <div class="section-toolbar">
               <div>
                 <h3>Create Project</h3>
@@ -94,38 +94,13 @@
             to stand up the first Pool space faster.
           </div>
 
-          <div id="project-workspace">
+          <div id="project-workspace" hidden>
           <div class="workspace-tabs">
             <button class="workspace-tab-button is-active" type="button" data-workspace-tab="board">Kanban</button>
             <button class="workspace-tab-button" type="button" data-workspace-tab="ops">Ops</button>
             <button class="workspace-tab-button" type="button" data-workspace-tab="create">New Ticket</button>
           </div>
           <section class="workspace-panel" data-workspace-panel="board">
-          <section class="mission-snapshot">
-            <div class="section-toolbar">
-              <div>
-                <h3>Mission Snapshot</h3>
-                <p class="section-copy">A fast operator read on throughput, blockers, and where attention is needed next.</p>
-              </div>
-            </div>
-            <div id="snapshot-metrics" class="snapshot-metrics"></div>
-            <div class="snapshot-grid">
-              <article class="snapshot-card">
-                <div class="snapshot-card-header">
-                  <h4>Lane Pressure</h4>
-                  <p class="section-copy">Queues that are building up right now.</p>
-                </div>
-                <div id="snapshot-lanes" class="snapshot-list"></div>
-              </article>
-              <article class="snapshot-card">
-                <div class="snapshot-card-header">
-                  <h4>Role Loadout</h4>
-                  <p class="section-copy">Who the current backlog is leaning on.</p>
-                </div>
-                <div id="snapshot-roles" class="snapshot-list"></div>
-              </article>
-            </div>
-          </section>
           <section id="settings-drawer" class="settings-drawer" hidden>
             <div class="settings-drawer-header">
               <div>
@@ -253,8 +228,44 @@
           <section class="merge-queue-panel">
             <div class="section-toolbar">
               <div>
+                <h3>Kanban</h3>
+                <p class="section-copy">Swipe across lanes on phone. Scan left to right on desktop.</p>
+              </div>
+            </div>
+          </section>
+          <div id="board-columns" class="board-columns" aria-live="polite"></div>
+          </section>
+          <section class="workspace-panel" data-workspace-panel="ops" hidden>
+          <section class="mission-snapshot">
+            <div class="section-toolbar">
+              <div>
+                <h3>Mission Snapshot</h3>
+                <p class="section-copy">Quick throughput, blockers, and load without crowding the board.</p>
+              </div>
+            </div>
+            <div id="snapshot-metrics" class="snapshot-metrics"></div>
+            <div class="snapshot-grid">
+              <article class="snapshot-card">
+                <div class="snapshot-card-header">
+                  <h4>Lane Pressure</h4>
+                  <p class="section-copy">Queues that are backing up right now.</p>
+                </div>
+                <div id="snapshot-lanes" class="snapshot-list"></div>
+              </article>
+              <article class="snapshot-card">
+                <div class="snapshot-card-header">
+                  <h4>Role Loadout</h4>
+                  <p class="section-copy">Where the current backlog is leaning.</p>
+                </div>
+                <div id="snapshot-roles" class="snapshot-list"></div>
+              </article>
+            </div>
+          </section>
+          <section class="merge-queue-panel">
+            <div class="section-toolbar">
+              <div>
                 <h3>Board Filters</h3>
-                <p class="section-copy">Focus the live board on the lane, role, priority, or text you need right now.</p>
+                <p class="section-copy">Apply board filters without crowding the main kanban view.</p>
               </div>
             </div>
             <form id="board-filter-form" class="activity-filter-form">
@@ -280,9 +291,6 @@
               </div>
             </form>
           </section>
-          <div id="board-columns" class="board-columns" aria-live="polite"></div>
-          </section>
-          <section class="workspace-panel" data-workspace-panel="ops" hidden>
           <section class="merge-queue-panel">
             <div class="section-toolbar">
               <div>
@@ -387,6 +395,13 @@
           </div>
 
           <div id="ticket-detail" class="detail-content" hidden>
+            <div class="detail-tabs">
+              <button class="detail-tab-button is-active" type="button" data-detail-tab="overview">Overview</button>
+              <button class="detail-tab-button" type="button" data-detail-tab="work">Work</button>
+              <button class="detail-tab-button" type="button" data-detail-tab="evidence">Evidence</button>
+              <button class="detail-tab-button" type="button" data-detail-tab="merge">Merge</button>
+            </div>
+            <section class="detail-tab-panel" data-detail-panel="overview">
             <p id="ticket-brief" class="ticket-brief"></p>
             <section class="detail-section detail-overview-section">
               <div class="section-toolbar">
@@ -479,7 +494,9 @@
                 </section>
               </div>
             </section>
+            </section>
 
+            <section class="detail-tab-panel" data-detail-panel="work" hidden>
             <section class="detail-section execution-section">
               <div class="section-toolbar">
                 <div>
@@ -674,7 +691,9 @@
 
               <div id="validation-list" class="collection"></div>
             </section>
+            </section>
 
+            <section class="detail-tab-panel" data-detail-panel="merge" hidden>
             <section class="detail-section">
               <div class="section-toolbar">
                 <div>
@@ -743,7 +762,9 @@
                 ></textarea>
               </label>
             </section>
+            </section>
 
+            <section class="detail-tab-panel" data-detail-panel="evidence" hidden>
             <section class="detail-section">
               <div class="section-toolbar">
                 <div>
@@ -824,6 +845,7 @@
             <section class="detail-section">
               <h3>Timeline</h3>
               <div id="event-timeline" class="timeline"></div>
+            </section>
             </section>
           </div>
         </aside>

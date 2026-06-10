@@ -53,6 +53,7 @@ window.addEventListener("error", (event) => {
 
 const uiState = {
   workspaceTab: "board",
+  detailTab: "overview",
   settingsDrawerOpen: false,
 };
 
@@ -67,6 +68,7 @@ async function bootstrap() {
   renderBoardFilterOptions();
   bindEvents();
   setWorkspaceTab(uiState.workspaceTab);
+  setDetailTab(uiState.detailTab);
   setSettingsDrawerOpen(false);
   resetProjectCreateForm();
   resetReviewForm();
@@ -114,6 +116,12 @@ function bindEvents() {
   dom.workspaceTabButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setWorkspaceTab(button.dataset.workspaceTab || "board");
+    });
+  });
+
+  dom.detailTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setDetailTab(button.dataset.detailTab || "overview");
     });
   });
 
@@ -1444,6 +1452,7 @@ function renderTicketDetail(ticket) {
   state.ticketDetail = ticket;
   dom.ticketEmpty.hidden = true;
   dom.ticketDetail.hidden = false;
+  setDetailTab(uiState.detailTab || "overview");
   dom.ticketTitle.textContent = `${ticket.key} · ${ticket.title}`;
   dom.ticketStateBadge.textContent = prettyState(ticket.state);
   dom.ticketStateBadge.className = `state-badge ${stateClassMap.get(ticket.state)}`;
@@ -2165,6 +2174,7 @@ function clearTicketDetail() {
   state.selectedTicketId = "";
   dom.ticketEmpty.hidden = false;
   dom.ticketDetail.hidden = true;
+  setDetailTab("overview");
   dom.ticketTitle.textContent = "Select a ticket";
   dom.ticketLiveNote.hidden = true;
   dom.ticketLiveNote.textContent = "";
@@ -2284,6 +2294,16 @@ function setWorkspaceTab(tab) {
   });
   dom.workspacePanels.forEach((panel) => {
     panel.hidden = panel.dataset.workspacePanel !== tab;
+  });
+}
+
+function setDetailTab(tab) {
+  uiState.detailTab = tab;
+  dom.detailTabButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.detailTab === tab);
+  });
+  dom.detailTabPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.detailPanel !== tab;
   });
 }
 
