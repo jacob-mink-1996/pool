@@ -855,10 +855,8 @@ function renderProjectOptions() {
     button.type = "button";
     button.dataset.projectId = project.id;
     button.className = `project-rail-button${project.id === state.projectId ? " is-active" : ""}`;
-    button.innerHTML = `
-      <strong>${escapeHtml(project.name)}</strong>
-      <span>${escapeHtml(project.defaultBaseBranch || "main")}</span>
-    `;
+    button.textContent = project.name;
+    button.title = project.name;
     dom.projectSidebarList.append(button);
   }
 }

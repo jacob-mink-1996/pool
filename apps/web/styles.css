@@ -100,8 +100,9 @@ select {
 }
 
 .project-sidebar-list {
-  display: grid;
-  gap: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .project-rail-footer {
@@ -123,44 +124,35 @@ select {
 }
 
 .project-rail-button {
-  display: grid;
-  gap: 0.18rem;
-  width: 100%;
-  padding: 0.8rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 0.45rem 0.75rem;
   border: 1px solid rgba(14, 93, 127, 0.12);
-  border-radius: 18px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   color: var(--text);
-  text-align: left;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition:
-    transform 160ms ease,
     border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.project-rail-button strong,
-.project-rail-button span {
-  margin: 0;
-}
-
-.project-rail-button span {
-  color: var(--muted);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+    background-color 160ms ease,
+    color 160ms ease;
 }
 
 .project-rail-button:hover,
 .project-rail-button:focus-visible,
 .project-rail-button.is-active {
-  transform: translateY(-1px);
   border-color: rgba(15, 142, 157, 0.4);
-  box-shadow: 0 16px 30px rgba(15, 88, 123, 0.12);
 }
 
 .project-rail-button.is-active {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(201, 239, 255, 0.92));
+  background: rgba(201, 239, 255, 0.92);
+  color: #0b5562;
 }
 
 .legacy-project-picker {
@@ -1375,7 +1367,7 @@ select {
   }
 
   .project-sidebar-list {
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
 
   .workspace-header {
