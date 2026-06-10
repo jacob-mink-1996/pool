@@ -738,6 +738,10 @@ select {
   display: none;
 }
 
+.merge-blocking-reasons {
+  margin-top: 0.35rem;
+}
+
 .repo-pill.is-primary {
   background: rgba(28, 125, 123, 0.12);
   color: var(--teal);
@@ -785,6 +789,30 @@ select {
 .execution-item {
   display: grid;
   gap: 0.75rem;
+}
+
+.artifact-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.artifact-group-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.artifact-group-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.artifact-item p {
+  word-break: break-all;
 }
 
 .execution-item-header {

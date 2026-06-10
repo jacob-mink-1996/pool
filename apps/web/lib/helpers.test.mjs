@@ -6,6 +6,8 @@ import {
   laneSnapshotNote,
   mergeStatusClass,
   prettyState,
+  prettyReasonCode,
+  prettyReasonSource,
   roleLoadoutNote,
   slugify,
 } from "./helpers.js";
@@ -28,6 +30,14 @@ test("laneSnapshotNote explains the operational implication of a lane", () => {
 
 test("roleLoadoutNote explains assigned load", () => {
   assert.match(roleLoadoutNote("developer", 2), /heaviest visible load/);
+});
+
+test("prettyReasonCode humanizes structured block reasons", () => {
+  assert.equal(prettyReasonCode("validation_profile_required"), "Validation profile required");
+});
+
+test("prettyReasonSource humanizes structured reason sources", () => {
+  assert.equal(prettyReasonSource("approval"), "Approval");
 });
 
 test("mergeStatusClass reflects latest merge state", () => {

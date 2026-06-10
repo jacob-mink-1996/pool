@@ -29,6 +29,50 @@ export function prettyEventType(value) {
   return value.replace(/[._]/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+export function prettyReasonCode(value) {
+  if (!value) {
+    return "";
+  }
+
+  const labels = {
+    human_approval_required: "Human approval required",
+    validation_profile_required: "Validation profile required",
+    merge_waiting: "Merge waiting on evidence",
+    merge_ready: "Merge ready",
+    merge_approval_required: "Merge approval required",
+    merge_blocked: "Merge blocked",
+    validation_blocked: "Validation blocked",
+    review_blocked: "Review blocked",
+    execution_blocked: "Execution blocked",
+    execution_failed: "Execution failed",
+    validation_failed: "Validation failed",
+    review_rework: "Review requested rework",
+    merge_rework: "Merge requested rework",
+    needs_continue: "Execution needs continuation",
+    interrupted: "Interrupted during restart recovery",
+  };
+
+  return labels[value] || prettyState(value);
+}
+
+export function prettyReasonSource(value) {
+  if (!value) {
+    return "";
+  }
+
+  const labels = {
+    approval: "Approval",
+    validation: "Validation",
+    review: "Review",
+    execution: "Execution",
+    merge: "Merge",
+    policy: "Policy",
+    ticket: "Ticket",
+  };
+
+  return labels[value] || prettyState(value);
+}
+
 export function repoDefaultBranch(state, repoId) {
   return state.repos.find((repo) => repo.id === repoId)?.defaultBranch || "main";
 }

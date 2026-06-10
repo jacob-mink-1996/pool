@@ -19,6 +19,8 @@ import {
   laneSnapshotNote,
   mergeStatusClass,
   parseLocation,
+  prettyReasonCode,
+  prettyReasonSource,
   prettyDependencyType,
   prettyEventType,
   prettyRole,
@@ -778,7 +780,7 @@ async function loadBoard(projectId, options = {}) {
       "";
 
     if (nextTicketId) {
-      await loadTicket(nextTicketId);
+      await loadTicket(nextTicketId, { preserveDrafts: Boolean(options.preserveDrafts) });
     } else {
       clearTicketDetail();
     }
@@ -925,6 +927,15 @@ function renderActivityFeed() {
     if (event.lane) {
       contextBadges.push(`<span>${escapeHtml(prettyState(event.lane))}</span>`);
     }
+    if (event.reasonCode) {
+      contextBadges.push(`<span>${escapeHtml(prettyReasonCode(event.reasonCode))}</span>`);
+    }
+    if (event.reasonSource) {
+      contextBadges.push(`<span>${escapeHtml(prettyReasonSource(event.reasonSource))}</span>`);
+    }
+    if (event.sequence) {
+      contextBadges.push(`<span>${escapeHtml(`Seq ${event.sequence}`)}</span>`);
+    }
 
     item.innerHTML = `
       <div class="activity-item-header">
@@ -960,29 +971,7 @@ function renderRecentArtifacts() {
     return;
   }
 
-  for (const artifact of state.artifacts) {
-    const item = document.createElement("article");
-    item.className = "collection-item";
-    const ticketLabel =
-      artifact.ticketKey && artifact.ticketTitle
-        ? `${artifact.ticketKey} · ${artifact.ticketTitle}`
-        : artifact.ticketKey || artifact.ticketId || "Unscoped ticket";
-    item.innerHTML = `
-      <div class="execution-item-header">
-        <div>
-          <strong>${escapeHtml(artifact.label)}</strong>
-          <p>${escapeHtml(ticketLabel)}</p>
-        </div>
-        <span class="state-badge subtle">${escapeHtml(artifact.kind)}</span>
-      </div>
-      <div class="ticket-card-meta execution-meta">
-        <span>${escapeHtml(artifactSourceLabel(artifact))}</span>
-        <span>${formatDate(artifact.createdAt)}</span>
-      </div>
-      <p>${escapeHtml(artifact.uri)}</p>
-    `;
-    dom.recentArtifacts.append(item);
-  }
+  renderArtifactGroups(dom.recentArtifacts, state.artifacts, { showTicketLabel: true });
 }
 
 function renderProjectSettings() {
@@ -1299,10 +1288,14 @@ function renderTicketCard(ticket) {
   return card;
 }
 
-async function loadTicket(ticketId) {
+async function loadTicket(ticketId, options = {}) {
+  const draft = options.preserveDrafts && state.selectedTicketId === ticketId ? captureDetailDraftState(ticketId) : null;
   state.selectedTicketId = ticketId;
   const payload = await fetchJson(`/api/v1/projects/${state.projectId}/tickets/${ticketId}`);
   renderTicketDetail(payload.ticket);
+  if (draft) {
+    restoreDetailDraftState(draft, payload.ticket);
+  }
   renderBoard(state.board);
 }
 
@@ -1343,10 +1336,17 @@ function renderTicketDetail(ticket) {
   for (const event of ticket.events) {
     const item = document.createElement("article");
     item.className = "timeline-item";
+    item.dataset.eventCursor = event.cursor || "";
     item.innerHTML = `
-      <p class="timeline-type">${event.type}</p>
-      <strong>${event.summary}</strong>
-      <p>${event.detail || "No additional detail."}</p>
+      <p class="timeline-type">${escapeHtml(eventTypeLabel(event))}</p>
+      <strong>${escapeHtml(event.summary || event.detail || "Project event recorded")}</strong>
+      <p>${escapeHtml(event.detail || "No additional detail.")}</p>
+      <div class="ticket-card-meta execution-meta">
+        <span>${escapeHtml(`Lane ${prettyState(event.lane || event.family || "ticket")}`)}</span>
+        ${event.reasonCode ? `<span>${escapeHtml(prettyReasonCode(event.reasonCode))}</span>` : ""}
+        ${event.reasonSource ? `<span>${escapeHtml(prettyReasonSource(event.reasonSource))}</span>` : ""}
+        ${event.sequence ? `<span>${escapeHtml(`Seq ${event.sequence}`)}</span>` : ""}
+      </div>
       <time>${formatDate(event.createdAt)}</time>
     `;
     dom.eventTimeline.append(item);
@@ -1615,9 +1615,7 @@ function renderMergeStatus(ticket) {
     meta.push(`Recorded ${formatDate(latestRun.finishedAt)}`);
   }
   dom.mergeStatusMeta.innerHTML = meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
-  dom.mergeBlockingReasons.innerHTML = normalizeBlockingReasons(mergeStatus)
-    .map((reason) => `<span>${escapeHtml(reason)}</span>`)
-    .join("");
+  dom.mergeBlockingReasons.innerHTML = renderReasonBadges(normalizeBlockingReasonObjects(mergeStatus));
 
   const mergeEnabled = Boolean(mergeStatus?.canMerge);
   setFormControlsDisabled(dom.mergeForm, !mergeEnabled);
@@ -1822,24 +1820,7 @@ function renderArtifacts(ticket) {
     return;
   }
 
-  for (const artifact of ticket.artifacts) {
-    const item = document.createElement("article");
-    item.className = "collection-item";
-    item.innerHTML = `
-      <div class="execution-item-header">
-        <div>
-          <strong>${escapeHtml(artifact.label)}</strong>
-          <p>${escapeHtml(artifact.uri)}</p>
-        </div>
-        <span class="state-badge subtle">${escapeHtml(artifact.kind)}</span>
-      </div>
-      <div class="ticket-card-meta execution-meta">
-        <span>${escapeHtml(artifactSourceLabel(artifact))}</span>
-        <span>${formatDate(artifact.createdAt)}</span>
-      </div>
-    `;
-    dom.artifactList.append(item);
-  }
+  renderArtifactGroups(dom.artifactList, ticket.artifacts, { showTicketLabel: false });
 }
 
 function renderParentTicketOptions(ticket) {
@@ -1924,6 +1905,109 @@ function renderSnapshotList(container, items, emptyText) {
       <span>${escapeHtml(item.value)}</span>
     `;
     container.append(row);
+  }
+}
+
+function captureDetailDraftState(ticketId) {
+  if (!ticketId) {
+    return null;
+  }
+
+  const fieldIds = [
+    "state-select",
+    "state-reason",
+    "ticket-title-input",
+    "ticket-priority-select",
+    "ticket-role-select",
+    "ticket-summary-input",
+    "ticket-parent-select",
+    "ticket-brief-input",
+    "acceptance-criteria-input",
+    "definition-of-done-input",
+    "execution-role-select",
+    "execution-reason-input",
+    "execution-outcome-select",
+    "execution-note-input",
+    "execution-artifacts-input",
+    "review-execution-select",
+    "review-verdict-select",
+    "review-summary-input",
+    "review-artifacts-input",
+    "review-finding-title-input",
+    "review-finding-category-input",
+    "review-finding-severity-select",
+    "review-finding-location-input",
+    "review-finding-details-input",
+    "validation-repo-select",
+    "validation-verdict-select",
+    "validation-command-profile-input",
+    "validation-commands-input",
+    "validation-summary-input",
+    "validation-artifacts-input",
+    "merge-strategy-select",
+    "merge-outcome-select",
+    "merge-approved-by-kind-input",
+    "merge-approved-by-ref-input",
+    "merge-summary-input",
+    "merge-artifacts-input",
+    "repo-target-repo-select",
+    "repo-target-base-ref-input",
+    "repo-target-branch-input",
+    "repo-target-scope-input",
+    "blocking-ticket-select",
+  ];
+
+  const fields = {};
+  for (const fieldId of fieldIds) {
+    const element = document.getElementById(fieldId);
+    if (!element) {
+      continue;
+    }
+    fields[fieldId] = element.value;
+  }
+
+  const activeElement = document.activeElement;
+  const activeField =
+    activeElement && activeElement.id && fields[activeElement.id] != null
+      ? {
+          id: activeElement.id,
+          selectionStart: typeof activeElement.selectionStart === "number" ? activeElement.selectionStart : null,
+          selectionEnd: typeof activeElement.selectionEnd === "number" ? activeElement.selectionEnd : null,
+        }
+      : null;
+
+  return {
+    ticketId,
+    fields,
+    activeField,
+  };
+}
+
+function restoreDetailDraftState(draft, ticket) {
+  if (!draft || draft.ticketId !== ticket.id) {
+    return;
+  }
+
+  for (const [fieldId, value] of Object.entries(draft.fields)) {
+    const element = document.getElementById(fieldId);
+    if (!element || element.disabled) {
+      continue;
+    }
+    element.value = value;
+  }
+
+  if (draft.activeField?.id) {
+    const element = document.getElementById(draft.activeField.id);
+    if (element && !element.disabled) {
+      element.focus({ preventScroll: true });
+      if (
+        typeof element.setSelectionRange === "function" &&
+        draft.activeField.selectionStart != null &&
+        draft.activeField.selectionEnd != null
+      ) {
+        element.setSelectionRange(draft.activeField.selectionStart, draft.activeField.selectionEnd);
+      }
+    }
   }
 }
 
@@ -2193,12 +2277,23 @@ function closeLiveStream(options = {}) {
 }
 
 function handleLiveEvent(browserEvent) {
+  let payload = null;
   try {
     if (browserEvent.data) {
-      JSON.parse(browserEvent.data);
+      payload = JSON.parse(browserEvent.data);
     }
   } catch (error) {
     console.warn("Failed to parse live event payload", error);
+  }
+  const streamEvent = payload?.event || payload?.events?.[0] || payload;
+  if (streamEvent?.cursor) {
+    if (streamEvent.cursor === state.live.lastCursor) {
+      return;
+    }
+    state.live.lastCursor = streamEvent.cursor;
+  }
+  if (Number.isInteger(streamEvent?.sequence)) {
+    state.live.lastSequence = streamEvent.sequence;
   }
   scheduleLiveRefresh();
 }
@@ -2224,6 +2319,7 @@ function scheduleLiveRefresh() {
         keepSelection: true,
         ticketId: state.selectedTicketId,
         silent: true,
+        preserveDrafts: true,
       });
     } catch (error) {
       console.error(error);
@@ -2257,7 +2353,7 @@ function renderLiveIndicator() {
     badge = "Live connected";
     badgeClass = "state-badge live";
     meta = state.live.lastEventAt
-      ? `Last update ${formatDate(state.live.lastEventAt)}. Selection and filters stay pinned.`
+      ? `Last update ${formatDate(state.live.lastEventAt)}${state.live.lastSequence ? ` · seq ${state.live.lastSequence}` : ""}. Selection and filters stay pinned.`
       : "Watching project activity and refreshing mission control automatically.";
   } else if (state.live.status === "reconnecting") {
     badge = "Live reconnecting";
@@ -2343,24 +2439,32 @@ function mergeSummaryText(mergeStatus) {
   if (mergeStatus.statusSummary) {
     return mergeStatus.statusSummary;
   }
-  const blockingReasons = normalizeBlockingReasons(mergeStatus);
+  const blockingReasons = normalizeBlockingReasonObjects(mergeStatus).map((reason) => reason.message);
   if (blockingReasons.length) {
     return blockingReasons[0];
   }
   return "";
 }
 
-function normalizeBlockingReasons(mergeStatus) {
+function normalizeBlockingReasonObjects(mergeStatus) {
   const blockingReasons = mergeStatus?.blockingReasons || [];
   return blockingReasons
     .map((reason) => {
       if (!reason) {
-        return "";
+        return null;
       }
       if (typeof reason === "string") {
-        return reason;
+        return {
+          code: "",
+          source: "",
+          message: reason,
+        };
       }
-      return reason.message || reason.summary || reason.code || "";
+      return {
+        code: reason.code || "",
+        source: reason.source || "",
+        message: reason.message || reason.summary || prettyReasonCode(reason.code || "") || "",
+      };
     })
     .filter(Boolean);
 }
@@ -2374,10 +2478,26 @@ function applyMergeConflict(payload = {}) {
   const merge = payload.merge || null;
   if (merge) {
     dom.mergeStatusCopy.textContent = mergeSummaryText(merge) || "Merge policy blocked this action.";
-    dom.mergeBlockingReasons.innerHTML = normalizeBlockingReasons(merge)
-      .map((reason) => `<span>${escapeHtml(reason)}</span>`)
-      .join("");
+    dom.mergeBlockingReasons.innerHTML = renderReasonBadges(normalizeBlockingReasonObjects(merge));
   }
+}
+
+function renderReasonBadges(reasons) {
+  return reasons
+    .map((reason) => {
+      const parts = [];
+      if (reason.code) {
+        parts.push(prettyReasonCode(reason.code));
+      }
+      if (reason.source) {
+        parts.push(prettyReasonSource(reason.source));
+      }
+      if (reason.message && reason.message !== prettyReasonCode(reason.code)) {
+        parts.push(reason.message);
+      }
+      return `<span>${escapeHtml(parts.filter(Boolean).join(" · "))}</span>`;
+    })
+    .join("");
 }
 
 function showStatus(message, tone = "info", options = {}) {
@@ -2406,6 +2526,60 @@ function renderArtifactSummary(artifacts = []) {
   }
 
   return `<span>${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}</span>`;
+}
+
+function renderArtifactGroups(container, artifacts, options = {}) {
+  const groups = new Map();
+  for (const artifact of artifacts) {
+    const label = artifactSourceLabel(artifact);
+    if (!groups.has(label)) {
+      groups.set(label, []);
+    }
+    groups.get(label).push(artifact);
+  }
+
+  for (const [groupLabel, groupArtifacts] of groups.entries()) {
+    const section = document.createElement("section");
+    section.className = "artifact-group";
+
+    const header = document.createElement("div");
+    header.className = "artifact-group-header";
+    header.innerHTML = `
+      <strong>${escapeHtml(groupLabel)}</strong>
+      <span>${escapeHtml(`${groupArtifacts.length} artifact${groupArtifacts.length === 1 ? "" : "s"}`)}</span>
+    `;
+    section.append(header);
+
+    const list = document.createElement("div");
+    list.className = "artifact-group-list";
+
+    for (const artifact of groupArtifacts) {
+      const item = document.createElement("article");
+      item.className = "collection-item artifact-item";
+      const ticketLabel =
+        artifact.ticketKey && artifact.ticketTitle
+          ? `${artifact.ticketKey} · ${artifact.ticketTitle}`
+          : artifact.ticketKey || artifact.ticketId || "Unscoped ticket";
+      item.innerHTML = `
+        <div class="execution-item-header">
+          <div>
+            <strong>${escapeHtml(artifact.label)}</strong>
+            <p>${escapeHtml(artifact.uri)}</p>
+          </div>
+          <span class="state-badge subtle">${escapeHtml(artifact.kind)}</span>
+        </div>
+        <div class="ticket-card-meta execution-meta">
+          <span>${escapeHtml(groupLabel)}</span>
+          ${options.showTicketLabel ? `<span>${escapeHtml(ticketLabel)}</span>` : ""}
+          <span>${formatDate(artifact.createdAt)}</span>
+        </div>
+      `;
+      list.append(item);
+    }
+
+    section.append(list);
+    container.append(section);
+  }
 }
 
 function eventTypeLabel(event) {

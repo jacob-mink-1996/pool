@@ -28,5 +28,7 @@ export const state = {
     isConnected: false,
     status: "idle",
     lastEventAt: "",
+    lastCursor: "",
+    lastSequence: 0,
   },
 };
