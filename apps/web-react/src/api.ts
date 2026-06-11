@@ -1,6 +1,8 @@
 import type {
   Artifact,
   Board,
+  DirectoryCreateResult,
+  DirectoryListing,
   EventRecord,
   Execution,
   MergeQueueItem,
@@ -10,6 +12,7 @@ import type {
   ProjectUpdateInput,
   Repo,
   RepoInput,
+  RepoMetadata,
   RepoUpdateInput,
   RoleName,
   RoleProfile,
@@ -60,6 +63,49 @@ export async function createProject(input: ProjectCreateInput): Promise<Project>
     body: JSON.stringify(input),
   });
   return payload.project;
+}
+
+export async function browseDirectories(path = ""): Promise<DirectoryListing> {
+  const payload = await fetchJson<{ directory: DirectoryListing }>(
+    `/api/v1/fs/directories?path=${encodeURIComponent(path)}`,
+  );
+  return payload.directory;
+}
+
+export async function createDirectory(path: string): Promise<DirectoryCreateResult> {
+  const payload = await fetchJson<{ directory: DirectoryCreateResult }>("/api/v1/fs/directories", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  return payload.directory;
+}
+
+export async function detectRepo(localPath: string): Promise<RepoMetadata | null> {
+  const payload = await fetchJson<{ repo: RepoMetadata | null }>("/api/v1/git/detect", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ localPath }),
+  });
+  return payload.repo;
+}
+
+export async function inspectRepo(localPath: string): Promise<RepoMetadata> {
+  const payload = await fetchJson<{ repo: RepoMetadata }>("/api/v1/git/inspect", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ localPath }),
+  });
+  return payload.repo;
+}
+
+export async function cloneRepo(remoteUrl: string, destinationPath: string): Promise<RepoMetadata> {
+  const payload = await fetchJson<{ repo: RepoMetadata }>("/api/v1/git/clone", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ remoteUrl, destinationPath }),
+  });
+  return payload.repo;
 }
 
 export async function getBoard(projectId: string): Promise<Board> {

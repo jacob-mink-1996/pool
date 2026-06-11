@@ -54,7 +54,11 @@ export function groupBoardColumns(columns: BoardColumn[]) {
 }
 
 export function prettyState(state: string): string {
-  return stateLabels[state] || state.toLowerCase().replace(/_/g, " ");
+  if (stateLabels[state]) return stateLabels[state];
+  return state
+    .toLowerCase()
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 export function prettyRole(role: string): string {

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,6 +50,127 @@ test("meta endpoint exposes runtime defaults for the web app", async () => {
     assert.equal(typeof body.workspaceRoot, "string");
     assert.equal(body.workspaceRoot.length > 0, true);
   });
+});
+
+test("directory browser returns local child directories", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-directory-browser-"));
+  try {
+    mkdirSync(join(fixtureDir, "alpha"));
+    mkdirSync(join(fixtureDir, ".hidden"));
+
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/fs/directories?path=${encodeURIComponent(fixtureDir)}`);
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(body.directory.path, fixtureDir);
+      assert.equal(body.directory.parentPath, tmpdir());
+      assert.deepEqual(
+        body.directory.entries.map((entry) => entry.name),
+        ["alpha", ".hidden"],
+      );
+      assert.equal(body.directory.entries.find((entry) => entry.name === ".hidden").hidden, true);
+    });
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("directory creation creates missing local folders", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-directory-create-"));
+  const workspaceDir = join(fixtureDir, "new-workspace");
+  try {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/fs/directories`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path: workspaceDir }),
+      });
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(body.directory.path, workspaceDir);
+      assert.equal(existsSync(workspaceDir), true);
+    });
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("git inspect derives repository metadata from an existing clone", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-inspect-"));
+  const repoDir = join(fixtureDir, "workspace-app");
+  try {
+    mkdirSync(repoDir);
+    execFileSync("git", ["init"], { cwd: repoDir, stdio: "ignore" });
+    execFileSync("git", ["remote", "add", "origin", "https://example.test/acme/workspace-app.git"], { cwd: repoDir });
+
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/git/inspect`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ localPath: repoDir }),
+      });
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(body.repo.name, "workspace-app");
+      assert.equal(body.repo.slug, "workspace-app");
+      assert.equal(body.repo.localPath, repoDir);
+      assert.equal(body.repo.remoteUrl, "https://example.test/acme/workspace-app.git");
+      assert.equal(body.repo.defaultBranch.length > 0, true);
+      assert.equal(body.repo.isPrimary, true);
+    });
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("git detect returns null for folders that are not git checkouts", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-detect-"));
+  try {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/git/detect`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ localPath: fixtureDir }),
+      });
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(body.repo, null);
+    });
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("git clone creates a local checkout and returns derived metadata", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-clone-"));
+  const remoteDir = join(fixtureDir, "remote.git");
+  const cloneDir = join(fixtureDir, "workspace-clone");
+  try {
+    execFileSync("git", ["init", "--bare", remoteDir], { stdio: "ignore" });
+
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/git/clone`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ remoteUrl: remoteDir, destinationPath: cloneDir }),
+      });
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(existsSync(join(cloneDir, ".git")), true);
+      assert.equal(body.repo.name, "workspace-clone");
+      assert.equal(body.repo.slug, "workspace-clone");
+      assert.equal(body.repo.localPath, cloneDir);
+      assert.equal(body.repo.remoteUrl, remoteDir);
+      assert.equal(body.repo.isPrimary, true);
+    });
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
 });
 
 test("root route serves the operator web app", async () => {

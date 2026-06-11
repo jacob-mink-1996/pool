@@ -1,6 +1,8 @@
 import http from "node:http";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { extname } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { basename, dirname, extname, isAbsolute, resolve } from "node:path";
+import { homedir } from "node:os";
 import { isTicketState } from "../../../packages/domain/src/index.mjs";
 import {
   parseAddDependencyInput,
@@ -91,6 +93,16 @@ function handleRoute(route, url, body, store) {
           workspaceRoot: process.cwd(),
         },
       };
+    case "directoryBrowse":
+      return { status: 200, body: { directory: listDirectories(url.searchParams.get("path") || "") } };
+    case "directoryCreate":
+      return { status: 200, body: { directory: createDirectory(requiredBodyString(body, "path")) } };
+    case "repoDetect":
+      return { status: 200, body: { repo: detectGitRepo(requiredBodyString(body, "localPath")) } };
+    case "repoInspect":
+      return { status: 200, body: { repo: inspectGitRepo(requiredBodyString(body, "localPath")) } };
+    case "repoClone":
+      return { status: 200, body: { repo: cloneGitRepo(body || {}) } };
     case "projects":
       if (route.method === "GET") {
         return { status: 200, body: { projects: store.listProjects() } };
@@ -525,6 +537,105 @@ function respondCreated(value, key) {
   return { status: 201, body: { [key]: value } };
 }
 
+function listDirectories(inputPath) {
+  const path = resolveUserPath(inputPath || homedir());
+  const stats = statSync(path);
+  if (!stats.isDirectory()) {
+    throw new RequestError(400, `Not a directory: ${path}`);
+  }
+
+  const entries = readdirSync(path, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({
+      name: entry.name,
+      path: resolve(path, entry.name),
+      hidden: entry.name.startsWith("."),
+    }))
+    .sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.name.localeCompare(b.name));
+
+  return {
+    path,
+    parentPath: dirname(path) === path ? "" : dirname(path),
+    entries,
+  };
+}
+
+function createDirectory(inputPath) {
+  const path = resolveUserPath(inputPath);
+  mkdirSync(path, { recursive: true });
+  const stats = statSync(path);
+  if (!stats.isDirectory()) {
+    throw new RequestError(400, `Not a directory: ${path}`);
+  }
+  return { path };
+}
+
+function detectGitRepo(localPath) {
+  try {
+    return inspectGitRepo(localPath);
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 400) return null;
+    throw error;
+  }
+}
+
+function inspectGitRepo(localPath) {
+  const root = git(localPath, ["rev-parse", "--show-toplevel"]);
+  const branch = git(root, ["symbolic-ref", "--short", "HEAD"], { optional: true }) || git(root, ["rev-parse", "--short", "HEAD"], { optional: true }) || "main";
+  const remoteUrl = git(root, ["remote", "get-url", "origin"], { optional: true });
+  const name = basename(root);
+  return {
+    name,
+    slug: slugify(name),
+    localPath: root,
+    remoteUrl,
+    defaultBranch: branch,
+    isPrimary: true,
+  };
+}
+
+function cloneGitRepo(input) {
+  const remoteUrl = requiredBodyString(input, "remoteUrl");
+  const destinationPath = resolveUserPath(requiredBodyString(input, "destinationPath"));
+  mkdirSync(dirname(destinationPath), { recursive: true });
+  execFileSync("git", ["clone", remoteUrl, destinationPath], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  return inspectGitRepo(destinationPath);
+}
+
+function git(cwd, args, options = {}) {
+  try {
+    return execFileSync("git", ["-C", resolveUserPath(cwd), ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  } catch (error) {
+    if (options.optional) return "";
+    const stderr = error?.stderr ? String(error.stderr).trim() : "";
+    throw new RequestError(400, stderr || `Git command failed in ${cwd}`);
+  }
+}
+
+function resolveUserPath(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return homedir();
+  if (raw === "~") return homedir();
+  if (raw.startsWith("~/")) return resolve(homedir(), raw.slice(2));
+  return isAbsolute(raw) ? resolve(raw) : resolve(process.cwd(), raw);
+}
+
+function requiredBodyString(body, field) {
+  const value = body && typeof body === "object" ? body[field] : undefined;
+  if (typeof value !== "string" || !value.trim()) {
+    throw new RequestError(400, `Missing required field: ${field}`);
+  }
+  return value.trim();
+}
+
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "repo";
+}
+
 async function readJsonBody(request) {
   if (request.method === "GET" || request.method === "HEAD") {
     return null;
@@ -685,6 +796,11 @@ function matchRoute(method, pathname) {
   const routes = [
     { method: "GET", pattern: /^\/api\/v1\/health$/, name: "health" },
     { method: "GET", pattern: /^\/api\/v1\/meta$/, name: "meta" },
+    { method: "GET", pattern: /^\/api\/v1\/fs\/directories$/, name: "directoryBrowse" },
+    { method: "POST", pattern: /^\/api\/v1\/fs\/directories$/, name: "directoryCreate" },
+    { method: "POST", pattern: /^\/api\/v1\/git\/detect$/, name: "repoDetect" },
+    { method: "POST", pattern: /^\/api\/v1\/git\/inspect$/, name: "repoInspect" },
+    { method: "POST", pattern: /^\/api\/v1\/git\/clone$/, name: "repoClone" },
     { method: "GET", pattern: /^\/api\/v1\/projects$/, name: "projects" },
     { method: "POST", pattern: /^\/api\/v1\/projects$/, name: "projects" },
     { method: "PATCH", pattern: /^\/api\/v1\/projects\/([^/]+)$/, name: "project", keys: ["projectId"] },

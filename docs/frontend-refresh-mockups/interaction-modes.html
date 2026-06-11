@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pool Interaction Modes</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f1eb;
+      --surface: #fbfaf7;
+      --surface-2: #ffffff;
+      --ink: #161616;
+      --muted: #67645d;
+      --line: #d8d3c9;
+      --line-strong: #c8c1b5;
+      --accent: #1f6f65;
+      --accent-soft: #e1efec;
+      --blue: #315f9f;
+      --blue-soft: #e3ebf7;
+      --warn: #9a6a19;
+      --warn-soft: #f3ead7;
+      --danger: #b64235;
+      --danger-soft: #f4e1df;
+      --dark: #0c0f10;
+      --dark-panel: #131718;
+      --dark-line: #272e30;
+      --dark-muted: #9aa4a4;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      display: grid;
+      align-content: start;
+      gap: 26px;
+      height: 100vh;
+      border-right: 1px solid var(--line);
+      padding: 26px 22px;
+      background: rgba(243, 241, 235, 0.94);
+      backdrop-filter: blur(16px);
+    }
+
+    .rail h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .rail p,
+    .muted,
+    .small,
+    .caption,
+    .note {
+      color: var(--muted);
+    }
+
+    .rail nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    .rail a {
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .rail a:hover {
+      background: #e8e3d8;
+      color: var(--ink);
+    }
+
+    main {
+      min-width: 0;
+      padding: 38px;
+    }
+
+    .intro {
+      display: grid;
+      gap: 18px;
+      max-width: 980px;
+      margin-bottom: 38px;
+    }
+
+    .intro h2 {
+      max-width: 820px;
+      margin: 0;
+      font-size: clamp(40px, 5vw, 74px);
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+
+    .intro p {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .thesis {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      max-width: 980px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .thesis article {
+      display: grid;
+      gap: 7px;
+      padding: 16px;
+      background: var(--surface);
+    }
+
+    .thesis strong,
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .mode-map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      max-width: 1180px;
+      margin-bottom: 42px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .mode-map article {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      min-height: 210px;
+      padding: 18px;
+      background: var(--surface-2);
+    }
+
+    .mode-map h3,
+    .section-head h2,
+    .app h3,
+    .app h4 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    .mode-map p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .section {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 46px;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      max-width: 1180px;
+    }
+
+    .section-head h2 {
+      font-size: 26px;
+    }
+
+    .caption {
+      max-width: 760px;
+      margin: 6px 0 0;
+      line-height: 1.5;
+    }
+
+    .frame {
+      width: min(100%, 1180px);
+      min-height: 720px;
+      border: 1px solid var(--line-strong);
+      overflow: hidden;
+      background: var(--surface-2);
+      box-shadow: 0 28px 70px rgba(34, 30, 22, 0.12);
+    }
+
+    .app {
+      min-height: 720px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .pill,
+    .state,
+    .count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .pill {
+      background: rgba(0, 0, 0, 0.06);
+      color: inherit;
+    }
+
+    .state.auto,
+    .state.ok {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .state.work {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .state.wait,
+    .state.warn {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .state.stop {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .button {
+      border: 1px solid currentColor;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: transparent;
+      color: inherit;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .ticket,
+    .panel,
+    .run-row {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface-2);
+    }
+
+    .ticket p,
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .control-room {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr) 340px;
+      background: #f8f7f2;
+    }
+
+    .control-room aside,
+    .control-room .inspector {
+      display: grid;
+      align-content: start;
+      gap: 18px;
+      padding: 18px;
+      background: #fbfaf7;
+    }
+
+    .control-room aside {
+      border-right: 1px solid var(--line);
+    }
+
+    .control-room .inspector {
+      border-left: 1px solid var(--line);
+    }
+
+    .project-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .project-list span {
+      padding: 7px 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .control-room main {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .autonomy-bar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .autonomy-bar div {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .autonomy-bar div.active {
+      background: #e1efec;
+    }
+
+    .autonomy-bar strong {
+      font-size: 13px;
+    }
+
+    .autonomy-bar span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .lane {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      border-left: 1px solid var(--line);
+      padding-left: 10px;
+    }
+
+    .lane h4 {
+      font-size: 14px;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 0;
+      border-left: 1px solid var(--line);
+      padding-left: 14px;
+    }
+
+    .timeline article {
+      position: relative;
+      display: grid;
+      gap: 3px;
+      padding: 0 0 14px;
+      font-size: 13px;
+    }
+
+    .timeline article::before {
+      content: "";
+      position: absolute;
+      left: -19px;
+      top: 2px;
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .exceptions {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background: #f8f7f2;
+    }
+
+    .exceptions header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      padding: 18px 22px;
+      background: var(--surface);
+    }
+
+    .exceptions .body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .exceptions .queue,
+    .exceptions .context {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      padding: 20px;
+      background: #fff;
+    }
+
+    .decision-list {
+      display: grid;
+      gap: 1px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .decision-list article {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .log-mode {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background: var(--dark);
+      color: #f2eee7;
+    }
+
+    .log-mode header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--dark-line);
+      padding: 16px 20px;
+    }
+
+    .log-mode .body {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 1px;
+      background: var(--dark-line);
+    }
+
+    .log-mode aside,
+    .log-mode .stream {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      padding: 20px;
+      background: var(--dark);
+    }
+
+    .log-mode .ticket,
+    .log-mode .panel,
+    .log-mode .run-row {
+      border-color: var(--dark-line);
+      background: var(--dark-panel);
+    }
+
+    .log-mode .muted,
+    .log-mode .small,
+    .log-mode .ticket p,
+    .log-mode .panel p {
+      color: var(--dark-muted);
+    }
+
+    .terminal {
+      min-height: 330px;
+      border: 1px solid var(--dark-line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #050606;
+      color: #cfe0d9;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .multi-run {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background: #101414;
+      color: #f3eee6;
+    }
+
+    .multi-run header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 18px 22px;
+    }
+
+    .multi-run .runs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .multi-run .column {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 18px;
+      background: #101414;
+    }
+
+    .multi-run .run-row {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: #181e1d;
+    }
+
+    .mini-log {
+      display: grid;
+      gap: 4px;
+      border-radius: 7px;
+      padding: 10px;
+      background: #070808;
+      color: #bccdc7;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .governance {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      max-width: 1180px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .governance article {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 18px;
+      background: #fff;
+    }
+
+    .governance ul {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .rail nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      main {
+        padding: 20px;
+      }
+
+      .thesis,
+      .mode-map,
+      .section-head,
+      .governance {
+        grid-template-columns: 1fr;
+      }
+
+      .frame {
+        overflow: auto;
+      }
+
+      .app {
+        min-width: 980px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div>
+        <h1>Pool</h1>
+        <p>Hands-off interaction modes</p>
+      </div>
+      <nav>
+        <a href="#modes">Autonomy Map</a>
+        <a href="#supervised">Supervised Control Room</a>
+        <a href="#exceptions">Exception Queue</a>
+        <a href="#single-run">Focused Execution Log</a>
+        <a href="#multi-run">Multi-Agent Runs</a>
+        <a href="#governance">Governance Model</a>
+        <a href="pool-inspired.html">Pool-Inspired UI</a>
+        <a href="index.html">Back to mockups</a>
+      </nav>
+      <p class="note">Exploration of how hands-off agent flows change the product surface.</p>
+    </aside>
+
+    <main>
+      <section class="intro">
+        <h2>When agents run hands-off, the UI becomes exception control.</h2>
+        <p>Control Room should be the normal operating view. Execution Log should appear when confidence drops, a run needs scrutiny, or the operator intentionally drills into live work.</p>
+        <div class="thesis">
+          <article><strong>Visual thesis</strong><span class="muted">Quiet operational console with attention reserved for exceptions, gates, and live runs.</span></article>
+          <article><strong>Content plan</strong><span class="muted">Mode, queue, run health, evidence, and next decision.</span></article>
+          <article><strong>Interaction thesis</strong><span class="muted">Switch autonomy level, expand a run inline, escalate from summary to log.</span></article>
+        </div>
+      </section>
+
+      <section class="section" id="modes">
+        <div class="section-head">
+          <div>
+            <h2>Autonomy map</h2>
+            <p class="caption">The mode system should be explicit. Operators need to know when Pool is asking, recommending, executing, or fully auto-progressing tickets.</p>
+          </div>
+          <span class="eyebrow">Interaction model</span>
+        </div>
+        <div class="mode-map">
+          <article>
+            <span class="state wait">Ask</span>
+            <h3>Confirm every gate</h3>
+            <p>Pool drafts actions and waits before execution, review, validation, and merge.</p>
+            <span class="small">UI emphasis: decision queue</span>
+          </article>
+          <article>
+            <span class="state work">Supervise</span>
+            <h3>Run with checkpoints</h3>
+            <p>Agents execute until a policy gate, uncertainty threshold, or failed check requires input.</p>
+            <span class="small">UI emphasis: control room</span>
+          </article>
+          <article>
+            <span class="state auto">Autopilot</span>
+            <h3>Progress safe work</h3>
+            <p>Routine tickets move through execution and validation automatically. Merge still follows policy.</p>
+            <span class="small">UI emphasis: exceptions</span>
+          </article>
+          <article>
+            <span class="state stop">Hold</span>
+            <h3>Freeze risky work</h3>
+            <p>Pool stops transitions for protected repos, unclear scope, repeated failures, or policy conflict.</p>
+            <span class="small">UI emphasis: intervention</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="supervised">
+        <div class="section-head">
+          <div>
+            <h2>Supervised Control Room</h2>
+            <p class="caption">Control Room becomes the default for hands-off flows. The board is still present, but the dominant information is autonomy level, run health, and the next exception.</p>
+          </div>
+          <span class="eyebrow">Default mode</span>
+        </div>
+        <div class="frame">
+          <div class="app control-room">
+            <aside>
+              <div class="row"><h3>Pool</h3><span class="state auto">Autopilot</span></div>
+              <p class="muted">Project Pool · 32 tickets · 3 repos</p>
+              <div class="project-list">
+                <span>Control Room</span>
+                <span>Runs</span>
+                <span>Exceptions</span>
+                <span>Policy</span>
+                <span>Artifacts</span>
+              </div>
+            </aside>
+            <main>
+              <div class="row">
+                <div><h3>Autonomous delivery</h3><span class="muted">Routine gates are moving. Merge remains approval-bound.</span></div>
+                <button class="button">Pause autopilot</button>
+              </div>
+              <div class="autonomy-bar">
+                <div><strong>Ask</strong><span>Confirm each transition</span></div>
+                <div><strong>Supervise</strong><span>Run until checkpoint</span></div>
+                <div class="active"><strong>Autopilot</strong><span>Progress safe work</span></div>
+                <div><strong>Hold</strong><span>Stop protected work</span></div>
+              </div>
+              <div class="board">
+                <section class="lane">
+                  <div class="row"><h4>Running</h4><span class="count">4</span></div>
+                  <article class="ticket"><span class="state work">Active</span><strong>POOL-14 Workspace bootstrap</strong><p>Developer lane. Last event 48s ago.</p></article>
+                  <article class="ticket"><span class="state work">Active</span><strong>POOL-22 Contract tests</strong><p>Validator lane running browser checks.</p></article>
+                </section>
+                <section class="lane">
+                  <div class="row"><h4>Waiting</h4><span class="count">3</span></div>
+                  <article class="ticket"><span class="state wait">Checkpoint</span><strong>POOL-11 Validation output</strong><p>Reviewer finding needs disposition.</p></article>
+                </section>
+                <section class="lane">
+                  <div class="row"><h4>Exceptions</h4><span class="count">2</span></div>
+                  <article class="ticket"><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><p>Protected branch rule blocks route.</p></article>
+                </section>
+                <section class="lane">
+                  <div class="row"><h4>Merge</h4><span class="count">2</span></div>
+                  <article class="ticket"><span class="state ok">Ready</span><strong>POOL-5 Settings drawer</strong><p>Evidence bundle complete.</p></article>
+                </section>
+              </div>
+            </main>
+            <section class="inspector">
+              <div>
+                <span class="state stop">Operator needed</span>
+                <h3>POOL-7 Repo mismatch</h3>
+                <p class="muted">Autopilot stopped before execution because repo target does not match project policy.</p>
+              </div>
+              <div class="panel">
+                <strong>Decision</strong>
+                <p>Choose a primary checkout or route the ticket back to planning.</p>
+                <button class="button">Resolve policy</button>
+              </div>
+              <div class="timeline">
+                <article><strong>Autopilot evaluated ticket</strong><span class="muted">Scope complete, criteria present.</span></article>
+                <article><strong>Policy conflict found</strong><span class="muted">Repo target points outside workspace root.</span></article>
+                <article><strong>Transition held</strong><span class="muted">No agent work started.</span></article>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="exceptions">
+        <div class="section-head">
+          <div>
+            <h2>Exception Queue</h2>
+            <p class="caption">In high-autonomy mode the board recedes. The primary surface becomes a short queue of decisions Pool cannot safely make alone.</p>
+          </div>
+          <span class="eyebrow">Hands-off mode</span>
+        </div>
+        <div class="frame">
+          <div class="app exceptions">
+            <header>
+              <div><h3>Exceptions</h3><span class="muted">Autopilot processed 18 transitions. 4 require operator action.</span></div>
+              <button class="button">Review all</button>
+            </header>
+            <div class="body">
+              <section class="queue">
+                <div class="row"><h3>Decision queue</h3><span class="pill">4 open</span></div>
+                <div class="decision-list">
+                  <article><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><button class="button">Resolve</button></article>
+                  <article><span class="state wait">Review</span><strong>POOL-11 Finding needs disposition</strong><button class="button">Decide</button></article>
+                  <article><span class="state warn">Confidence</span><strong>POOL-18 Criteria ambiguous</strong><button class="button">Refine</button></article>
+                  <article><span class="state stop">Validation</span><strong>POOL-22 Browser check failed</strong><button class="button">Inspect</button></article>
+                </div>
+              </section>
+              <section class="context">
+                <span class="state stop">Policy</span>
+                <h3>POOL-7 Repo mismatch</h3>
+                <p class="muted">Pool cannot start a developer lane because the ticket targets an unapproved checkout.</p>
+                <article class="panel"><strong>Recommended action</strong><p>Move the ticket back to Planning Desk and attach the primary repo target.</p></article>
+                <article class="panel"><strong>Why Pool stopped</strong><p>Policy requires workspace-local paths for hands-off execution. Current path is external.</p></article>
+                <div class="row"><button class="button">Send to planning</button><button class="button">Override once</button></div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="single-run">
+        <div class="section-head">
+          <div>
+            <h2>Focused Execution Log</h2>
+            <p class="caption">Execution Log is the drill-down state from Control Room. It is not the whole product, but it becomes essential when an agent run is active, stalled, or suspicious.</p>
+          </div>
+          <span class="eyebrow">Drill-down mode</span>
+        </div>
+        <div class="frame">
+          <div class="app log-mode">
+            <header>
+              <div><h3>POOL-14 Workspace bootstrap</h3><span class="muted">Developer lane · active worktree · 48 seconds since last event</span></div>
+              <span class="state work">Running</span>
+            </header>
+            <div class="body">
+              <aside>
+                <article class="ticket"><span class="state work">Active</span><strong>Run status</strong><p>Agent is executing validation before review handoff.</p></article>
+                <article class="panel"><strong>Autonomy</strong><p>Supervise: continue until reviewer checkpoint or command failure.</p></article>
+                <article class="panel"><strong>Controls</strong><p>Pause run, request summary, attach artifact, or mark blocked.</p></article>
+                <button class="button">Pause run</button>
+              </aside>
+              <section class="stream">
+                <div class="terminal">$ rg --files apps/web-react<br>apps/web-react/src/main.tsx<br>apps/web-react/src/styles.css<br><br>$ npm test<br>packages/contracts passed<br>services/api passed<br>apps/web-react typecheck passed<br><br>$ node scripts/check-react-ui-browser.mjs<br>settings, composer, ticket detail, scope, action flow, and mobile drawers: ok<br><br>Preparing reviewer handoff...</div>
+                <article class="run-row"><div class="row"><strong>Evidence captured</strong><span class="state ok">3 artifacts</span></div><span class="muted">test output, browser check summary, changed-files manifest</span></article>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="multi-run">
+        <div class="section-head">
+          <div>
+            <h2>Multi-Agent Runs</h2>
+            <p class="caption">When Pool has several autonomous runs in flight, Execution Log needs a compact multi-run view with health, last event, and expandable logs.</p>
+          </div>
+          <span class="eyebrow">Parallel mode</span>
+        </div>
+        <div class="frame">
+          <div class="app multi-run">
+            <header>
+              <div><h3>Runs</h3><span class="muted">4 active · 2 waiting · 1 blocked</span></div>
+              <button class="button">Pause all</button>
+            </header>
+            <div class="runs">
+              <section class="column">
+                <div class="row"><h3>Healthy</h3><span class="pill">3</span></div>
+                <article class="run-row">
+                  <span class="state work">Running</span>
+                  <strong>POOL-14 Workspace bootstrap</strong>
+                  <span class="muted">Last event 48s ago</span>
+                  <div class="mini-log"><span>$ npm test</span><span>api passed</span><span>web typecheck passed</span></div>
+                </article>
+                <article class="run-row">
+                  <span class="state work">Running</span>
+                  <strong>POOL-22 Contract tests</strong>
+                  <span class="muted">Browser checks active</span>
+                </article>
+              </section>
+              <section class="column">
+                <div class="row"><h3>Checkpoint</h3><span class="pill">2</span></div>
+                <article class="run-row">
+                  <span class="state wait">Review</span>
+                  <strong>POOL-11 Persist validation output</strong>
+                  <span class="muted">Reviewer gate required</span>
+                  <button class="button">Record review</button>
+                </article>
+                <article class="run-row">
+                  <span class="state warn">Criteria</span>
+                  <strong>POOL-18 Define transport contracts</strong>
+                  <span class="muted">Acceptance criteria ambiguous</span>
+                </article>
+              </section>
+              <section class="column">
+                <div class="row"><h3>Stopped</h3><span class="pill">1</span></div>
+                <article class="run-row">
+                  <span class="state stop">Policy</span>
+                  <strong>POOL-7 Repo mismatch</strong>
+                  <span class="muted">No agent work started</span>
+                  <div class="mini-log"><span>policy: workspaceRoot</span><span>expected: /pool</span><span>actual: external path</span></div>
+                  <button class="button">Resolve</button>
+                </article>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="governance">
+        <div class="section-head">
+          <div>
+            <h2>Governance model</h2>
+            <p class="caption">Hands-off does not mean hidden. The UI should make the autonomy contract inspectable and adjustable per project, repo, and ticket.</p>
+          </div>
+          <span class="eyebrow">Product rules</span>
+        </div>
+        <div class="governance">
+          <article>
+            <h3>What the UI should expose</h3>
+            <ul>
+              <li>Current autonomy level and exactly what it permits.</li>
+              <li>Why a ticket advanced without confirmation.</li>
+              <li>Why a ticket stopped before agent execution.</li>
+              <li>Evidence bundle completeness for every transition.</li>
+              <li>Project-level pause and per-ticket override controls.</li>
+            </ul>
+          </article>
+          <article>
+            <h3>What should stay out of the way</h3>
+            <ul>
+              <li>Full logs during healthy routine work.</li>
+              <li>Raw agent transcript as the default evidence view.</li>
+              <li>Dense board columns when there are no decisions to make.</li>
+              <li>Celebratory status language for routine automation.</li>
+              <li>Global alerts for isolated ticket-level issues.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

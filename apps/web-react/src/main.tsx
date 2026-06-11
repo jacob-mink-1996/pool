@@ -7,6 +7,7 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragMoveEvent } from "@dnd-kit/core";
 import { Check, ChevronLeft, ChevronRight, Menu, Moon, Pencil, Plus, RefreshCw, SlidersHorizontal, Sun, X } from "lucide-react";
 import {
+  ApiError,
   completeExecution,
   addDependency,
   cleanWorktree,
@@ -121,6 +122,10 @@ function App() {
     if (!projectId) return;
     let cancelled = false;
     setLoadState("loading");
+    setMessage("");
+    setSelectedTicketId("");
+    setTicket(null);
+    setDetailOpen(false);
     Promise.all([
       getProject(projectId),
       getBoard(projectId),
@@ -138,6 +143,7 @@ function App() {
         setEvents(nextEvents);
         setArtifacts(nextArtifacts);
         setLoadState("ready");
+        setMessage("");
         window.history.replaceState(null, "", `#${projectId}`);
         const firstTicket = nextBoard.columns.flatMap((column) => column.tickets)[0];
         setSelectedTicketId((existing) =>
@@ -193,9 +199,16 @@ function App() {
       .then((detail) => {
         if (cancelled) return;
         setTicket(detail);
+        setMessage("");
       })
       .catch((error) => {
         if (cancelled) return;
+        if (error instanceof ApiError && error.status === 404) {
+          setSelectedTicketId("");
+          setTicket(null);
+          setDetailOpen(false);
+          return;
+        }
         setMessage(error instanceof Error ? error.message : String(error));
       });
     return () => {
@@ -232,8 +245,13 @@ function App() {
     setMergeQueue(nextMergeQueue);
     setEvents(nextEvents);
     setArtifacts(nextArtifacts);
-    if (selectedTicketId) {
+    setMessage("");
+    if (selectedTicketId && nextBoard.columns.some((column) => column.tickets.some((item) => item.id === selectedTicketId))) {
       setTicket(await getTicket(projectId, selectedTicketId));
+    } else {
+      setSelectedTicketId("");
+      setTicket(null);
+      setDetailOpen(false);
     }
   };
 
@@ -349,7 +367,11 @@ function App() {
         onCreateProject={() => flushSync(() => setProjectOnboardingOpen(true))}
         onSelect={(id) => {
           flushSync(() => {
+            setMessage("");
             setProjectId(id);
+            setSelectedTicketId("");
+            setTicket(null);
+            setDetailOpen(false);
             setRailOpen(false);
           });
         }}
@@ -370,7 +392,7 @@ function App() {
           </div>
           <div className="topbar-actions">
             <IconButton
-              label={themeMode === "dark" ? "Use summer theme" : "Use night fishing theme"}
+              label={themeMode === "dark" ? "Use pool-day theme" : "Use deep-end theme"}
               pressed={themeMode === "dark"}
               onClick={() => setThemeMode((mode) => (mode === "dark" ? "light" : "dark"))}
             >
@@ -781,7 +803,7 @@ function TicketCard({ ticket, selected, onClick }: { ticket: BoardTicket; select
   return (
     <button
       ref={setNodeRef}
-      className={`ticket-card ${selected ? "is-selected" : ""} ${isDragging ? "is-dragging" : ""}`}
+      className={`ticket-card tile-state-${ticket.state.toLowerCase().replace(/_/g, "-")} ${selected ? "is-selected" : ""} ${isDragging ? "is-dragging" : ""}`}
       type="button"
       style={dragStyle}
       onClick={onClick}
@@ -942,7 +964,7 @@ function TicketDetailPanel({
             <div className="timeline">
               {ticket.events.slice(-8).map((event) => (
                 <article key={event.id}>
-                  <span>{event.type}</span>
+                  <span>{prettyState(event.type)}</span>
                   <strong>{event.summary}</strong>
                   <time>{formatDate(event.createdAt)}</time>
                 </article>

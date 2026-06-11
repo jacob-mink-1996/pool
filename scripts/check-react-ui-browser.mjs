@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,8 @@ import { createStore } from "../services/api/src/store.mjs";
 
 const elementKey = "element-6066-11e4-a52e-4f735466cecf";
 const fixtureDir = mkdtempSync(join(tmpdir(), "pool-react-ui-"));
+mkdirSync(join(fixtureDir, "suggested-workspace"));
+mkdirSync(join(fixtureDir, "suggested-workspace", "nested-child"));
 const store = createStore({
   filename: join(fixtureDir, "pool.sqlite"),
   seedDemo: true,
@@ -35,27 +37,43 @@ try {
   await waitForScript("document.querySelectorAll('.ticket-card').length >= 2");
   await assertNoUiErrors();
   await assertScript("document.querySelector('.project-description') !== null", "project description is visible in the topbar");
-  await assertScript("document.documentElement.dataset.theme === 'light'", "summer theme is the default");
-  await clickText("Use night fishing theme");
+  await assertScript("document.documentElement.dataset.theme === 'light'", "pool-day theme is the default");
+  await clickText("Use deep-end theme");
   await waitForScript("document.documentElement.dataset.theme === 'dark'");
-  await assertScript("getComputedStyle(document.body).backgroundColor !== 'rgb(238, 243, 242)'", "night fishing theme changes the page background");
+  await assertScript("getComputedStyle(document.body).backgroundColor !== 'rgb(246, 242, 232)'", "deep-end theme changes the page background");
   await navigate(appUrl);
   await waitForText("Define first transport contracts");
   await waitForScript("document.documentElement.dataset.theme === 'dark'");
-  await clickText("Use summer theme");
+  await clickText("Use pool-day theme");
   await waitForScript("document.documentElement.dataset.theme === 'light'");
 
   await clickText("New project");
   await waitForScript("document.querySelector('.onboarding-dialog') !== null");
+  await selectWorkspaceSourceMode("new");
+  await setFormValue("Create project", "newFolderPath", join(fixtureDir, "suggest"));
+  await waitForText("suggested-workspace");
+  await assertScript(
+    "document.querySelector('input[name=\"name\"]')?.value === 'Suggest' && document.querySelector('input[name=\"slug\"]')?.value === 'suggest'",
+    "project details derive from a typed folder stem",
+  );
+  await clickText("suggested-workspace");
+  await assertScript(
+    "document.querySelector('input[name=\"newFolderPath\"]')?.value.endsWith('/suggested-workspace/')",
+    "clicking a folder suggestion appends a trailing slash",
+  );
+  await waitForText("nested-child");
+  await selectWorkspaceSourceMode("clone");
+  await setFormValue("Create project", "repoRemoteUrl", "git@github.com:acme/browser-onboarding.git");
+  await assertScript(
+    "document.querySelector('input[name=\"repoClonePath\"]')?.value === '~/src/browser-onboarding'",
+    "clone destination defaults from the repo URL",
+  );
+  await selectWorkspaceSourceMode("new");
   await setFormValue("Create project", "name", "Browser Onboarding Project");
   await setFormValue("Create project", "slug", "browser-onboarding");
-  await setFormValue("Create project", "workspaceRoot", fixtureDir);
+  await setFormValue("Create project", "newFolderPath", join(fixtureDir, "browser-onboarding"));
   await setFormValue("Create project", "defaultBaseBranch", "main");
   await setFormValue("Create project", "description", "Created from the React onboarding flow.");
-  await setFormValue("Create project", "repoName", "Browser Onboarding Repo");
-  await setFormValue("Create project", "repoSlug", "browser-onboarding-repo");
-  await setFormValue("Create project", "repoLocalPath", fixtureDir);
-  await setFormValue("Create project", "repoDefaultBranch", "main");
   await clickText("Create project");
   await waitForText("Browser Onboarding Project");
   await assertScript("document.querySelector('.onboarding-dialog') === null", "onboarding closes after project creation");
@@ -300,6 +318,18 @@ async function clickText(text) {
     return buttons.find((button) => [button.innerText, button.getAttribute("aria-label"), button.getAttribute("title")].filter(Boolean).some((label) => label.trim() === text)) || buttons[0] || null;
   `, [text]);
   await clickElement(element);
+}
+
+async function selectWorkspaceSourceMode(value) {
+  await execute(`
+    const input = document.querySelector(\`input[name="workspaceSourceMode"][value="\${arguments[0]}"]\`);
+    if (!input) return false;
+    input.click();
+    return true;
+  `, [value]);
+  await waitForScript(`
+    document.querySelector('input[name="workspaceSourceMode"][value="${value}"]')?.checked === true
+  `);
 }
 
 async function clickTicket(text) {

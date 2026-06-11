@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pool Component Language</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --plaster: #f6f2e8;
+      --tile: #fcfbf5;
+      --tile-2: #edf4f0;
+      --ink: #0c2528;
+      --muted: #61736f;
+      --line: #b9c9c3;
+      --line-dark: #7f9b95;
+      --water: #087781;
+      --deep: #062f38;
+      --mint: #dcefe8;
+      --chalk: #fffdf7;
+      --amber: #af7d23;
+      --amber-soft: #f1e6cf;
+      --red: #a94035;
+      --red-soft: #efd9d6;
+      --blue: #315f9f;
+      --blue-soft: #dfe9f4;
+      --green: #21745a;
+      --green-soft: #dcece4;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(90deg, rgba(12, 37, 40, 0.035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(12, 37, 40, 0.035) 1px, transparent 1px),
+        var(--plaster);
+      background-size: 28px 28px;
+      color: var(--ink);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 278px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      display: grid;
+      align-content: start;
+      gap: 26px;
+      height: 100vh;
+      border-right: 1px solid var(--line);
+      padding: 26px 22px;
+      background: rgba(246, 242, 232, 0.94);
+      backdrop-filter: blur(16px);
+    }
+
+    .rail h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .rail p,
+    .muted,
+    .caption,
+    .small,
+    .note {
+      color: var(--muted);
+    }
+
+    .rail nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    .rail a {
+      padding: 8px 10px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .rail a:hover {
+      background: var(--chalk);
+      color: var(--ink);
+      box-shadow: inset 3px 0 0 var(--water);
+    }
+
+    main {
+      min-width: 0;
+      padding: 38px;
+    }
+
+    .intro {
+      display: grid;
+      gap: 18px;
+      max-width: 1060px;
+      margin-bottom: 42px;
+    }
+
+    .intro h2 {
+      max-width: 960px;
+      margin: 0;
+      font-size: clamp(42px, 5.3vw, 82px);
+      line-height: 0.94;
+      letter-spacing: 0;
+    }
+
+    .intro p {
+      max-width: 780px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      max-width: 1180px;
+      margin-bottom: 44px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .principles article {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-height: 178px;
+      padding: 18px;
+      background: rgba(255, 253, 247, 0.92);
+    }
+
+    .eyebrow,
+    .principles strong,
+    .spec-label {
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .principles h3,
+    .section-head h2,
+    .spec h3,
+    .app h3,
+    .app h4 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    .principles p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .section {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 48px;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      max-width: 1180px;
+    }
+
+    .section-head h2 {
+      font-size: 27px;
+    }
+
+    .caption {
+      max-width: 800px;
+      margin: 6px 0 0;
+      line-height: 1.5;
+    }
+
+    .frame {
+      width: min(100%, 1180px);
+      min-height: 720px;
+      border: 1px solid var(--line-dark);
+      overflow: hidden;
+      background: var(--chalk);
+      box-shadow: 0 30px 70px rgba(8, 44, 49, 0.13);
+    }
+
+    .component-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      width: min(100%, 1180px);
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .spec {
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      min-height: 330px;
+      padding: 18px;
+      background: var(--chalk);
+    }
+
+    .spec p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.42;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tile-ticket {
+      position: relative;
+      display: grid;
+      grid-template-columns: 4px minmax(0, 1fr);
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 0;
+      padding: 0;
+      background: #fff;
+      color: var(--ink);
+      overflow: hidden;
+    }
+
+    .tile-ticket::before {
+      content: "";
+      background: var(--water);
+    }
+
+    .tile-ticket .body {
+      display: grid;
+      gap: 7px;
+      padding: 11px 11px 11px 0;
+    }
+
+    .tile-ticket strong {
+      line-height: 1.22;
+    }
+
+    .tile-ticket p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.38;
+    }
+
+    .deck-row {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      padding: 11px 0;
+    }
+
+    .deck-row:first-child {
+      border-top: 0;
+    }
+
+    .ledger {
+      display: grid;
+      border-top: 2px solid var(--deep);
+      background:
+        linear-gradient(90deg, rgba(8, 119, 129, 0.1) 0 54px, transparent 54px),
+        #fff;
+    }
+
+    .ledger-line {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr) 74px;
+      gap: 10px;
+      align-items: center;
+      min-height: 46px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 10px 0 0;
+    }
+
+    .notch {
+      position: relative;
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line-dark);
+      padding: 14px;
+      background: var(--tile);
+      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    }
+
+    .notch::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -1px;
+      width: 20px;
+      height: 20px;
+      border-left: 1px solid var(--line-dark);
+      border-bottom: 1px solid var(--line-dark);
+      background: var(--plaster);
+    }
+
+    .depth-switch {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .depth-switch button {
+      min-height: 44px;
+      border: 0;
+      border-right: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .depth-switch button:last-child {
+      border-right: 0;
+    }
+
+    .depth-switch button.active {
+      background: var(--deep);
+      color: #fff;
+    }
+
+    .lane-ruler {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .lane-ruler .measure {
+      display: grid;
+      place-items: center;
+      border-right: 1px solid var(--line);
+      background:
+        repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 13px),
+        var(--tile-2);
+      font-size: 11px;
+      font-weight: 900;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+    }
+
+    .lane-ruler .lane-content {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .waterline {
+      display: grid;
+      gap: 8px;
+      border-left: 3px solid var(--water);
+      padding: 3px 0 3px 12px;
+    }
+
+    .state {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 20px;
+      padding: 2px 7px;
+      border: 1px solid currentColor;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .state.ok {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .state.work {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .state.wait {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .state.stop {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .button {
+      min-height: 36px;
+      border: 1px solid var(--deep);
+      border-radius: 0;
+      padding: 0 11px;
+      background: transparent;
+      color: var(--deep);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .button.primary {
+      background: var(--deep);
+      color: #fff;
+    }
+
+    .pool-app {
+      display: grid;
+      grid-template-columns: 218px minmax(0, 1fr) 330px;
+      min-height: 720px;
+      background: var(--chalk);
+    }
+
+    .pool-app aside,
+    .pool-app .inspector {
+      display: grid;
+      align-content: start;
+      gap: 18px;
+      padding: 18px;
+      background:
+        linear-gradient(90deg, rgba(8, 119, 129, 0.05) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(8, 119, 129, 0.05) 1px, transparent 1px),
+        var(--tile);
+      background-size: 18px 18px;
+    }
+
+    .pool-app aside {
+      border-right: 1px solid var(--line);
+    }
+
+    .pool-app .inspector {
+      border-left: 1px solid var(--line);
+    }
+
+    .pool-app main {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .top-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      border-bottom: 2px solid var(--deep);
+      padding-bottom: 12px;
+    }
+
+    .mode-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      background: var(--chalk);
+    }
+
+    .mode-strip div {
+      display: grid;
+      gap: 3px;
+      min-height: 58px;
+      border-right: 1px solid var(--line);
+      padding: 9px;
+    }
+
+    .mode-strip div:last-child {
+      border-right: 0;
+    }
+
+    .mode-strip .active {
+      background: var(--mint);
+      box-shadow: inset 0 -4px 0 var(--water);
+    }
+
+    .mode-strip strong {
+      font-size: 13px;
+    }
+
+    .mode-strip span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.25;
+    }
+
+    .work-basin {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(145px, 1fr));
+      border: 1px solid var(--line-dark);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.18)),
+        repeating-linear-gradient(90deg, rgba(6, 47, 56, 0.2) 0 1px, transparent 1px 25%),
+        linear-gradient(180deg, #edf8f5, #c4dfdc);
+    }
+
+    .basin-lane {
+      display: grid;
+      align-content: start;
+      gap: 9px;
+      min-height: 462px;
+      border-right: 1px solid rgba(6, 47, 56, 0.2);
+      padding: 10px;
+    }
+
+    .basin-lane:last-child {
+      border-right: 0;
+    }
+
+    .basin-heading {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 34px;
+    }
+
+    .lane-number {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--line-dark);
+      background: rgba(255, 255, 255, 0.64);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .inspector h3,
+    .pool-app h3,
+    .pool-app h4 {
+      margin: 0;
+    }
+
+    .deep-log {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      min-height: 720px;
+      background: #05171b;
+      color: #eff8f4;
+    }
+
+    .deep-log aside,
+    .deep-log .log {
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      padding: 20px;
+      background: #05171b;
+    }
+
+    .deep-log aside {
+      border-right: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .deep-log .log {
+      background:
+        linear-gradient(90deg, rgba(105, 208, 198, 0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(105, 208, 198, 0.05) 1px, transparent 1px),
+        #05171b;
+      background-size: 24px 24px;
+    }
+
+    .deep-log .notch,
+    .deep-log .tile-ticket {
+      border-color: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.055);
+      color: #eff8f4;
+    }
+
+    .deep-log .notch::after {
+      background: #05171b;
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .deep-log .muted,
+    .deep-log .small,
+    .deep-log .tile-ticket p {
+      color: #9bbab7;
+    }
+
+    .terminal {
+      min-height: 365px;
+      border-top: 2px solid #8fd8cd;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 16px 0;
+      color: #cfe9e3;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      width: min(100%, 1180px);
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .rules article {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 18px;
+      background: var(--chalk);
+    }
+
+    .rules ul {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .rail nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      main {
+        padding: 20px;
+      }
+
+      .principles,
+      .component-grid,
+      .section-head,
+      .rules {
+        grid-template-columns: 1fr;
+      }
+
+      .frame {
+        overflow: auto;
+      }
+
+      .pool-app,
+      .deep-log {
+        min-width: 980px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div>
+        <h1>Pool</h1>
+        <p>Component language without slop shapes</p>
+      </div>
+      <nav>
+        <a href="#principles">Principles</a>
+        <a href="#components">Components</a>
+        <a href="#control">Control Surface</a>
+        <a href="#log">Deep Log</a>
+        <a href="#rules">Adoption Rules</a>
+        <a href="pool-inspired.html">Pool-inspired UI</a>
+        <a href="index.html">Back to mockups</a>
+      </nav>
+      <p class="note">No generic rounded cards, pill soup, gradient blobs, or floating SaaS panels. Geometry should come from the product metaphor and workflow.</p>
+    </aside>
+
+    <main>
+      <section class="intro">
+        <h2>Make Pool feel designed at the component level.</h2>
+        <p>The next move is not just a better layout. It is a new component vocabulary: tile edges, lane rulers, waterlines, notched decisions, ledgers, and depth controls that make the interface recognizable before any copy is read.</p>
+      </section>
+
+      <section class="section" id="principles">
+        <div class="section-head">
+          <div>
+            <h2>Anti-slop principles</h2>
+            <p class="caption">These rules keep the Pool direction from falling back into common generated UI shapes.</p>
+          </div>
+          <span class="eyebrow">Design system stance</span>
+        </div>
+        <div class="principles">
+          <article>
+            <strong>No generic cards</strong>
+            <h3>Use tiles and ledgers</h3>
+            <p>Rectangular, aligned, grid-native surfaces with strong edges and purposeful internal structure.</p>
+          </article>
+          <article>
+            <strong>No pill soup</strong>
+            <h3>Use stamped state</h3>
+            <p>Status is a small rectangular stamp tied to the lane, not a decorative capsule floating on every item.</p>
+          </article>
+          <article>
+            <strong>No soft blobs</strong>
+            <h3>Use waterlines</h3>
+            <p>Motion and brand should come from horizontal/vertical flow, not abstract organic shapes.</p>
+          </article>
+          <article>
+            <strong>No fake depth</strong>
+            <h3>Use actual depth</h3>
+            <p>Summary, evidence, and logs should change layout density and geometry, not only color.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="components">
+        <div class="section-head">
+          <div>
+            <h2>Component specimens</h2>
+            <p class="caption">A small palette of replaceable UI primitives for the current React app.</p>
+          </div>
+          <span class="eyebrow">Shape language</span>
+        </div>
+        <div class="component-grid">
+          <article class="spec">
+            <span class="spec-label">Ticket tile</span>
+            <div class="tile-ticket">
+              <div></div>
+              <div class="body">
+                <div class="row"><span class="small">POOL-14</span><span class="state work">Active</span></div>
+                <strong>Workspace bootstrap</strong>
+                <p>Developer lane. Evidence is accumulating.</p>
+              </div>
+            </div>
+            <p>A ticket is a tile with a lane stripe, not a rounded floating card.</p>
+          </article>
+
+          <article class="spec">
+            <span class="spec-label">Deck row</span>
+            <div>
+              <div class="deck-row"><span class="state stop">Policy</span><strong>Repo mismatch</strong><button class="button">Resolve</button></div>
+              <div class="deck-row"><span class="state wait">Review</span><strong>Finding disposition</strong><button class="button">Decide</button></div>
+            </div>
+            <p>Exceptions become rows on the deck: direct, dry, and operator-focused.</p>
+          </article>
+
+          <article class="spec">
+            <span class="spec-label">Evidence ledger</span>
+            <div class="ledger">
+              <div class="ledger-line"><span class="small">01</span><strong>Execution started</strong><span class="small">11:42</span></div>
+              <div class="ledger-line"><span class="small">02</span><strong>Tests passed</strong><span class="small">11:45</span></div>
+              <div class="ledger-line"><span class="small">03</span><strong>Artifact attached</strong><span class="small">11:46</span></div>
+            </div>
+            <p>Evidence reads like an operational ledger instead of a comment feed.</p>
+          </article>
+
+          <article class="spec">
+            <span class="spec-label">Notched decision</span>
+            <div class="notch">
+              <span class="state stop">Operator needed</span>
+              <strong>Autopilot held before execution</strong>
+              <p>Policy requires workspace-local repo targets.</p>
+              <button class="button primary">Resolve policy</button>
+            </div>
+            <p>The clipped corner makes a decision panel visually distinct without softness.</p>
+          </article>
+
+          <article class="spec">
+            <span class="spec-label">Depth control</span>
+            <div class="depth-switch">
+              <button>Surface</button>
+              <button class="active">Evidence</button>
+              <button>Deep log</button>
+            </div>
+            <div class="waterline">
+              <strong>Validation evidence</strong>
+              <span class="muted">3 artifacts captured. Raw log available.</span>
+            </div>
+            <p>Depth is a segmented instrument, not a tab pill group.</p>
+          </article>
+
+          <article class="spec">
+            <span class="spec-label">Lane ruler</span>
+            <div class="lane-ruler">
+              <div class="measure">Lane 2</div>
+              <div class="lane-content">
+                <strong>Running</strong>
+                <span class="muted">4 active tickets</span>
+                <div class="tile-ticket"><div></div><div class="body"><strong>POOL-22 Contract tests</strong><p>Validator lane active.</p></div></div>
+              </div>
+            </div>
+            <p>Lane headers can feel like physical lane hardware and measurement marks.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="control">
+        <div class="section-head">
+          <div>
+            <h2>Control surface with new primitives</h2>
+            <p class="caption">The same Control Room structure, now using tile geometry, lane rulers, stamped states, and a notched decision inspector.</p>
+          </div>
+          <span class="eyebrow">Application mockup</span>
+        </div>
+        <div class="frame">
+          <div class="pool-app">
+            <aside>
+              <div><h3>Pool</h3><p class="muted">Project lanes</p></div>
+              <div class="waterline"><strong>Control</strong><span class="muted">Autopilot active</span></div>
+              <div class="waterline"><strong>Deck</strong><span class="muted">4 decisions</span></div>
+              <div class="waterline"><strong>Deep log</strong><span class="muted">2 active runs</span></div>
+              <div class="waterline"><strong>Policy</strong><span class="muted">Protected repos</span></div>
+            </aside>
+            <main>
+              <div class="top-strip">
+                <div><h3>Project Pool</h3><span class="muted">4 active lanes · 2 on deck · 3 merge candidates</span></div>
+                <button class="button primary">New ticket</button>
+              </div>
+              <div class="mode-strip">
+                <div><strong>Ask</strong><span>Confirm every gate</span></div>
+                <div><strong>Supervise</strong><span>Run to checkpoint</span></div>
+                <div class="active"><strong>Autopilot</strong><span>Progress safe work</span></div>
+                <div><strong>Hold</strong><span>Freeze risky work</span></div>
+              </div>
+              <div class="work-basin">
+                <section class="basin-lane">
+                  <div class="basin-heading"><span class="lane-number">1</span><h4>Ready</h4><span class="small">8</span></div>
+                  <div class="tile-ticket"><div></div><div class="body"><div class="row"><span class="small">POOL-18</span><span class="state ok">Ready</span></div><strong>Define transport contracts</strong><p>Safe to start developer lane.</p></div></div>
+                  <div class="tile-ticket"><div></div><div class="body"><div class="row"><span class="small">POOL-21</span><span class="state wait">Draft</span></div><strong>Repo onboarding</strong><p>Criteria needed before autopilot.</p></div></div>
+                </section>
+                <section class="basin-lane">
+                  <div class="basin-heading"><span class="lane-number">2</span><h4>Running</h4><span class="small">4</span></div>
+                  <div class="tile-ticket"><div></div><div class="body"><div class="row"><span class="small">POOL-14</span><span class="state work">Active</span></div><strong>Workspace bootstrap</strong><p>Last event 48s ago.</p></div></div>
+                  <div class="tile-ticket"><div></div><div class="body"><div class="row"><span class="small">POOL-22</span><span class="state work">Active</span></div><strong>Contract tests</strong><p>Browser checks active.</p></div></div>
+                </section>
+                <section class="basin-lane">
+                  <div class="basin-heading"><span class="lane-number">3</span><h4>Inspect</h4><span class="small">3</span></div>
+                  <div class="tile-ticket"><div></div><div class="body"><div class="row"><span class="small">POOL-11</span><span class="state wait">Review</span></div><strong>Persist validation output</strong><p>Reviewer gate requires decision.</p></div></div>
+                </section>
+                <section class="basin-lane">
+                  <div class="basin-heading"><span class="lane-number">4</span><h4>Deck</h4><span class="small">2</span></div>
+                  <div class="tile-ticket"><div></div><div class="body"><div class="row"><span class="small">POOL-5</span><span class="state ok">Merge</span></div><strong>Settings drawer</strong><p>Evidence bundle complete.</p></div></div>
+                  <div class="tile-ticket"><div></div><div class="body"><div class="row"><span class="small">POOL-7</span><span class="state stop">Policy</span></div><strong>Repo mismatch</strong><p>Removed from autopilot.</p></div></div>
+                </section>
+              </div>
+            </main>
+            <section class="inspector">
+              <div class="notch">
+                <span class="state stop">On deck</span>
+                <h3>POOL-7 Repo mismatch</h3>
+                <p class="muted">Autopilot held before execution. No agent work started.</p>
+                <button class="button primary">Resolve on deck</button>
+              </div>
+              <div class="ledger">
+                <div class="ledger-line"><span class="small">01</span><strong>Ticket evaluated</strong><span class="small">11:40</span></div>
+                <div class="ledger-line"><span class="small">02</span><strong>Policy conflict found</strong><span class="small">11:41</span></div>
+                <div class="ledger-line"><span class="small">03</span><strong>Transition held</strong><span class="small">11:41</span></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="log">
+        <div class="section-head">
+          <div>
+            <h2>Deep log without terminal cliché</h2>
+            <p class="caption">Execution Log can still be dark and technical, but it should use the same Pool geometry: waterline sections, notched status, and ledger evidence.</p>
+          </div>
+          <span class="eyebrow">Execution mode</span>
+        </div>
+        <div class="frame">
+          <div class="deep-log">
+            <aside>
+              <div class="notch">
+                <span class="state work">Running</span>
+                <h3>POOL-14 Workspace bootstrap</h3>
+                <p class="muted">Supervise mode. Continue until reviewer checkpoint or command failure.</p>
+              </div>
+              <div class="depth-switch">
+                <button>Surface</button>
+                <button>Evidence</button>
+                <button class="active">Deep</button>
+              </div>
+              <div class="tile-ticket"><div></div><div class="body"><strong>Evidence bundle</strong><p>test output, browser summary, changed-files manifest</p></div></div>
+              <button class="button primary">Surface summary</button>
+            </aside>
+            <section class="log">
+              <div class="top-strip">
+                <div><h3>Deep log</h3><span class="muted">Live execution stream · last event 48s ago</span></div>
+                <span class="state work">Live</span>
+              </div>
+              <div class="terminal">$ rg --files apps/web-react<br>apps/web-react/src/main.tsx<br>apps/web-react/src/styles.css<br><br>$ npm test<br>packages/contracts passed<br>services/api passed<br>apps/web-react typecheck passed<br><br>$ node scripts/check-react-ui-browser.mjs<br>settings, composer, ticket detail, scope, action flow, and mobile drawers: ok<br><br>Preparing reviewer handoff...</div>
+              <div class="ledger">
+                <div class="ledger-line"><span class="small">01</span><strong>Worktree created</strong><span class="small">ok</span></div>
+                <div class="ledger-line"><span class="small">02</span><strong>Tests completed</strong><span class="small">ok</span></div>
+                <div class="ledger-line"><span class="small">03</span><strong>Artifact attached</strong><span class="small">ok</span></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="rules">
+        <div class="section-head">
+          <div>
+            <h2>Adoption rules</h2>
+            <p class="caption">These are the practical constraints I would use before touching production CSS.</p>
+          </div>
+          <span class="eyebrow">Implementation guardrails</span>
+        </div>
+        <div class="rules">
+          <article>
+            <h3>Replace</h3>
+            <ul>
+              <li>Rounded ticket cards with lane-striped tile tickets.</li>
+              <li>Pill tabs with hard-edged segmented depth controls.</li>
+              <li>Modal detail-first flow with a notched desktop inspector.</li>
+              <li>Timeline feed styling with evidence ledger rows.</li>
+              <li>Generic side nav items with waterline navigation groups.</li>
+            </ul>
+          </article>
+          <article>
+            <h3>Keep disciplined</h3>
+            <ul>
+              <li>Use radius only for native controls where the platform expects it, and keep it at 0-4px.</li>
+              <li>Make every decorative line carry structure: lane, depth, ledger, deck, or selection.</li>
+              <li>Prefer dividers, insets, and measured spacing over shadows.</li>
+              <li>Let status color be stamped and sparse.</li>
+              <li>Keep metaphor labels paired with precise workflow labels.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

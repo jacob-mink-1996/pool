@@ -1,6 +1,6 @@
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { app, BrowserWindow, Menu, dialog, shell } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron");
 const {
   createDesktopEnvironment,
   findRepoRoot,
@@ -184,9 +184,19 @@ function installMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+function installIpcHandlers() {
+  ipcMain.handle("pool:pick-directory", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openDirectory", "createDirectory"],
+    });
+    return result.canceled ? "" : result.filePaths[0] || "";
+  });
+}
+
 app.whenReady()
   .then(async () => {
     installMenu();
+    installIpcHandlers();
     const repoRoot = findRepoRoot(__dirname);
     const api = await startPoolApi(repoRoot);
     createMainWindow(api);

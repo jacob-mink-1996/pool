@@ -252,6 +252,18 @@ export type RepoInput = {
   isPrimary: boolean;
 };
 
+export type DirectoryListing = {
+  path: string;
+  parentPath: string;
+  entries: Array<{ name: string; path: string; hidden: boolean }>;
+};
+
+export type DirectoryCreateResult = {
+  path: string;
+};
+
+export type RepoMetadata = RepoInput;
+
 export type RepoUpdateInput = Partial<Omit<RepoInput, "slug">>;
 
 export type MergeQueueItem = BoardTicket & {

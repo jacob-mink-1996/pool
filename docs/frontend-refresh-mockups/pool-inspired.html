@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pool-Inspired UI Directions</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --foam: #f7f5ed;
+      --tile: #e7ece8;
+      --ink: #102124;
+      --muted: #677573;
+      --line: #cfd8d3;
+      --deep: #07333a;
+      --water: #0f7a82;
+      --mint: #dff0ea;
+      --aqua: #bfdedb;
+      --blue: #2d6096;
+      --blue-soft: #e1ebf5;
+      --sun: #c9942d;
+      --sun-soft: #f3ead5;
+      --red: #b64b3e;
+      --red-soft: #f2dfdc;
+      --green: #21745a;
+      --green-soft: #dfeee7;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--foam);
+      color: var(--ink);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      display: grid;
+      align-content: start;
+      gap: 26px;
+      height: 100vh;
+      border-right: 1px solid var(--line);
+      padding: 26px 22px;
+      background: rgba(247, 245, 237, 0.94);
+      backdrop-filter: blur(16px);
+    }
+
+    .rail h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .rail p,
+    .muted,
+    .caption,
+    .small,
+    .note {
+      color: var(--muted);
+    }
+
+    .rail nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    .rail a {
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .rail a:hover {
+      background: #e7e2d6;
+      color: var(--ink);
+    }
+
+    main {
+      min-width: 0;
+      padding: 38px;
+    }
+
+    .intro {
+      display: grid;
+      gap: 18px;
+      max-width: 1040px;
+      margin-bottom: 42px;
+    }
+
+    .intro h2 {
+      max-width: 920px;
+      margin: 0;
+      font-size: clamp(42px, 5.6vw, 82px);
+      line-height: 0.94;
+      letter-spacing: 0;
+    }
+
+    .intro p {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .metaphors {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      max-width: 1180px;
+      margin-bottom: 44px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .metaphors article {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-height: 190px;
+      padding: 18px;
+      background: #fffdf8;
+    }
+
+    .eyebrow,
+    .metaphors strong {
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .metaphors h3,
+    .section-head h2,
+    .app h3,
+    .app h4 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    .metaphors p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .section {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 48px;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      max-width: 1180px;
+    }
+
+    .section-head h2 {
+      font-size: 27px;
+    }
+
+    .caption {
+      max-width: 780px;
+      margin: 6px 0 0;
+      line-height: 1.5;
+    }
+
+    .frame {
+      width: min(100%, 1180px);
+      min-height: 720px;
+      border: 1px solid #bfd0ca;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 32px 80px rgba(8, 44, 49, 0.14);
+    }
+
+    .app {
+      min-height: 720px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .pill,
+    .state,
+    .count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .pill {
+      background: rgba(16, 33, 36, 0.07);
+      color: inherit;
+    }
+
+    .state.ok {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .state.work {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .state.wait {
+      background: var(--sun-soft);
+      color: var(--sun);
+    }
+
+    .state.stop {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .button {
+      border: 1px solid currentColor;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: transparent;
+      color: inherit;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .ticket,
+    .panel {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .ticket p,
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .lane-pool {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr) 330px;
+      background: #f5f8f5;
+    }
+
+    .lane-pool aside,
+    .lane-pool .inspector {
+      display: grid;
+      align-content: start;
+      gap: 18px;
+      padding: 18px;
+      background: #fbfcf8;
+    }
+
+    .lane-pool aside {
+      border-right: 1px solid var(--line);
+    }
+
+    .lane-pool .inspector {
+      border-left: 1px solid var(--line);
+    }
+
+    .lane-pool main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .pool-lanes {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(155px, 1fr));
+      gap: 0;
+      min-width: 0;
+      border: 1px solid #b9d4cf;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.18)),
+        repeating-linear-gradient(90deg, rgba(7, 51, 58, 0.16) 0, rgba(7, 51, 58, 0.16) 1px, transparent 1px, transparent 25%),
+        linear-gradient(180deg, #e8f4f0, #cfe8e5);
+    }
+
+    .swimlane {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-height: 540px;
+      border-right: 1px solid rgba(7, 51, 58, 0.22);
+      padding: 14px 10px;
+    }
+
+    .swimlane:last-child {
+      border-right: 0;
+    }
+
+    .swimlane h4 {
+      font-size: 14px;
+    }
+
+    .lane-marker {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(7, 51, 58, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.62);
+      font-weight: 900;
+    }
+
+    .depth-view {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      background: #f6f8f5;
+    }
+
+    .depth-main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .depth-map {
+      position: relative;
+      display: grid;
+      grid-template-rows: 1.05fr 1fr 1.15fr;
+      min-height: 560px;
+      border: 1px solid #abc9c2;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ecf8f4 0%, #9fc9c7 50%, #0b3e48 100%);
+    }
+
+    .depth-band {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.46);
+      padding: 18px;
+    }
+
+    .depth-band:last-child {
+      border-bottom: 0;
+      color: #ecf8f4;
+    }
+
+    .depth-band:last-child .muted,
+    .depth-band:last-child .ticket p {
+      color: #b7d2d1;
+    }
+
+    .depth-band:last-child .ticket {
+      border-color: rgba(255, 255, 255, 0.18);
+      background: rgba(0, 0, 0, 0.18);
+      color: #fff;
+    }
+
+    .depth-view aside {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      border-left: 1px solid var(--line);
+      padding: 20px;
+      background: #fffdf8;
+    }
+
+    .surface-mode {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background: #eef7f5;
+    }
+
+    .surface-mode header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      border-bottom: 1px solid #b9d4cf;
+      padding: 18px 22px;
+      background: #fbfcf8;
+    }
+
+    .surface-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: #b9d4cf;
+    }
+
+    .surface-column {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      padding: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.55)),
+        linear-gradient(135deg, #edf8f5, #d4ebe8);
+    }
+
+    .ripple {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      min-height: 170px;
+      border: 1px solid rgba(15, 122, 130, 0.24);
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.92) 0 18%, rgba(223, 240, 234, 0.82) 19% 38%, rgba(191, 222, 219, 0.7) 39% 58%, rgba(15, 122, 130, 0.18) 59% 100%);
+      text-align: center;
+    }
+
+    .ripple strong {
+      font-size: 34px;
+      line-height: 1;
+    }
+
+    .deck-view {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      background: #fbfaf5;
+    }
+
+    .deck-view aside {
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      border-right: 1px solid var(--line);
+      padding: 20px;
+      background:
+        repeating-linear-gradient(0deg, rgba(16, 33, 36, 0.04) 0, rgba(16, 33, 36, 0.04) 1px, transparent 1px, transparent 28px),
+        #f4efe2;
+    }
+
+    .deck-main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+      padding: 20px;
+      background:
+        linear-gradient(90deg, transparent 0 70%, rgba(15, 122, 130, 0.08) 70% 100%),
+        #fffdf8;
+    }
+
+    .deck-list {
+      display: grid;
+      gap: 1px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .deck-list article {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr) 150px auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .night-pool {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      background: #06171b;
+      color: #ecf8f4;
+    }
+
+    .night-pool aside,
+    .night-pool .run {
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      padding: 20px;
+      background: #06171b;
+    }
+
+    .night-pool aside {
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .night-pool .run {
+      background:
+        linear-gradient(180deg, rgba(105, 208, 198, 0.09), rgba(6, 23, 27, 0)),
+        #06171b;
+    }
+
+    .night-pool .ticket,
+    .night-pool .panel {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: #ecf8f4;
+    }
+
+    .night-pool .muted,
+    .night-pool .small,
+    .night-pool .ticket p,
+    .night-pool .panel p {
+      color: #9bbab7;
+    }
+
+    .terminal {
+      min-height: 350px;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 8px;
+      padding: 16px;
+      background: #02090b;
+      color: #cfe9e3;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .implementation {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      max-width: 1180px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .implementation article {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 18px;
+      background: #fffdf8;
+    }
+
+    .implementation ul {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .rail nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      main {
+        padding: 20px;
+      }
+
+      .metaphors,
+      .section-head,
+      .implementation {
+        grid-template-columns: 1fr;
+      }
+
+      .frame {
+        overflow: auto;
+      }
+
+      .app {
+        min-width: 980px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div>
+        <h1>Pool</h1>
+        <p>Brand-native interface directions</p>
+      </div>
+      <nav>
+        <a href="#metaphors">Metaphors</a>
+        <a href="#lanes">Lane Pool</a>
+        <a href="#depth">Depth Map</a>
+        <a href="#surface">Surface Monitor</a>
+        <a href="#deck">Pool Deck</a>
+        <a href="#night">Night Run</a>
+        <a href="#implementation">Implementation Notes</a>
+        <a href="pool-component-language.html">Component Language</a>
+        <a href="index.html">Back to mockups</a>
+      </nav>
+      <p class="note">The goal is brand memory plus operational clarity. The metaphor should make the product easier to operate.</p>
+    </aside>
+
+    <main>
+      <section class="intro">
+        <h2>Pool can feel distinctive without becoming themed software.</h2>
+        <p>Use the idea of a pool as structure: lanes for work, depth for inspection, surface for healthy automation, and the deck for decisions. This gives the UI a language that is ownable and useful.</p>
+      </section>
+
+      <section class="section" id="metaphors">
+        <div class="section-head">
+          <div>
+            <h2>Metaphor map</h2>
+            <p class="caption">The name can shape interaction, hierarchy, and status language. These metaphors are practical enough to implement in the current product model.</p>
+          </div>
+          <span class="eyebrow">Product language</span>
+        </div>
+        <div class="metaphors">
+          <article>
+            <strong>Lanes</strong>
+            <h3>Parallel work</h3>
+            <p>Developer, reviewer, validator, and integrator lanes make autonomy feel routed instead of chaotic.</p>
+          </article>
+          <article>
+            <strong>Depth</strong>
+            <h3>Inspection level</h3>
+            <p>Summary at the surface, evidence in the middle, raw logs in the deep end.</p>
+          </article>
+          <article>
+            <strong>Surface</strong>
+            <h3>Healthy automation</h3>
+            <p>Hands-off work stays quiet and visible as motion/status, not transcript noise.</p>
+          </article>
+          <article>
+            <strong>Deck</strong>
+            <h3>Operator decisions</h3>
+            <p>Exceptions come out of the water onto the deck, where the operator makes a clear call.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="lanes">
+        <div class="section-head">
+          <div>
+            <h2>Lane Pool</h2>
+            <p class="caption">A Control Room variant where the board visually becomes a pool of lanes. The metaphor reinforces parallel agent work while keeping ticket cards readable.</p>
+          </div>
+          <span class="eyebrow">Control Room variant</span>
+        </div>
+        <div class="frame">
+          <div class="app lane-pool">
+            <aside>
+              <div class="row"><h3>Pool</h3><span class="state ok">Live</span></div>
+              <p class="muted">Autonomous delivery lanes</p>
+              <div class="stack">
+                <span class="pill">Control Room</span>
+                <span class="pill">Runs</span>
+                <span class="pill">Deck</span>
+                <span class="pill">Policy</span>
+              </div>
+            </aside>
+            <main>
+              <div class="row">
+                <div><h3>Project Pool</h3><span class="muted">4 active lanes · 2 deck decisions · 3 merge candidates</span></div>
+                <button class="button">New ticket</button>
+              </div>
+              <div class="pool-lanes">
+                <section class="swimlane">
+                  <div class="row"><div class="lane-marker">1</div><h4>Ready</h4><span class="count">8</span></div>
+                  <article class="ticket"><span class="state ok">Ready</span><strong>POOL-18 Define transport contracts</strong><p>Safe to start developer lane.</p></article>
+                  <article class="ticket"><span class="state wait">Draft</span><strong>POOL-21 Repo onboarding</strong><p>Needs criteria before autopilot.</p></article>
+                </section>
+                <section class="swimlane">
+                  <div class="row"><div class="lane-marker">2</div><h4>Running</h4><span class="count">4</span></div>
+                  <article class="ticket"><span class="state work">Active</span><strong>POOL-14 Workspace bootstrap</strong><p>Developer lane. Last event 48s ago.</p></article>
+                  <article class="ticket"><span class="state work">Active</span><strong>POOL-22 Contract tests</strong><p>Validator lane running browser checks.</p></article>
+                </section>
+                <section class="swimlane">
+                  <div class="row"><div class="lane-marker">3</div><h4>Inspect</h4><span class="count">3</span></div>
+                  <article class="ticket"><span class="state wait">Review</span><strong>POOL-11 Persist validation output</strong><p>Reviewer gate requires decision.</p></article>
+                </section>
+                <section class="swimlane">
+                  <div class="row"><div class="lane-marker">4</div><h4>Merge</h4><span class="count">2</span></div>
+                  <article class="ticket"><span class="state ok">Ready</span><strong>POOL-5 Settings drawer</strong><p>Evidence bundle complete.</p></article>
+                  <article class="ticket"><span class="state stop">Deck</span><strong>POOL-7 Repo mismatch</strong><p>Policy decision required.</p></article>
+                </section>
+              </div>
+            </main>
+            <section class="inspector">
+              <span class="state stop">On deck</span>
+              <h3>POOL-7 Repo mismatch</h3>
+              <p class="muted">Removed from the running lanes until the operator resolves a policy conflict.</p>
+              <article class="panel"><strong>Recommended call</strong><p>Attach the primary checkout or send the ticket back to planning.</p></article>
+              <button class="button">Resolve on deck</button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="depth">
+        <div class="section-head">
+          <div>
+            <h2>Depth Map</h2>
+            <p class="caption">Depth becomes an information architecture. Operators can stay at the surface for health, drop into evidence, then go deep only for raw logs and failures.</p>
+          </div>
+          <span class="eyebrow">Inspection model</span>
+        </div>
+        <div class="frame">
+          <div class="app depth-view">
+            <section class="depth-main">
+              <div class="row"><div><h3>POOL-14 Workspace bootstrap</h3><span class="muted">Inspection depth controls how much detail is visible.</span></div><button class="button">Go deeper</button></div>
+              <div class="depth-map">
+                <section class="depth-band">
+                  <div><span class="eyebrow">Surface</span><h4>Status</h4><p class="muted">Healthy work stays summarized.</p></div>
+                  <article class="ticket"><span class="state work">Running</span><strong>Developer lane active</strong><p>Last event 48 seconds ago. No intervention needed.</p></article>
+                </section>
+                <section class="depth-band">
+                  <div><span class="eyebrow">Midwater</span><h4>Evidence</h4><p class="muted">Proof without transcript noise.</p></div>
+                  <article class="ticket"><span class="state ok">Captured</span><strong>Tests passed, artifact attached</strong><p>npm test, browser check summary, changed-files manifest.</p></article>
+                </section>
+                <section class="depth-band">
+                  <div><span class="eyebrow">Deep end</span><h4>Raw log</h4><p class="muted">Only when needed.</p></div>
+                  <article class="ticket"><span class="state wait">Available</span><strong>Execution transcript</strong><p>Open full command stream, worktree diff, and agent reasoning summary.</p></article>
+                </section>
+              </div>
+            </section>
+            <aside>
+              <h3>Depth controls</h3>
+              <article class="panel"><strong>Default</strong><p>Show surface status and evidence summary for healthy runs.</p></article>
+              <article class="panel"><strong>Escalate</strong><p>Open deep log for failures, stalls, policy overrides, or manual inspection.</p></article>
+              <button class="button">Open deep log</button>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="surface">
+        <div class="section-head">
+          <div>
+            <h2>Surface Monitor</h2>
+            <p class="caption">A more creative hands-off surface. Healthy automation is represented as calm surface state; exceptions are the only items that break the pattern.</p>
+          </div>
+          <span class="eyebrow">Autopilot mode</span>
+        </div>
+        <div class="frame">
+          <div class="app surface-mode">
+            <header>
+              <div><h3>Surface</h3><span class="muted">Autopilot is running safe transitions. Exceptions are on deck.</span></div>
+              <button class="button">Pause autopilot</button>
+            </header>
+            <div class="surface-grid">
+              <section class="surface-column">
+                <div class="ripple"><span class="muted">Running</span><strong>4</strong><span class="small">healthy lanes</span></div>
+                <article class="ticket"><span class="state work">Active</span><strong>POOL-14 Workspace bootstrap</strong><p>Execution normal. Evidence accumulating.</p></article>
+              </section>
+              <section class="surface-column">
+                <div class="ripple"><span class="muted">Evidence</span><strong>7</strong><span class="small">new records</span></div>
+                <article class="ticket"><span class="state ok">Captured</span><strong>Browser check summary</strong><p>Attached to POOL-22 validation gate.</p></article>
+              </section>
+              <section class="surface-column">
+                <div class="ripple"><span class="muted">On deck</span><strong>2</strong><span class="small">operator calls</span></div>
+                <article class="ticket"><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><p>Removed from autopilot until resolved.</p></article>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="deck">
+        <div class="section-head">
+          <div>
+            <h2>Pool Deck</h2>
+            <p class="caption">The exception queue becomes the deck: a dry, deliberate decision area. This is where autopilot stops and operator judgment begins.</p>
+          </div>
+          <span class="eyebrow">Decision surface</span>
+        </div>
+        <div class="frame">
+          <div class="app deck-view">
+            <aside>
+              <h3>Deck</h3>
+              <p class="muted">Tickets leave active lanes when Pool needs a human decision.</p>
+              <article class="panel"><strong>Open decisions</strong><p>2 policy, 1 review, 1 validation failure.</p></article>
+              <button class="button">Resolve all safe</button>
+            </aside>
+            <section class="deck-main">
+              <div class="row"><div><h3>Operator calls</h3><span class="muted">Sorted by blocked downstream work.</span></div><button class="button">Filter</button></div>
+              <div class="deck-list">
+                <article><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><span class="muted">3 tickets blocked</span><button class="button">Resolve</button></article>
+                <article><span class="state wait">Review</span><strong>POOL-11 Finding disposition</strong><span class="muted">1 ticket blocked</span><button class="button">Decide</button></article>
+                <article><span class="state stop">Validation</span><strong>POOL-22 Browser check failed</strong><span class="muted">merge blocked</span><button class="button">Inspect</button></article>
+                <article><span class="state wait">Scope</span><strong>POOL-18 Criteria ambiguous</strong><span class="muted">autopilot held</span><button class="button">Refine</button></article>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="night">
+        <div class="section-head">
+          <div>
+            <h2>Night Run</h2>
+            <p class="caption">Execution Log can take the darker “deep end” treatment. It gives raw agent work a distinct mode without making the whole app dark or terminal-heavy.</p>
+          </div>
+          <span class="eyebrow">Execution Log variant</span>
+        </div>
+        <div class="frame">
+          <div class="app night-pool">
+            <aside>
+              <span class="state work">Running</span>
+              <h3>POOL-14 Workspace bootstrap</h3>
+              <p class="muted">Deep inspection mode for active execution.</p>
+              <article class="panel"><strong>Autonomy</strong><p>Supervise. Continue until reviewer checkpoint or command failure.</p></article>
+              <article class="panel"><strong>Evidence</strong><p>3 artifacts captured. No operator decision required.</p></article>
+              <button class="button">Surface summary</button>
+            </aside>
+            <section class="run">
+              <div class="row"><h3>Deep log</h3><span class="pill">live</span></div>
+              <div class="terminal">$ rg --files apps/web-react<br>apps/web-react/src/main.tsx<br>apps/web-react/src/styles.css<br><br>$ npm test<br>packages/contracts passed<br>services/api passed<br>apps/web-react typecheck passed<br><br>$ node scripts/check-react-ui-browser.mjs<br>settings, composer, ticket detail, scope, action flow, and mobile drawers: ok<br><br>Preparing reviewer handoff...</div>
+              <article class="ticket"><span class="state ok">Captured</span><strong>Evidence bundle updated</strong><p>test output, browser check summary, changed-files manifest</p></article>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="implementation">
+        <div class="section-head">
+          <div>
+            <h2>Implementation notes</h2>
+            <p class="caption">The useful parts can be adopted without overcommitting to a literal visual theme.</p>
+          </div>
+          <span class="eyebrow">Apply to code</span>
+        </div>
+        <div class="implementation">
+          <article>
+            <h3>Keep</h3>
+            <ul>
+              <li>Lane language for work routing and parallel agent ownership.</li>
+              <li>Depth language for summary, evidence, and raw execution logs.</li>
+              <li>Deck language for exceptions requiring operator judgment.</li>
+              <li>A calmer aquatic palette with off-white tile, deep green, and restrained aqua.</li>
+            </ul>
+          </article>
+          <article>
+            <h3>Avoid</h3>
+            <ul>
+              <li>Novelty copy that makes operational work feel unserious.</li>
+              <li>Animated water effects behind dense text.</li>
+              <li>Too many blues or a one-note aquatic palette.</li>
+              <li>Replacing precise workflow language with vague metaphor labels.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
