@@ -399,6 +399,59 @@ test("project policy and role profiles can be patched through the API", async ()
   });
 });
 
+test("ceremony endpoints create proposal runs and apply approved proposals", async () => {
+  await withServer(async (baseUrl) => {
+    const createTicketResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "API ceremony refinement target",
+        brief: "Needs a better plan.",
+        state: "PROPOSED",
+        priority: "medium",
+        assignedRole: "developer",
+      }),
+    });
+    const createTicketBody = await createTicketResponse.json();
+
+    const runResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/ceremonies`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "refinement" }),
+    });
+    const runBody = await runResponse.json();
+    const proposal = runBody.ceremony.proposals.find(
+      (item) => item.ticketId === createTicketBody.ticket.id && item.kind === "ticket_patch",
+    );
+
+    const listResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/ceremonies`);
+    const listBody = await listResponse.json();
+
+    const applyResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/ceremonies/${runBody.ceremony.id}/apply`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ proposalIds: [proposal.id] }),
+      },
+    );
+    const applyBody = await applyResponse.json();
+
+    const ticketResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/${createTicketBody.ticket.id}`);
+    const ticketBody = await ticketResponse.json();
+
+    assert.equal(createTicketResponse.status, 201);
+    assert.equal(runResponse.status, 201);
+    assert.equal(runBody.ceremony.type, "refinement");
+    assert.ok(proposal);
+    assert.equal(listResponse.status, 200);
+    assert.equal(listBody.ceremonies[0].id, runBody.ceremony.id);
+    assert.equal(applyResponse.status, 200);
+    assert.equal(applyBody.ceremony.proposals.find((item) => item.id === proposal.id).status, "applied");
+    assert.match(ticketBody.ticket.acceptanceCriteriaMd, /Scope is explicit/);
+  });
+});
+
 test("API surfaces merge-policy blocks when validation profile does not satisfy policy", async () => {
   await withServer(async (baseUrl) => {
     await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {

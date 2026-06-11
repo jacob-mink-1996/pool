@@ -1,4 +1,5 @@
 import {
+  isCeremonyType,
   isDependencyType,
   isRefinementMode,
   isRoleName,
@@ -198,6 +199,44 @@ export function validationRunDto(validation) {
     startedAt: validation.startedAt,
     finishedAt: validation.finishedAt,
     artifacts: (validation.artifacts || []).map(artifactDto),
+  };
+}
+
+export function ceremonyProposalDto(proposal) {
+  return {
+    id: proposal.id,
+    projectId: proposal.projectId,
+    runId: proposal.runId,
+    kind: proposal.kind,
+    status: proposal.status,
+    summary: proposal.summary,
+    ticketId: proposal.ticketId || "",
+    ticketKey: proposal.ticketKey || "",
+    ticketTitle: proposal.ticketTitle || "",
+    payload: { ...(proposal.payload || {}) },
+    appliedTicketId: proposal.appliedTicketId || "",
+    appliedAt: proposal.appliedAt || "",
+    createdAt: proposal.createdAt,
+  };
+}
+
+export function ceremonyRunDto(run, proposals = []) {
+  return {
+    id: run.id,
+    projectId: run.projectId,
+    type: run.type,
+    status: run.status,
+    scope: { ...(run.scope || {}) },
+    inputSnapshot: { ...(run.inputSnapshot || {}) },
+    summaryMd: run.summaryMd,
+    questionsMd: run.questionsMd,
+    riskMd: run.riskMd,
+    createdByKind: run.createdByKind,
+    createdByRef: run.createdByRef,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt || "",
+    appliedAt: run.appliedAt || "",
+    proposals: proposals.map(ceremonyProposalDto),
   };
 }
 
@@ -658,6 +697,40 @@ export function parseMergeTicketInput(body) {
   }
 
   return parsed;
+}
+
+export function parseCreateCeremonyRunInput(body) {
+  assertObject(body);
+  const type = requiredString(body, "type");
+  if (!isCeremonyType(type)) {
+    throw new Error(`Invalid ceremony type: ${type}`);
+  }
+
+  return compactObject({
+    type,
+    scope: hasOwn(body, "scope") ? optionalObject(body, "scope") : {},
+    createdByKind: optionalString(body, "createdByKind", "human"),
+    createdByRef: optionalString(body, "createdByRef", "operator"),
+  });
+}
+
+export function parseApplyCeremonyRunInput(body) {
+  assertObject(body || {});
+  const proposalIds = body?.proposalIds;
+  if (proposalIds === undefined) {
+    return { proposalIds: [] };
+  }
+  if (!Array.isArray(proposalIds)) {
+    throw new Error("Field proposalIds must be an array");
+  }
+  return {
+    proposalIds: proposalIds.map((proposalId, index) => {
+      if (typeof proposalId !== "string" || !proposalId.trim()) {
+        throw new Error(`Field proposalIds[${index}] must be a non-empty string`);
+      }
+      return proposalId.trim();
+    }),
+  };
 }
 
 function parseRepoTargets(value) {

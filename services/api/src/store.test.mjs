@@ -154,6 +154,37 @@ test("store transitions tickets and records events", () => {
   store.close();
 });
 
+test("store creates ceremony proposals and applies approved ticket patches", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  const draft = store.createTicket("project_pool", {
+    title: "Thin refinement candidate",
+    brief: "Needs details.",
+    assignedRole: "developer",
+    state: "PROPOSED",
+  });
+
+  const run = store.createCeremonyRun("project_pool", {
+    type: "refinement",
+    createdByKind: "human",
+    createdByRef: "test",
+  });
+  const proposal = run.proposals.find((item) => item.ticketId === draft.id && item.kind === "ticket_patch");
+
+  assert.ok(proposal);
+  assert.equal(run.status, "proposed");
+  assert.equal(proposal.status, "pending");
+
+  const applied = store.applyCeremonyRun("project_pool", run.id, {
+    proposalIds: [proposal.id],
+  });
+  const updated = store.getTicket("project_pool", draft.id);
+
+  assert.equal(applied.proposals.find((item) => item.id === proposal.id).status, "applied");
+  assert.match(updated.acceptanceCriteriaMd, /Scope is explicit/);
+  assert.equal(store.listEvents("project_pool").at(-1).type, "ceremony.applied");
+  store.close();
+});
+
 test("store can reconcile interrupted active executions after restart", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
   const execution = store.createExecution("project_pool", "ticket_project_pool_2", {

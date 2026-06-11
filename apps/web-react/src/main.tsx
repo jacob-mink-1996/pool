@@ -5,12 +5,14 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragMoveEvent } from "@dnd-kit/core";
-import { Check, ChevronLeft, ChevronRight, Menu, Moon, Pencil, Plus, RefreshCw, SlidersHorizontal, Sun, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Menu, Moon, Pencil, Plus, RefreshCw, SlidersHorizontal, Sparkles, Sun, X } from "lucide-react";
 import {
   ApiError,
+  applyCeremony,
   completeExecution,
   addDependency,
   cleanWorktree,
+  createCeremony,
   createProject,
   createRepo,
   createReview,
@@ -21,6 +23,7 @@ import {
   getProject,
   getTicket,
   listArtifacts,
+  listCeremonies,
   listEvents,
   listMergeQueue,
   listProjects,
@@ -46,6 +49,8 @@ import type {
   Artifact,
   Board,
   BoardTicket,
+  CeremonyRun,
+  CeremonyType,
   EventRecord,
   MergeQueueItem,
   Project,
@@ -62,6 +67,7 @@ import "./styles.css";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 type ThemeMode = "light" | "dark";
+type WorkspaceView = "board" | "ceremonies" | "ops";
 
 function initialThemeMode(): ThemeMode {
   const storedTheme = window.localStorage.getItem("pool-theme");
@@ -75,6 +81,7 @@ function App() {
   const [board, setBoard] = useState<Board | null>(null);
   const [repos, setRepos] = useState<Repo[]>([]);
   const [mergeQueue, setMergeQueue] = useState<MergeQueueItem[]>([]);
+  const [ceremonies, setCeremonies] = useState<CeremonyRun[]>([]);
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState("");
@@ -87,7 +94,7 @@ function App() {
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isProjectOnboardingOpen, setProjectOnboardingOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"board" | "ops">("board");
+  const [activeView, setActiveView] = useState<WorkspaceView>("board");
   const [liveStatus, setLiveStatus] = useState("idle");
   const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
 
@@ -131,15 +138,17 @@ function App() {
       getBoard(projectId),
       listRepos(projectId),
       listMergeQueue(projectId),
+      listCeremonies(projectId),
       listEvents(projectId),
       listArtifacts(projectId),
     ])
-      .then(([nextProject, nextBoard, nextRepos, nextMergeQueue, nextEvents, nextArtifacts]) => {
+      .then(([nextProject, nextBoard, nextRepos, nextMergeQueue, nextCeremonies, nextEvents, nextArtifacts]) => {
         if (cancelled) return;
         setProject(nextProject);
         setBoard(nextBoard);
         setRepos(nextRepos);
         setMergeQueue(nextMergeQueue);
+        setCeremonies(nextCeremonies);
         setEvents(nextEvents);
         setArtifacts(nextArtifacts);
         setLoadState("ready");
@@ -231,11 +240,12 @@ function App() {
 
   const refresh = async () => {
     if (!projectId) return;
-    const [nextProject, nextBoard, nextRepos, nextMergeQueue, nextEvents, nextArtifacts] = await Promise.all([
+    const [nextProject, nextBoard, nextRepos, nextMergeQueue, nextCeremonies, nextEvents, nextArtifacts] = await Promise.all([
       getProject(projectId),
       getBoard(projectId),
       listRepos(projectId),
       listMergeQueue(projectId),
+      listCeremonies(projectId),
       listEvents(projectId),
       listArtifacts(projectId),
     ]);
@@ -243,6 +253,7 @@ function App() {
     setBoard(nextBoard);
     setRepos(nextRepos);
     setMergeQueue(nextMergeQueue);
+    setCeremonies(nextCeremonies);
     setEvents(nextEvents);
     setArtifacts(nextArtifacts);
     setMessage("");
@@ -309,6 +320,30 @@ function App() {
     setDetailOpen(true);
   };
 
+  const handleRunCeremony = async (type: CeremonyType) => {
+    if (!projectId) return;
+    setMessage("");
+    try {
+      await createCeremony(projectId, { type });
+      const [nextCeremonies, nextEvents] = await Promise.all([listCeremonies(projectId), listEvents(projectId)]);
+      setCeremonies(nextCeremonies);
+      setEvents(nextEvents);
+    } catch (ceremonyError) {
+      setMessage(ceremonyError instanceof Error ? ceremonyError.message : String(ceremonyError));
+    }
+  };
+
+  const handleApplyCeremony = async (runId: string, proposalIds: string[] = []) => {
+    if (!projectId) return;
+    setMessage("");
+    try {
+      await applyCeremony(projectId, runId, proposalIds);
+      await refresh();
+    } catch (ceremonyError) {
+      setMessage(ceremonyError instanceof Error ? ceremonyError.message : String(ceremonyError));
+    }
+  };
+
   const handleCreateProject = async (input: { project: ProjectCreateInput; repo: RepoInput | null }) => {
     setMessage("");
     const created = await createProject(input.project);
@@ -337,6 +372,7 @@ function App() {
     setBoard(null);
     setRepos([]);
     setMergeQueue([]);
+    setCeremonies([]);
     setEvents([]);
     setArtifacts([]);
     setSelectedTicketId("");
@@ -405,9 +441,10 @@ function App() {
         {message ? <div className={`status ${loadState === "error" ? "is-error" : ""}`}>{message}</div> : null}
 
         <div className="workspace-tools">
-          <Tabs.Root value={activeView} onValueChange={(value) => setActiveView(value as "board" | "ops")}>
+          <Tabs.Root value={activeView} onValueChange={(value) => setActiveView(value as WorkspaceView)}>
             <Tabs.List className="view-tabs" aria-label="Workspace view">
               <Tabs.Trigger value="board">Board</Tabs.Trigger>
+              <Tabs.Trigger value="ceremonies">Ceremonies</Tabs.Trigger>
               <Tabs.Trigger value="ops">Ops</Tabs.Trigger>
             </Tabs.List>
           </Tabs.Root>
@@ -425,13 +462,15 @@ function App() {
         </div>
 
         <section className="board-surface">
-          <BoardHeader project={project} board={board} loadState={loadState} label={activeView === "board" ? "Board" : "Ops"} />
+          <BoardHeader project={project} board={board} loadState={loadState} label={activeView === "board" ? "Board" : activeView === "ceremonies" ? "Ceremonies" : "Ops"} />
           {!projectId && loadState === "ready" ? (
             <ProjectEmptyState onCreateProject={() => flushSync(() => setProjectOnboardingOpen(true))} />
           ) : isComposerOpen ? (
             <TicketComposer repos={repos} onSubmit={handleCreateTicket} onCancel={() => setComposerOpen(false)} />
           ) : activeView === "board" ? (
             <BoardView board={board} selectedTicketId={selectedTicketId} sensors={dragSensors} onSelectTicket={selectTicket} onMoveTicket={handleTicketDrop} />
+          ) : activeView === "ceremonies" ? (
+            <CeremoniesPanel ceremonies={ceremonies} onRun={handleRunCeremony} onApply={handleApplyCeremony} />
           ) : (
             <OpsPanel mergeQueue={mergeQueue} events={events} artifacts={artifacts} />
           )}
@@ -574,7 +613,7 @@ function BoardHeader({ project, board, loadState, label }: { project: Project | 
     <section className="summary-strip">
       <div>
         <p className="kicker">{label}</p>
-        <h2>{label === "Ops" ? "Operations" : board?.projectName || (loadState === "loading" ? "Loading project..." : "No project selected")}</h2>
+        <h2>{label === "Ops" ? "Operations" : label === "Ceremonies" ? "Agent ceremonies" : board?.projectName || (loadState === "loading" ? "Loading project..." : "No project selected")}</h2>
       </div>
       <Metric label="Total" value={String(board?.totalTickets || 0)} />
       <Metric label="Working" value={String((summary.WORKING || 0) + (summary.REWORK || 0))} />
@@ -649,6 +688,134 @@ function OpsPanel({
       </div>
     </section>
   );
+}
+
+const ceremonyOptions: Array<{ type: CeremonyType; label: string; detail: string }> = [
+  { type: "refinement", label: "Refinement", detail: "Clarify proposed work before agents execute." },
+  { type: "planning", label: "Planning", detail: "Select the next ready slice against capacity." },
+  { type: "daily_triage", label: "Daily triage", detail: "Surface blocked, rework, and active-ticket decisions." },
+  { type: "review_demo_prep", label: "Review/demo prep", detail: "Assemble merge-ready and done work for PO review." },
+  { type: "retro", label: "Retro", detail: "Turn repeated stalls into process-improvement work." },
+];
+
+function CeremoniesPanel({
+  ceremonies,
+  onRun,
+  onApply,
+}: {
+  ceremonies: CeremonyRun[];
+  onRun: (type: CeremonyType) => Promise<void>;
+  onApply: (runId: string, proposalIds?: string[]) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState("");
+  const latest = ceremonies[0] || null;
+  const pending = latest?.proposals.filter((proposal) => proposal.status === "pending") || [];
+
+  async function runWithBusy(label: string, work: () => Promise<void>) {
+    setBusy(label);
+    try {
+      await work();
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <section className="ceremonies-panel" aria-label="Agent ceremonies">
+      <div className="ceremony-picker">
+        {ceremonyOptions.map((option) => (
+          <button
+            key={option.type}
+            className="ceremony-option"
+            type="button"
+            disabled={Boolean(busy)}
+            onClick={() => runWithBusy(option.label, () => onRun(option.type))}
+          >
+            <Sparkles size={17} />
+            <strong>{option.label}</strong>
+            <span>{option.detail}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="ceremony-review">
+        <div className="section-heading">
+          <h3>Latest Run</h3>
+          <span>{latest ? prettyState(latest.status) : "None"}</span>
+        </div>
+        {!latest ? (
+          <p className="lane-empty">Run a ceremony to generate reviewable agent proposals.</p>
+        ) : (
+          <>
+            <article className="ceremony-summary">
+              <strong>{prettyCeremony(latest.type)}</strong>
+              <p>{latest.summaryMd}</p>
+              {latest.riskMd ? <span>{latest.riskMd}</span> : null}
+            </article>
+            <div className="proposal-toolbar">
+              <span>{pending.length} pending proposal(s)</span>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={pending.length === 0 || Boolean(busy)}
+                onClick={() => runWithBusy("Apply proposals", () => onApply(latest.id))}
+              >
+                Apply pending
+              </button>
+            </div>
+            <div className="proposal-list">
+              {latest.proposals.map((proposal) => (
+                <article key={proposal.id} className={`proposal-item proposal-${proposal.status}`}>
+                  <div>
+                    <span>{prettyState(proposal.kind)} · {proposal.ticketKey || prettyCeremony(latest.type)}</span>
+                    <strong>{proposal.summary}</strong>
+                    <code>{summarizeProposalPayload(proposal.payload)}</code>
+                  </div>
+                  {proposal.status === "pending" ? (
+                    <button
+                      className="quiet-button"
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => runWithBusy("Apply proposal", () => onApply(latest.id, [proposal.id]))}
+                    >
+                      Apply
+                    </button>
+                  ) : (
+                    <span className="badge">{prettyState(proposal.status)}</span>
+                  )}
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="ceremony-history">
+        <div className="section-heading">
+          <h3>History</h3>
+          <span>{ceremonies.length}</span>
+        </div>
+        <div className="compact-list">
+          {ceremonies.slice(0, 6).map((run) => (
+            <article key={run.id} className="compact-item">
+              <strong>{prettyCeremony(run.type)}</strong>
+              <span>{prettyState(run.status)} · {run.proposals.length} proposal(s) · {formatDate(run.startedAt)}</span>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function prettyCeremony(type: string) {
+  return type.replace(/_/g, " ");
+}
+
+function summarizeProposalPayload(payload: Record<string, unknown>) {
+  const keys = Object.keys(payload || {});
+  if (keys.length === 0) return "No payload";
+  return keys.slice(0, 4).join(", ");
 }
 
 function BoardView({

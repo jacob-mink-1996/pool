@@ -640,6 +640,112 @@ h3 {
   align-self: start;
 }
 
+.ceremonies-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(220px, 280px);
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ceremony-picker,
+.ceremony-review,
+.ceremony-history {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, var(--panel-warm), var(--panel-soft));
+}
+
+.ceremony-review {
+  overflow: auto;
+}
+
+.ceremony-option {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 4px 9px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--ticket-bg);
+  color: var(--text);
+  text-align: left;
+}
+
+.ceremony-option svg {
+  grid-row: span 2;
+  color: var(--teal);
+}
+
+.ceremony-option span,
+.ceremony-summary span,
+.proposal-toolbar,
+.proposal-item span {
+  color: var(--muted);
+}
+
+.ceremony-option:hover {
+  border-color: var(--hover-border);
+  box-shadow: var(--ticket-hover-shadow);
+}
+
+.ceremony-summary,
+.proposal-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--panel);
+}
+
+.ceremony-summary p {
+  margin: 6px 0;
+  color: var(--text);
+}
+
+.proposal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.proposal-list {
+  display: grid;
+  gap: 8px;
+}
+
+.proposal-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.proposal-item strong {
+  display: block;
+  margin: 3px 0 6px;
+}
+
+.proposal-item code {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proposal-applied {
+  opacity: 0.72;
+}
+
 .ops-column {
   min-height: 144px;
 }
@@ -1641,6 +1747,7 @@ textarea {
   .summary-strip,
   .form-grid,
   .ops-panel,
+  .ceremonies-panel,
   .action-grid,
   .repo-mode-list,
   .path-suggestions > div,

@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { defaultProjectPolicy, defaultRoleProfiles } from "../../config/src/index.mjs";
 import {
   artifactDto,
+  ceremonyRunDto,
   executionDto,
   eventDto,
   mergeRunDto,
@@ -19,7 +20,7 @@ import {
   validationRunDto,
   worktreeDto,
 } from "../../contracts/src/index.mjs";
-import { boardStates, isRefinementMode, isRoleName, isTicketState } from "../../domain/src/index.mjs";
+import { boardStates, isCeremonyType, isRefinementMode, isRoleName, isTicketState } from "../../domain/src/index.mjs";
 
 const SQLITE_SCHEMA = `
 pragma foreign_keys = on;
@@ -243,6 +244,40 @@ create table if not exists events (
   created_at text not null
 );
 
+create table if not exists ceremony_runs (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  type text not null,
+  status text not null,
+  scope_json text not null default '{}',
+  input_snapshot_json text not null default '{}',
+  summary_md text not null default '',
+  questions_md text not null default '',
+  risk_md text not null default '',
+  created_by_kind text not null default 'human',
+  created_by_ref text not null default 'operator',
+  started_at text not null,
+  finished_at text,
+  applied_at text,
+  created_at text not null,
+  updated_at text not null
+);
+
+create table if not exists ceremony_proposals (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  run_id text not null references ceremony_runs(id) on delete cascade,
+  kind text not null,
+  status text not null,
+  summary text not null,
+  ticket_id text references tickets(id) on delete set null,
+  payload_json text not null default '{}',
+  applied_ticket_id text references tickets(id) on delete set null,
+  applied_at text,
+  created_at text not null,
+  updated_at text not null
+);
+
 create index if not exists idx_repos_project_id on repos(project_id);
 create index if not exists idx_tickets_project_id on tickets(project_id);
 create index if not exists idx_ticket_repo_targets_ticket_id on ticket_repo_targets(ticket_id);
@@ -267,6 +302,8 @@ create index if not exists idx_merge_runs_project_id on merge_runs(project_id);
 create index if not exists idx_merge_runs_ticket_id on merge_runs(ticket_id);
 create index if not exists idx_events_project_id on events(project_id);
 create index if not exists idx_events_ticket_id on events(ticket_id);
+create index if not exists idx_ceremony_runs_project_id on ceremony_runs(project_id);
+create index if not exists idx_ceremony_proposals_run_id on ceremony_proposals(run_id);
 `;
 
 export function defaultDatabasePath(cwd = process.cwd()) {
@@ -643,6 +680,190 @@ export function createSqliteStore(options = {}) {
       return tickets.map((ticket) =>
         mergeQueueItemDto(ticket, buildMergeStatus(database, ticket, worktreesByTicketId.get(ticket.id) || [])),
       );
+    },
+
+    listCeremonyRuns(projectId) {
+      if (!getProjectRow(database, projectId)) {
+        return null;
+      }
+
+      const runs = database
+        .prepare("select * from ceremony_runs where project_id = ? order by created_at desc limit 20")
+        .all(projectId)
+        .map(mapCeremonyRun);
+      const proposalsByRunId = getCeremonyProposalsByRunId(
+        database,
+        projectId,
+        runs.map((run) => run.id),
+      );
+      return runs.map((run) => ceremonyRunDto(run, proposalsByRunId.get(run.id) || []));
+    },
+
+    getCeremonyRun(projectId, runId) {
+      const row = database
+        .prepare("select * from ceremony_runs where project_id = ? and id = ?")
+        .get(projectId, runId);
+      if (!row) {
+        return null;
+      }
+      const run = mapCeremonyRun(row);
+      return ceremonyRunDto(run, getCeremonyProposalsByRunId(database, projectId, [run.id]).get(run.id) || []);
+    },
+
+    createCeremonyRun(projectId, input) {
+      const project = getProjectRow(database, projectId);
+      if (!project) {
+        return null;
+      }
+      if (!isCeremonyType(input.type)) {
+        throw new Error(`Invalid ceremony type: ${input.type}`);
+      }
+
+      const timestamp = now();
+      const runId = `ceremony_${randomUUID()}`;
+      const snapshot = buildCeremonyInputSnapshot(database, projectId);
+      const proposals = buildCeremonyProposals(input.type, snapshot, timestamp);
+      const summary = buildCeremonySummary(input.type, snapshot, proposals);
+      const run = {
+        id: runId,
+        projectId,
+        type: input.type,
+        status: "proposed",
+        scope: input.scope || {},
+        inputSnapshot: snapshot,
+        summaryMd: summary.summaryMd,
+        questionsMd: summary.questionsMd,
+        riskMd: summary.riskMd,
+        createdByKind: optionalText(input.createdByKind, "human"),
+        createdByRef: optionalText(input.createdByRef, "operator"),
+        startedAt: timestamp,
+        finishedAt: timestamp,
+        appliedAt: "",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      withTransaction(database, () => {
+        database
+          .prepare(
+            `insert into ceremony_runs (
+              id, project_id, type, status, scope_json, input_snapshot_json, summary_md,
+              questions_md, risk_md, created_by_kind, created_by_ref, started_at,
+              finished_at, applied_at, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            run.id,
+            run.projectId,
+            run.type,
+            run.status,
+            JSON.stringify(run.scope),
+            JSON.stringify(run.inputSnapshot),
+            run.summaryMd,
+            run.questionsMd,
+            run.riskMd,
+            run.createdByKind,
+            run.createdByRef,
+            run.startedAt,
+            run.finishedAt,
+            run.appliedAt || null,
+            run.createdAt,
+            run.updatedAt,
+          );
+
+        insertEvent(database, {
+          projectId,
+          type: "ceremony.started",
+          summary: `${prettyCeremonyType(input.type)} started`,
+          detail: `${snapshot.tickets.length} ticket(s), ${snapshot.repos.length} repo(s) in scope.`,
+          reasonCode: input.type,
+          reasonSource: "ceremony",
+        });
+
+        for (const proposal of proposals) {
+          database
+            .prepare(
+              `insert into ceremony_proposals (
+                id, project_id, run_id, kind, status, summary, ticket_id,
+                payload_json, applied_ticket_id, applied_at, created_at, updated_at
+              ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .run(
+              proposal.id,
+              projectId,
+              runId,
+              proposal.kind,
+              "pending",
+              proposal.summary,
+              proposal.ticketId || null,
+              JSON.stringify(proposal.payload || {}),
+              null,
+              null,
+              timestamp,
+              timestamp,
+            );
+        }
+
+        insertEvent(database, {
+          projectId,
+          type: "ceremony.proposed",
+          summary: `${prettyCeremonyType(input.type)} proposed ${proposals.length} change(s)`,
+          detail: summary.summaryMd,
+          reasonCode: input.type,
+          reasonSource: "ceremony",
+        });
+      });
+
+      return this.getCeremonyRun(projectId, runId);
+    },
+
+    applyCeremonyRun(projectId, runId, input = {}) {
+      const run = database
+        .prepare("select * from ceremony_runs where project_id = ? and id = ?")
+        .get(projectId, runId);
+      if (!run) {
+        return null;
+      }
+
+      const requestedIds = new Set(input.proposalIds || []);
+      const proposals = getCeremonyProposalRows(database, projectId, runId)
+        .filter((proposal) => proposal.status === "pending")
+        .filter((proposal) => requestedIds.size === 0 || requestedIds.has(proposal.id));
+      const timestamp = now();
+      const applied = [];
+
+      for (const proposal of proposals) {
+        const payload = parseJsonObject(proposal.payload_json, {});
+        const appliedTicketId = applyCeremonyProposal(this, projectId, proposal, payload);
+        database
+          .prepare(
+            `update ceremony_proposals
+             set status = 'applied', applied_ticket_id = ?, applied_at = ?, updated_at = ?
+             where project_id = ? and id = ?`,
+          )
+          .run(appliedTicketId || null, timestamp, timestamp, projectId, proposal.id);
+        applied.push(proposal);
+      }
+
+      const pendingCount = Number(
+        database
+          .prepare("select count(*) as count from ceremony_proposals where project_id = ? and run_id = ? and status = 'pending'")
+          .get(projectId, runId).count,
+      );
+      database
+        .prepare("update ceremony_runs set status = ?, applied_at = ?, updated_at = ? where project_id = ? and id = ?")
+        .run(pendingCount === 0 ? "applied" : "partially_applied", timestamp, timestamp, projectId, runId);
+
+      insertEvent(database, {
+        projectId,
+        type: "ceremony.applied",
+        summary: `${prettyCeremonyType(run.type)} applied ${applied.length} proposal(s)`,
+        detail: applied.map((proposal) => proposal.summary).join("\n"),
+        reasonCode: run.type,
+        reasonSource: "ceremony",
+      });
+
+      return this.getCeremonyRun(projectId, runId);
     },
 
     listRepos(projectId) {
@@ -3234,6 +3455,274 @@ function mapTicket(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function mapCeremonyRun(row) {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    type: row.type,
+    status: row.status,
+    scope: parseJsonObject(row.scope_json, {}),
+    inputSnapshot: parseJsonObject(row.input_snapshot_json, {}),
+    summaryMd: row.summary_md,
+    questionsMd: row.questions_md,
+    riskMd: row.risk_md,
+    createdByKind: row.created_by_kind,
+    createdByRef: row.created_by_ref,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    appliedAt: row.applied_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapCeremonyProposal(row) {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    runId: row.run_id,
+    kind: row.kind,
+    status: row.status,
+    summary: row.summary,
+    ticketId: row.ticket_id,
+    ticketKey: row.ticket_key,
+    ticketTitle: row.ticket_title,
+    payload: parseJsonObject(row.payload_json, {}),
+    appliedTicketId: row.applied_ticket_id,
+    appliedAt: row.applied_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function getCeremonyProposalRows(database, projectId, runId) {
+  return database
+    .prepare(
+      `select cp.*, t.key as ticket_key, t.title as ticket_title
+       from ceremony_proposals cp
+       left join tickets t on t.project_id = cp.project_id and t.id = cp.ticket_id
+       where cp.project_id = ? and cp.run_id = ?
+       order by cp.created_at asc`,
+    )
+    .all(projectId, runId);
+}
+
+function getCeremonyProposalsByRunId(database, projectId, runIds) {
+  const byRunId = new Map(runIds.map((runId) => [runId, []]));
+  if (runIds.length === 0) {
+    return byRunId;
+  }
+  const placeholders = runIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select cp.*, t.key as ticket_key, t.title as ticket_title
+       from ceremony_proposals cp
+       left join tickets t on t.project_id = cp.project_id and t.id = cp.ticket_id
+       where cp.project_id = ? and cp.run_id in (${placeholders})
+       order by cp.created_at asc`,
+    )
+    .all(projectId, ...runIds);
+  for (const row of rows) {
+    byRunId.get(row.run_id)?.push(mapCeremonyProposal(row));
+  }
+  return byRunId;
+}
+
+function buildCeremonyInputSnapshot(database, projectId) {
+  const tickets = listTicketRows(database, projectId).map(mapTicket);
+  const ticketIds = tickets.map((ticket) => ticket.id);
+  const repoTargetsByTicketId = getRepoTargetsByTicketId(database, ticketIds);
+  const dependencyCountsByTicketId = getCountMap(
+    database,
+    "select blocked_ticket_id as ticketId, count(*) as count from ticket_dependencies where project_id = ? group by blocked_ticket_id",
+    [projectId],
+  );
+  return {
+    generatedAt: now(),
+    policy: mapProjectPolicy(getProjectPolicyRow(database, projectId)),
+    repos: database.prepare("select * from repos where project_id = ? order by created_at asc").all(projectId).map(mapRepo),
+    tickets: tickets.map((ticket) => ({
+      ...ticket,
+      repoTargets: repoTargetsByTicketId.get(ticket.id) || [],
+      dependencyCount: dependencyCountsByTicketId.get(ticket.id) || 0,
+    })),
+  };
+}
+
+function buildCeremonyProposals(type, snapshot, timestamp) {
+  switch (type) {
+    case "refinement":
+      return buildRefinementProposals(snapshot, timestamp);
+    case "planning":
+      return buildPlanningProposals(snapshot, timestamp);
+    case "daily_triage":
+      return buildDailyTriageProposals(snapshot, timestamp);
+    case "review_demo_prep":
+      return buildReviewDemoPrepProposals(snapshot, timestamp);
+    case "retro":
+      return buildRetroProposals(snapshot, timestamp);
+    default:
+      return [];
+  }
+}
+
+function buildRefinementProposals(snapshot, timestamp) {
+  const candidates = snapshot.tickets
+    .filter((ticket) => ticket.state === "DRAFT" || ticket.state === "PROPOSED")
+    .slice(0, 6);
+  const proposals = candidates.map((ticket) => {
+    const patch = {
+      latestSummary: "Refinement pass proposed clearer scope and readiness criteria.",
+    };
+    if (!ticket.brief || ticket.brief.length < 40) {
+      patch.brief = `${ticket.brief || ticket.title}\n\nRefinement note: clarify the user outcome, repo touch points, and expected evidence before execution.`;
+    }
+    if (!ticket.acceptanceCriteriaMd) {
+      patch.acceptanceCriteriaMd = "- Scope is explicit enough for an agent to execute\n- Expected behavior and evidence are named\n- Blocking decisions are captured before work starts";
+    }
+    if (!ticket.definitionOfDoneMd) {
+      patch.definitionOfDoneMd = "- Acceptance criteria satisfied\n- Review and validation evidence attached\n- Follow-up work captured as separate tickets";
+    }
+    return proposal("ticket_patch", `Refine ${ticket.key} before agent execution`, timestamp, {
+      ticketId: ticket.id,
+      patch,
+    }, ticket.id);
+  });
+  return proposals.length ? proposals : [noteProposal("Backlog refinement found no draft or proposed tickets needing action.", timestamp)];
+}
+
+function buildPlanningProposals(snapshot, timestamp) {
+  const capacity = Number(snapshot.policy?.maxParallelExecutions || 1);
+  const ready = snapshot.tickets.filter((ticket) => ticket.state === "READY");
+  const proposedReady = snapshot.tickets
+    .filter((ticket) => ticket.state === "PROPOSED" && ticket.acceptanceCriteriaMd && ticket.repoTargets.length > 0)
+    .slice(0, Math.max(1, capacity));
+  const proposals = proposedReady.map((ticket) =>
+    proposal("ticket_transition", `Promote ${ticket.key} into the next agent-ready plan`, timestamp, {
+      ticketId: ticket.id,
+      targetState: "READY",
+      reason: "Planning ceremony approved this refined ticket for agent execution.",
+    }, ticket.id),
+  );
+  proposals.push(noteProposal(`Planning snapshot: ${ready.length} ticket(s) already Ready; execution capacity is ${capacity}.`, timestamp));
+  return proposals;
+}
+
+function buildDailyTriageProposals(snapshot, timestamp) {
+  const active = snapshot.tickets.filter((ticket) => ["WORKING", "REVIEWING", "VALIDATING"].includes(ticket.state));
+  const blocked = snapshot.tickets.filter((ticket) => ticket.state === "BLOCKED" || ticket.state === "REWORK");
+  const proposals = blocked.slice(0, 5).map((ticket) =>
+    proposal("ticket_patch", `Triage ${ticket.key} for PO decision or unblock path`, timestamp, {
+      ticketId: ticket.id,
+      patch: {
+        latestSummary: "Daily triage flagged this ticket for an unblock decision.",
+      },
+    }, ticket.id),
+  );
+  proposals.push(noteProposal(`Daily triage: ${active.length} active ticket(s), ${blocked.length} blocked or rework ticket(s).`, timestamp));
+  return proposals;
+}
+
+function buildReviewDemoPrepProposals(snapshot, timestamp) {
+  const demoTickets = snapshot.tickets
+    .filter((ticket) => ticket.state === "READY_TO_MERGE" || ticket.state === "DONE")
+    .slice(-6);
+  if (demoTickets.length === 0) {
+    return [noteProposal("Review/demo prep found no done or merge-ready tickets.", timestamp)];
+  }
+  return [
+    noteProposal(
+      `Demo prep candidate set: ${demoTickets.map((ticket) => `${ticket.key} ${ticket.title}`).join("; ")}.`,
+      timestamp,
+    ),
+  ];
+}
+
+function buildRetroProposals(snapshot, timestamp) {
+  const reworkCount = snapshot.tickets.filter((ticket) => ticket.state === "REWORK").length;
+  const blockedCount = snapshot.tickets.filter((ticket) => ticket.state === "BLOCKED").length;
+  if (reworkCount + blockedCount === 0) {
+    return [noteProposal("Retro found no blocked or rework tickets in the current board snapshot.", timestamp)];
+  }
+  return [
+    proposal("ticket_create", "Create a process-improvement follow-up from retro findings", timestamp, {
+      ticket: {
+        title: "Reduce blocked and rework loops",
+        brief: `Retro observed ${blockedCount} blocked ticket(s) and ${reworkCount} rework ticket(s). Identify one policy, prompt, or validation improvement that would reduce repeat stalls.`,
+        acceptanceCriteriaMd: "- Root cause is named\n- One concrete system or process change is proposed\n- Success signal is measurable from Pool events",
+        definitionOfDoneMd: "- Improvement is implemented or documented\n- Pool evidence shows the change is inspectable",
+        priority: blockedCount > 0 ? "high" : "medium",
+        state: "PROPOSED",
+        assignedRole: "product_manager",
+        repoTargets: [],
+      },
+    }),
+  ];
+}
+
+function buildCeremonySummary(type, snapshot, proposals) {
+  const pendingMutations = proposals.filter((item) => item.kind !== "note").length;
+  return {
+    summaryMd: `${prettyCeremonyType(type)} reviewed ${snapshot.tickets.length} ticket(s) and produced ${proposals.length} proposal(s), including ${pendingMutations} ticket change(s).`,
+    questionsMd: pendingMutations > 0 ? "Approve the proposals that match your current PO intent; leave the rest pending." : "",
+    riskMd: "Ceremony proposals do not mutate tickets until applied by an operator.",
+  };
+}
+
+function proposal(kind, summary, timestamp, payload, ticketId = "") {
+  return {
+    id: `ceremony_proposal_${randomUUID()}`,
+    kind,
+    summary,
+    ticketId,
+    payload,
+    createdAt: timestamp,
+  };
+}
+
+function noteProposal(summary, timestamp) {
+  return proposal("note", summary, timestamp, { note: summary });
+}
+
+function applyCeremonyProposal(store, projectId, proposalRow, payload) {
+  switch (proposalRow.kind) {
+    case "ticket_patch":
+      store.updateTicket(projectId, requiredText(payload.ticketId, "ticketId"), payload.patch || {});
+      return payload.ticketId;
+    case "ticket_create":
+      return store.createTicket(projectId, payload.ticket || {})?.id || "";
+    case "ticket_transition":
+      store.transitionTicket(projectId, requiredText(payload.ticketId, "ticketId"), {
+        targetState: payload.targetState,
+        reason: payload.reason || proposalRow.summary,
+      });
+      return payload.ticketId;
+    case "dependency":
+      store.addDependency(projectId, requiredText(payload.blockedTicketId, "blockedTicketId"), {
+        blockingTicketId: payload.blockingTicketId,
+        dependencyType: payload.dependencyType,
+      });
+      return payload.blockedTicketId;
+    case "note":
+      return "";
+    default:
+      throw new Error(`Unsupported ceremony proposal kind: ${proposalRow.kind}`);
+  }
+}
+
+function prettyCeremonyType(type) {
+  return String(type || "").replace(/_/g, " ");
+}
+
+function parseJsonObject(value, fallback) {
+  try {
+    const parsed = JSON.parse(value || "");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function mapEvent(row) {

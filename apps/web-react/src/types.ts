@@ -15,6 +15,7 @@ export type TicketState =
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
 
 export type RefinementMode = "autonomous" | "user_approved" | "user_participant" | "user_only";
+export type CeremonyType = "refinement" | "planning" | "daily_triage" | "review_demo_prep" | "retro";
 
 export type RoleName =
   | "product_manager"
@@ -216,6 +217,40 @@ export type MergeStatus = {
     startedAt: string;
     finishedAt: string;
   };
+};
+
+export type CeremonyProposal = {
+  id: string;
+  projectId: string;
+  runId: string;
+  kind: string;
+  status: string;
+  summary: string;
+  ticketId: string;
+  ticketKey: string;
+  ticketTitle: string;
+  payload: Record<string, unknown>;
+  appliedTicketId: string;
+  appliedAt: string;
+  createdAt: string;
+};
+
+export type CeremonyRun = {
+  id: string;
+  projectId: string;
+  type: CeremonyType;
+  status: string;
+  scope: Record<string, unknown>;
+  inputSnapshot: Record<string, unknown>;
+  summaryMd: string;
+  questionsMd: string;
+  riskMd: string;
+  createdByKind: string;
+  createdByRef: string;
+  startedAt: string;
+  finishedAt: string;
+  appliedAt: string;
+  proposals: CeremonyProposal[];
 };
 
 export type TicketDetail = BoardTicket & {

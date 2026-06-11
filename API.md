@@ -36,6 +36,7 @@ Suggested base prefix:
 - agent profiles
 - policies
 - merges
+- ceremonies
 
 ## Project Endpoints
 
@@ -72,6 +73,43 @@ lightweight ticket cards with:
 - dependency count
 - event count
 - latest summary
+
+### `GET /api/v1/projects/:projectId/ceremonies`
+
+List recent agent ceremony runs and their proposals.
+
+### `POST /api/v1/projects/:projectId/ceremonies`
+
+Create a ceremony run. Pool currently supports:
+
+- `refinement`
+- `planning`
+- `daily_triage`
+- `review_demo_prep`
+- `retro`
+
+Expected fields:
+
+- `type`
+- `scope`
+
+Ceremony runs produce reviewable proposals. They do not mutate tickets until an
+operator applies proposals.
+
+### `GET /api/v1/projects/:projectId/ceremonies/:runId`
+
+Return a ceremony run with proposals.
+
+### `POST /api/v1/projects/:projectId/ceremonies/:runId/apply`
+
+Apply selected pending proposals through the normal ticket mutation paths.
+
+Expected fields:
+
+- `proposalIds[]`
+
+If `proposalIds` is omitted or empty, Pool applies all pending proposals in the
+run.
 
 ### `PATCH /api/v1/projects/:projectId`
 

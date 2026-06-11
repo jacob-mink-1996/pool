@@ -166,6 +166,49 @@ Suggested constraints:
 
 - unique `(ticket_id, repo_id)`
 
+### `ceremony_runs`
+
+Durable record of an agent ceremony over a project snapshot.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `type` text not null
+- `status` text not null
+- `scope_json` jsonb not null
+- `input_snapshot_json` jsonb not null
+- `summary_md` text
+- `questions_md` text
+- `risk_md` text
+- `created_by_kind` text not null
+- `created_by_ref` text
+- `started_at` timestamptz not null
+- `finished_at` timestamptz
+- `applied_at` timestamptz
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+### `ceremony_proposals`
+
+Reviewable proposed changes from a ceremony run. Applying a proposal uses the
+normal ticket mutation paths.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `run_id` UUID FK -> `ceremony_runs.id`
+- `kind` text not null
+- `status` text not null
+- `summary` text not null
+- `ticket_id` UUID FK -> `tickets.id`
+- `payload_json` jsonb not null
+- `applied_ticket_id` UUID FK -> `tickets.id`
+- `applied_at` timestamptz
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
 ### `executions`
 
 One agent run against one ticket.
