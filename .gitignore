@@ -4,3 +4,4 @@ apps/web-react/dist/
 .pool/
 services/api/.pool/
 .pool/*
+.playwright-mcp/*
