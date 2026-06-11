@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 
 import { createStore } from "./store.mjs";
@@ -931,6 +932,53 @@ test("store persists merge runs and closes merge-ready tickets", () => {
   assert.equal(ticket.events.at(-1).type, "merge.completed");
   assert.equal(store.listMergeQueue("project_pool").length, 0);
   store.close();
+});
+
+test("store migrates legacy merge runs to allow active claims", () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-legacy-merge-runs-"));
+  const filename = join(fixtureDir, "pool.sqlite");
+  const database = new DatabaseSync(filename);
+  database.exec(`
+    create table merge_runs (
+      id text primary key,
+      project_id text not null,
+      ticket_id text not null,
+      status text not null,
+      strategy text not null,
+      approved_by_kind text not null default '',
+      approved_by_ref text not null default '',
+      summary_md text not null default '',
+      failure_kind text not null default '',
+      claim_token text not null default '',
+      claim_expires_at text,
+      started_at text not null,
+      finished_at text not null
+    )
+  `);
+  database.close();
+
+  const store = createStore({ filename, seedDemo: true });
+  store.updateProjectPolicy("project_pool", {
+    requireReviewer: false,
+    requireValidator: false,
+    requireHumanApprovalBeforeMerge: false,
+  });
+  store.transitionTicket("project_pool", "ticket_project_pool_2", {
+    targetState: "READY_TO_MERGE",
+    reason: "Exercise legacy merge run migration.",
+  });
+
+  const started = store.startMergeRun("project_pool", "ticket_project_pool_2", {
+    strategy: "squash",
+    approvedByKind: "system",
+    approvedByRef: "pool-auto",
+    claimToken: "merge-worker",
+  });
+
+  assert.equal(started.status, "running");
+  assert.equal(started.finishedAt, null);
+  store.close();
+  rmSync(fixtureDir, { recursive: true, force: true });
 });
 
 test("store enforces merge readiness and approval policy", () => {
