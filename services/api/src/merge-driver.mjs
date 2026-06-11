@@ -171,11 +171,13 @@ class MergeDriver {
 }
 
 function isAutoMergeCandidate(item) {
+  const latestStatus = item?.mergeStatus?.latestRun?.status || "";
   return Boolean(
     item &&
       item.mergeStatus?.canMerge &&
       !item.mergeStatus?.requiresHumanApproval &&
-      !item.mergeStatus?.latestRun,
+      latestStatus !== "running" &&
+      latestStatus !== "completed",
   );
 }
 
@@ -393,6 +395,70 @@ async function materializeMergeCandidate({ ticket, repo, sourceWorktree, baseRef
           },
         ],
       };
+    }
+
+    const stagedChanges = await runProcess("git", ["-C", runtime.mergeWorktreePath, "diff", "--cached", "--quiet"], {
+      cwd: runtime.mergeWorktreePath,
+      env: process.env,
+    });
+    if (stagedChanges.exitCode === 0) {
+      const commitSha = (await runProcess("git", ["-C", runtime.mergeWorktreePath, "rev-parse", "HEAD"], {
+        cwd: runtime.mergeWorktreePath,
+        env: process.env,
+      })).stdout.trim();
+      await writeFile(runtime.stdoutPath, merge.stdout || "", "utf8");
+      await writeFile(runtime.stderrPath, merge.stderr || "", "utf8");
+      await writeFile(
+        runtime.summaryPath,
+        JSON.stringify(
+          {
+            repoId: repo.id,
+            repoSlug: repo.slug,
+            strategy,
+            baseRef,
+            sourceBranch: sourceWorktree.branchName,
+            commitSha,
+            changedFiles: [],
+            publishedRef: baseRef,
+            alreadyApplied: true,
+            mergeWorktreePath: runtime.mergeWorktreePath,
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+      return {
+        status: "completed",
+        artifacts: [
+          {
+            kind: "record",
+            label: `${repo.slug} merge candidate`,
+            uri: pathToFileURL(runtime.summaryPath).href,
+            metadata: {
+              repoId: repo.id,
+              baseRef,
+              sourceBranch: sourceWorktree.branchName,
+              commitSha,
+              publishedRef: baseRef,
+              alreadyApplied: true,
+            },
+          },
+          {
+            kind: "log",
+            label: `${repo.slug} merge stdout`,
+            uri: pathToFileURL(runtime.stdoutPath).href,
+          },
+          {
+            kind: "log",
+            label: `${repo.slug} merge stderr`,
+            uri: pathToFileURL(runtime.stderrPath).href,
+          },
+        ],
+      };
+    }
+    if (stagedChanges.exitCode !== 1) {
+      throw new Error(`Failed to inspect staged merge changes for ${repo.slug}: ${stagedChanges.stderr || stagedChanges.stdout}`.trim());
     }
 
     const commit = await runProcess(

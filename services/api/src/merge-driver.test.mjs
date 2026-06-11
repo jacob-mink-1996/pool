@@ -153,6 +153,90 @@ test("merge driver blocks when the target repo worktree is dirty", async () => {
   }
 });
 
+test("merge driver retries blocked runs and records already-applied source branches", async () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-already-applied-"));
+  const workspaceRoot = join(fixtureDir, "workspace");
+  const repoRoot = join(fixtureDir, "repo");
+  const store = createStore({
+    filename: join(fixtureDir, "pool.sqlite"),
+    seedDemo: true,
+    workspaceRoot,
+  });
+
+  try {
+    execFileSync("git", ["init", "-b", "main", repoRoot]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
+    execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
+
+    store.updateRepo("project_pool", "repo_project_pool_pool", {
+      name: "pool",
+      localPath: repoRoot,
+      remoteUrl: "",
+      defaultBranch: "main",
+      isPrimary: true,
+    });
+    store.updateProjectPolicy("project_pool", {
+      requireReviewer: false,
+      requireValidator: false,
+      requireHumanApprovalBeforeMerge: false,
+      maxParallelMerges: 2,
+    });
+    store.updateRoleProfile("project_pool", "developer", {
+      adapter: "shell",
+      model: "fixture",
+      config: {
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+      },
+    });
+
+    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+      role: "developer",
+      reason: "Prepare merge-ready implementation.",
+    });
+    const executionDriver = createExecutionDriver({ store, logger: silentLogger() });
+    await executionDriver.pollOnce();
+
+    const interrupted = store.startMergeRun("project_pool", "ticket_project_pool_2", {
+      strategy: "squash",
+      approvedByKind: "system",
+      approvedByRef: "pool-auto",
+      claimToken: "merge-worker",
+    });
+    store.completeMergeRun("project_pool", interrupted.id, {
+      status: "blocked",
+      summaryMd: "Interrupted after publishing the target ref.",
+      failureKind: "interrupted",
+    });
+    execFileSync("git", ["-C", repoRoot, "merge", "--squash", execution.worktrees[0].branchName]);
+    execFileSync("git", ["-C", repoRoot, "commit", "-m", "POOL-2: already published"]);
+    store.transitionTicket("project_pool", "ticket_project_pool_2", {
+      targetState: "READY_TO_MERGE",
+      reason: "Retry interrupted merge after confirming target ref was published.",
+    });
+
+    const mergeDriver = createMergeDriver({ store, logger: silentLogger() });
+    await mergeDriver.pollOnce();
+
+    const mergedTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const mergeArtifact = mergedTicket.mergeStatus.latestRun.artifacts.find((artifact) =>
+      artifact.label.includes("merge candidate"),
+    );
+    const mergeSummary = JSON.parse(readFileSync(new URL(mergeArtifact.uri), "utf8"));
+
+    assert.equal(mergedTicket.state, "DONE");
+    assert.equal(mergedTicket.mergeStatus.latestRun.status, "completed");
+    assert.equal(mergeSummary.alreadyApplied, true);
+    assert.deepEqual(mergeSummary.changedFiles, []);
+    assert.equal(readFileSync(join(repoRoot, "feature.txt"), "utf8"), "merge me\n");
+  } finally {
+    store.close();
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 test("merge driver reconciles interrupted active merge runs on startup", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-reconcile-"));
   const workspaceRoot = join(fixtureDir, "workspace");
