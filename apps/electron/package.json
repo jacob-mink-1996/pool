@@ -1,0 +1,16 @@
+{
+  "name": "@pool/product-electron",
+  "private": true,
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "src/main.cjs",
+  "scripts": {
+    "build": "npm --prefix ../.. run build:web",
+    "check": "npm run build && node --test src/runtime.test.mjs",
+    "dev": "npm run build && electron .",
+    "start": "npm run build && electron ."
+  },
+  "dependencies": {
+    "electron": "^39.2.7"
+  }
+}
