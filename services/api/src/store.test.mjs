@@ -955,6 +955,22 @@ test("store migrates legacy merge runs to allow active claims", () => {
       finished_at text not null
     )
   `);
+  database.exec(`
+    create table artifacts (
+      id text primary key,
+      project_id text not null,
+      ticket_id text not null,
+      execution_id text,
+      review_id text,
+      validation_run_id text,
+      merge_run_id text references merge_runs_legacy_notnull_finished_at(id) on delete cascade,
+      kind text not null,
+      label text not null,
+      uri text not null,
+      metadata_json text not null default '{}',
+      created_at text not null
+    )
+  `);
   database.close();
 
   const store = createStore({ filename, seedDemo: true });
@@ -977,6 +993,13 @@ test("store migrates legacy merge runs to allow active claims", () => {
 
   assert.equal(started.status, "running");
   assert.equal(started.finishedAt, null);
+  const completed = store.completeMergeRun("project_pool", started.id, {
+    status: "completed",
+    summaryMd: "Legacy merge run completed.",
+    artifacts: [{ kind: "report", label: "legacy merge artifact", uri: "file:///tmp/legacy-merge.md" }],
+  });
+  assert.equal(completed.status, "completed");
+  assert.equal(completed.artifacts.length, 1);
   store.close();
   rmSync(fixtureDir, { recursive: true, force: true });
 });
