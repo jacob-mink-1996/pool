@@ -1,4 +1,5 @@
 import { artifactDto, eventDto } from "../../contracts/src/index.mjs";
+import { mapArtifact, mapExecution, mapReview, mapValidationRun, mapWorktree } from "./sqlite-row-mappers.mjs";
 
 export function listTicketRows(database, projectId, filters = {}) {
   const clauses = ["project_id = ?"];
@@ -245,6 +246,355 @@ export function getCountMap(database, sql, params) {
   return new Map(database.prepare(sql).all(...params).map((row) => [row.ticketId, Number(row.count)]));
 }
 
+export function getExecutionsByTicketId(database, projectId, ticketIds) {
+  const byTicketId = new Map();
+  for (const ticketId of ticketIds) {
+    byTicketId.set(ticketId, []);
+  }
+  if (ticketIds.length === 0) {
+    return byTicketId;
+  }
+
+  const placeholders = ticketIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from executions
+       where project_id = ? and ticket_id in (${placeholders})
+       order by started_at desc, iteration desc`,
+    )
+    .all(projectId, ...ticketIds);
+
+  for (const row of rows) {
+    const executions = byTicketId.get(row.ticket_id) || [];
+    executions.push(mapExecution(row));
+    byTicketId.set(row.ticket_id, executions);
+  }
+
+  return byTicketId;
+}
+
+export function getWorktreesByTicketId(database, projectId, ticketIds) {
+  const byTicketId = new Map();
+  for (const ticketId of ticketIds) {
+    byTicketId.set(ticketId, []);
+  }
+  if (ticketIds.length === 0) {
+    return byTicketId;
+  }
+
+  const placeholders = ticketIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select
+        w.*,
+        r.slug as repo_slug,
+        r.name as repo_name,
+        e.role as execution_role,
+        e.iteration as execution_iteration
+      from worktrees w
+      join repos r on r.id = w.repo_id
+      join executions e on e.id = w.execution_id
+      where w.project_id = ? and w.ticket_id in (${placeholders})
+      order by w.created_at desc, e.iteration desc`,
+    )
+    .all(projectId, ...ticketIds);
+
+  for (const row of rows) {
+    const worktrees = byTicketId.get(row.ticket_id) || [];
+    worktrees.push(mapWorktree(row));
+    byTicketId.set(row.ticket_id, worktrees);
+  }
+
+  return byTicketId;
+}
+
+export function getWorktreesByExecutionId(database, projectId, executionIds) {
+  const byExecutionId = new Map();
+  for (const executionId of executionIds) {
+    byExecutionId.set(executionId, []);
+  }
+  if (executionIds.length === 0) {
+    return byExecutionId;
+  }
+
+  const placeholders = executionIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select
+        w.*,
+        r.slug as repo_slug,
+        r.name as repo_name,
+        e.role as execution_role,
+        e.iteration as execution_iteration
+      from worktrees w
+      join repos r on r.id = w.repo_id
+      join executions e on e.id = w.execution_id
+      where w.project_id = ? and w.execution_id in (${placeholders})
+      order by w.created_at asc, r.slug asc`,
+    )
+    .all(projectId, ...executionIds);
+
+  for (const row of rows) {
+    const worktrees = byExecutionId.get(row.execution_id) || [];
+    worktrees.push(mapWorktree(row));
+    byExecutionId.set(row.execution_id, worktrees);
+  }
+
+  return byExecutionId;
+}
+
+export function getArtifactsByTicketId(database, projectId, ticketIds) {
+  const byTicketId = new Map();
+  for (const ticketId of ticketIds) {
+    byTicketId.set(ticketId, []);
+  }
+  if (ticketIds.length === 0) {
+    return byTicketId;
+  }
+
+  const placeholders = ticketIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where project_id = ? and ticket_id in (${placeholders})
+       order by created_at desc`,
+    )
+    .all(projectId, ...ticketIds);
+
+  for (const row of rows) {
+    const artifacts = byTicketId.get(row.ticket_id) || [];
+    artifacts.push(mapArtifact(row));
+    byTicketId.set(row.ticket_id, artifacts);
+  }
+
+  return byTicketId;
+}
+
+export function getArtifactsByExecutionId(database, projectId, executionIds) {
+  const byExecutionId = new Map();
+  for (const executionId of executionIds) {
+    byExecutionId.set(executionId, []);
+  }
+  if (executionIds.length === 0) {
+    return byExecutionId;
+  }
+
+  const placeholders = executionIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where project_id = ? and execution_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(projectId, ...executionIds);
+
+  for (const row of rows) {
+    const artifacts = byExecutionId.get(row.execution_id) || [];
+    artifacts.push(mapArtifact(row));
+    byExecutionId.set(row.execution_id, artifacts);
+  }
+
+  return byExecutionId;
+}
+
+export function getArtifactsByReviewId(database, reviewIds) {
+  const byReviewId = new Map();
+  for (const reviewId of reviewIds) {
+    byReviewId.set(reviewId, []);
+  }
+  if (reviewIds.length === 0) {
+    return byReviewId;
+  }
+
+  const placeholders = reviewIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where review_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(...reviewIds);
+
+  for (const row of rows) {
+    const artifacts = byReviewId.get(row.review_id) || [];
+    artifacts.push(mapArtifact(row));
+    byReviewId.set(row.review_id, artifacts);
+  }
+
+  return byReviewId;
+}
+
+export function getArtifactsByValidationRunId(database, validationRunIds) {
+  const byValidationRunId = new Map();
+  for (const validationRunId of validationRunIds) {
+    byValidationRunId.set(validationRunId, []);
+  }
+  if (validationRunIds.length === 0) {
+    return byValidationRunId;
+  }
+
+  const placeholders = validationRunIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where validation_run_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(...validationRunIds);
+
+  for (const row of rows) {
+    const artifacts = byValidationRunId.get(row.validation_run_id) || [];
+    artifacts.push(mapArtifact(row));
+    byValidationRunId.set(row.validation_run_id, artifacts);
+  }
+
+  return byValidationRunId;
+}
+
+export function getArtifactsByMergeRunId(database, mergeRunIds) {
+  const byMergeRunId = new Map();
+  for (const mergeRunId of mergeRunIds) {
+    byMergeRunId.set(mergeRunId, []);
+  }
+  if (mergeRunIds.length === 0) {
+    return byMergeRunId;
+  }
+
+  const placeholders = mergeRunIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from artifacts
+       where merge_run_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(...mergeRunIds);
+
+  for (const row of rows) {
+    const artifacts = byMergeRunId.get(row.merge_run_id) || [];
+    artifacts.push(mapArtifact(row));
+    byMergeRunId.set(row.merge_run_id, artifacts);
+  }
+
+  return byMergeRunId;
+}
+
+export function getReviewsByTicketId(database, projectId, ticketIds) {
+  const byTicketId = new Map();
+  for (const ticketId of ticketIds) {
+    byTicketId.set(ticketId, []);
+  }
+  if (ticketIds.length === 0) {
+    return byTicketId;
+  }
+
+  const placeholders = ticketIds.map(() => "?").join(", ");
+  const reviewRows = database
+    .prepare(
+      `select *
+       from reviews
+       where project_id = ? and ticket_id in (${placeholders})
+       order by created_at desc`,
+    )
+    .all(projectId, ...ticketIds);
+
+  const reviewIds = reviewRows.map((row) => row.id);
+  const findingsByReviewId = getReviewFindingsByReviewId(database, reviewIds);
+  const artifactsByReviewId = getArtifactsByReviewId(database, reviewIds);
+
+  for (const row of reviewRows) {
+    const reviews = byTicketId.get(row.ticket_id) || [];
+    reviews.push({
+      ...mapReview(row),
+      artifacts: artifactsByReviewId.get(row.id) || [],
+      findings: findingsByReviewId.get(row.id) || [],
+    });
+    byTicketId.set(row.ticket_id, reviews);
+  }
+
+  return byTicketId;
+}
+
+export function getReviewFindingsByReviewId(database, reviewIds) {
+  const byReviewId = new Map();
+  for (const reviewId of reviewIds) {
+    byReviewId.set(reviewId, []);
+  }
+  if (reviewIds.length === 0) {
+    return byReviewId;
+  }
+
+  const placeholders = reviewIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from review_findings
+       where review_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(...reviewIds);
+
+  for (const row of rows) {
+    const findings = byReviewId.get(row.review_id) || [];
+    findings.push({
+      id: row.id,
+      severity: row.severity,
+      category: row.category,
+      filePath: row.file_path,
+      lineNumber: row.line_number ? Number(row.line_number) : null,
+      title: row.title,
+      detailsMd: row.details_md,
+      createdAt: row.created_at,
+    });
+    byReviewId.set(row.review_id, findings);
+  }
+
+  return byReviewId;
+}
+
+export function getValidationRunsByTicketId(database, projectId, ticketIds) {
+  const byTicketId = new Map();
+  for (const ticketId of ticketIds) {
+    byTicketId.set(ticketId, []);
+  }
+  if (ticketIds.length === 0) {
+    return byTicketId;
+  }
+
+  const placeholders = ticketIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select
+        vr.*,
+        r.slug as repo_slug,
+        r.name as repo_name
+       from validation_runs vr
+       join repos r on r.id = vr.repo_id
+       where vr.project_id = ? and vr.ticket_id in (${placeholders})
+       order by vr.started_at desc, r.slug asc`,
+    )
+    .all(projectId, ...ticketIds);
+
+  const validationIds = rows.map((row) => row.id);
+  const artifactsByValidationRunId = getArtifactsByValidationRunId(database, validationIds);
+
+  for (const row of rows) {
+    const validations = byTicketId.get(row.ticket_id) || [];
+    validations.push({
+      ...mapValidationRun(row),
+      artifacts: artifactsByValidationRunId.get(row.id) || [],
+    });
+    byTicketId.set(row.ticket_id, validations);
+  }
+
+  return byTicketId;
+}
+
 export function listProjectEvents(database, projectId, filters = {}) {
   const clauses = ["e.project_id = ?"];
   const params = [projectId];
@@ -340,25 +690,6 @@ function mapEvent(row) {
     detail: row.detail,
     reasonCode: row.reason_code || "",
     reasonSource: row.reason_source || "",
-    createdAt: row.created_at,
-  };
-}
-
-function mapArtifact(row) {
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    ticketId: row.ticket_id,
-    ticketKey: row.ticket_key,
-    ticketTitle: row.ticket_title,
-    executionId: row.execution_id,
-    reviewId: row.review_id,
-    validationRunId: row.validation_run_id,
-    mergeRunId: row.merge_run_id,
-    kind: row.kind,
-    label: row.label,
-    uri: row.uri,
-    metadata: JSON.parse(row.metadata_json),
     createdAt: row.created_at,
   };
 }
