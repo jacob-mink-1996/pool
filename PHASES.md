@@ -34,16 +34,15 @@ Steps:
 7. Extract ceremony commands - complete.
 8. Transition policy layer - complete.
 9. Versioned migrations - complete.
-10. Artifact durability contract - next.
-11. Local trust/auth model - pending.
+10. Artifact durability contract - complete.
+11. Local trust/auth model - next.
 12. Decision queue UI - pending.
 13. Push/PR hygiene - pending.
 
 Immediate next work:
 
-- decide which artifacts remain URI references versus copied local files
-- standardize artifact roots and cleanup rules
-- document and enforce the durability behavior in store/API tests
+- clarify loopback, LAN, Tailscale, and Electron access assumptions
+- add basic protection before non-loopback use
 
 ## Phase 9: Rebrand Consolidation
 

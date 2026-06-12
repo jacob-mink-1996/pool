@@ -84,6 +84,8 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
       "Board aggregate diff",
     );
     assert.equal(persistedTicket.artifacts[0].kind, "patch");
+    assert.equal(persistedTicket.artifacts[0].metadata.floopDurability.storageMode, "managed_local_file");
+    assert.equal(persistedTicket.artifacts[0].metadata.floopDurability.copyPolicy, "created_by_floop");
 
     reopenedStore.close();
   } finally {

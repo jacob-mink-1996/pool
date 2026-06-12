@@ -245,7 +245,13 @@ function selectSourceWorktree(ticket, repoId) {
 }
 
 async function prepareMergeRuntime(project, ticket) {
-  const mergeRoot = resolve(project.workspaceRoot || process.cwd(), ".floop", "merges", ticket.key.toLowerCase());
+  const mergeRoot = resolve(
+    project.workspaceRoot || process.cwd(),
+    ".floop",
+    "artifacts",
+    "merges",
+    ticket.key.toLowerCase(),
+  );
   await mkdir(mergeRoot, { recursive: true });
   return {
     mergeRoot,

@@ -33,6 +33,15 @@ Examples:
 - merge policy
 - review requirements
 - validation requirements
+
+## Artifact Storage
+
+Floop-managed driver evidence is written below the project workspace at
+`.floop/artifacts/`.
+
+Artifacts supplied by adapters, reviewers, validators, or merge integrations are
+URI references unless they already point inside that managed root. Floop records
+those references but does not copy or clean them.
 - concurrency rules
 - ticket defaults
 - allowed roles

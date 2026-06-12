@@ -353,8 +353,9 @@ surface:
 - make manual ticket transitions go through an explicit transition policy with
   operator override reasons
 - promote schema changes to versioned migrations
-- decide the artifact durability contract for local files, copied files, and
-  future remote stores
+- enforce the artifact durability contract: driver-created evidence lives under
+  `.floop/artifacts/`, external file and remote URIs are stored as references,
+  and Floop does not copy or clean referenced artifacts
 - add a local trust and authentication model before non-loopback deployments
 
 ## North Star

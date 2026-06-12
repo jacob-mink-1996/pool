@@ -324,6 +324,11 @@ Expected fields:
 - `validation`
 - `followupTickets[]`
 
+Artifact payloads use `{ kind, label, uri, metadata? }`. Floop validates `uri`
+as a URI and persists it as evidence. Floop-created driver files live under
+`.floop/artifacts/` and are marked as managed in `metadata.floopDurability`.
+External file and remote URIs are references; Floop does not copy or clean them.
+
 `followupTickets[]` uses the normal ticket creation fields, excluding
 `parentTicketId`. Floop persists these as child tickets of the completed
 execution's ticket. Child ticket readiness is governed by `refinementMode`:

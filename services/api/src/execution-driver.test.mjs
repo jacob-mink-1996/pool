@@ -44,6 +44,8 @@ test("execution driver runs configured adapter commands and persists completion 
     assert.equal(existsSync(execution.worktrees[0].path), true);
     assert.ok(stdoutArtifact);
     assert.match(readFileSync(new URL(stdoutArtifact.uri), "utf8"), /driver stdout ok/);
+    assert.equal(stdoutArtifact.metadata.floopDurability.storageMode, "managed_local_file");
+    assert.equal(stdoutArtifact.metadata.floopDurability.cleanupPolicy, "retain_until_project_delete");
   } finally {
     store.close();
     rmSync(fixtureDir, { recursive: true, force: true });

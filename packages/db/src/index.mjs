@@ -8,6 +8,7 @@ import {
   assertOperatorTicketOverride,
   isRefinementMode,
 } from "../../domain/src/index.mjs";
+import { normalizeArtifactForStorage, projectArtifactRoot } from "./artifact-durability.mjs";
 import { sqliteSchema, migrateSchema } from "./sqlite-schema.mjs";
 import {
   mapArtifact,
@@ -1003,7 +1004,18 @@ function insertTicketRepoTarget(database, ticketId, target, timestamp) {
 }
 
 function insertArtifacts(database, projectId, ticketId, scope, artifacts, timestamp) {
+  const project = getProjectRow(database, projectId);
+  const artifactRoot = projectArtifactRoot(project?.workspace_root || process.cwd());
   for (const artifact of artifacts) {
+    const storedArtifact = normalizeArtifactForStorage(
+      {
+        kind: requiredText(artifact.kind, "artifact.kind"),
+        label: requiredText(artifact.label, "artifact.label"),
+        uri: requiredText(artifact.uri, "artifact.uri"),
+        metadata: artifact.metadata || {},
+      },
+      { artifactRoot },
+    );
     database
       .prepare(
         `insert into artifacts (
@@ -1019,10 +1031,10 @@ function insertArtifacts(database, projectId, ticketId, scope, artifacts, timest
         scope.reviewId || null,
         scope.validationRunId || null,
         scope.mergeRunId || null,
-        requiredText(artifact.kind, "artifact.kind"),
-        requiredText(artifact.label, "artifact.label"),
-        requiredText(artifact.uri, "artifact.uri"),
-        JSON.stringify(artifact.metadata || {}),
+        storedArtifact.kind,
+        storedArtifact.label,
+        storedArtifact.uri,
+        JSON.stringify(storedArtifact.metadata),
         timestamp,
       );
   }

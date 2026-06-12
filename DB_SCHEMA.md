@@ -367,6 +367,16 @@ Suggested fields:
 
 Durable artifacts from executions, reviews, validations, merges.
 
+Durability contract:
+
+- Floop persists the artifact record and URI in SQLite.
+- Driver-created local evidence is written under `.floop/artifacts/` and marked
+  `managed_local_file`.
+- Local files outside `.floop/artifacts/` and remote URIs are `referenced_uri`
+  records. They are not copied, retained, or cleaned by Floop.
+- `metadata_json.floopDurability` records `storageMode`, `copyPolicy`, and
+  `cleanupPolicy`.
+
 Suggested fields:
 
 - `id` UUID PK
