@@ -15,6 +15,37 @@ The next phase is not more feature sprawl. It is hardening the architecture so
 the current MVP can keep growing without turning the store, router, and UI shell
 into bottlenecks.
 
+## Current Refactor Plan
+
+Goal:
+
+Finish the greenfield Floop consolidation and then harden the architecture around
+clear store, policy, migration, durability, trust, and operator-decision
+boundaries.
+
+Steps:
+
+1. Seed/demo extraction - complete.
+2. Read-model/query helper extraction - complete.
+3. Project/repo command extraction - complete.
+4. Ticket/dependency command extraction - complete.
+5. Execution/evidence command extraction - complete.
+6. Merge command extraction - complete.
+7. Extract ceremony commands - complete.
+8. Transition policy layer - next.
+9. Versioned migrations - pending.
+10. Artifact durability contract - pending.
+11. Local trust/auth model - pending.
+12. Decision queue UI - pending.
+13. Push/PR hygiene - pending.
+
+Immediate next work:
+
+- move to the transition policy layer
+- define legal automatic workflow transitions
+- separate operator overrides from automatic state movement
+- require reason codes for manual overrides
+
 ## Phase 9: Rebrand Consolidation
 
 Goal:
