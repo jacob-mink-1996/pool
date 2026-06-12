@@ -7,8 +7,6 @@ import {
   ceremonyRunDto,
   mergeRunDto,
   mergeQueueItemDto,
-  reviewDto,
-  validationRunDto,
 } from "../../contracts/src/index.mjs";
 import { isCeremonyType, isRefinementMode } from "../../domain/src/index.mjs";
 import { sqliteSchema, migrateSchema } from "./sqlite-schema.mjs";
@@ -51,6 +49,7 @@ import {
   mapTicketStateToBoardState,
 } from "./sqlite-read-models.mjs";
 import { seedDemoProject } from "./sqlite-seed.mjs";
+import { createEvidenceCommands } from "./sqlite-evidence-commands.mjs";
 import { createExecutionCommands } from "./sqlite-execution-commands.mjs";
 import { createProjectCommands } from "./sqlite-project-commands.mjs";
 import { createRepoCommands } from "./sqlite-repo-commands.mjs";
@@ -75,6 +74,8 @@ export function createSqliteStore(options = {}) {
       now,
     });
   }
+
+  let store;
 
   const projectCommands = createProjectCommands({
     database,
@@ -183,7 +184,33 @@ export function createSqliteStore(options = {}) {
     listWorktreeRows,
   });
 
-  return {
+  const evidenceCommands = createEvidenceCommands({
+    database,
+    getExecutionRow,
+    getTicketRow,
+    insertArtifacts,
+    insertEvent,
+    withTransaction,
+    now,
+    requiredText,
+    optionalText,
+    requiredProjectPolicy,
+    resolveAgentProfileForExecution,
+    deriveTicketStateForReviewVerdict,
+    deriveTicketStateForValidationVerdict,
+    deriveReviewEventReason,
+    deriveValidationEventReason,
+    normalizeValidationRepoIds,
+    buildMergePolicyBlocks,
+    getLatestReviewRow,
+    getRepoTargetsByTicketId,
+    getReviewsByTicketId,
+    getValidationRunsByTicketId,
+    startAutoRoutedLaneExecution,
+    getStore: () => store,
+  });
+
+  store = {
     close() {
       database.close();
     },
@@ -500,258 +527,7 @@ export function createSqliteStore(options = {}) {
 
     ...executionCommands,
 
-    listReviews(projectId, ticketId) {
-      if (!getTicketRow(database, projectId, ticketId)) {
-        return null;
-      }
-
-      return (getReviewsByTicketId(database, projectId, [ticketId]).get(ticketId) || []).map(reviewDto);
-    },
-
-    createReview(projectId, ticketId, input) {
-      const ticket = getTicketRow(database, projectId, ticketId);
-      if (!ticket) {
-        return null;
-      }
-      const execution = getExecutionRow(database, projectId, requiredText(input.executionId, "executionId"));
-      if (!execution || execution.ticket_id !== ticketId) {
-        throw new Error(`Unknown execution for ticket ${ticket.key}: ${input.executionId}`);
-      }
-      if (!execution.finished_at) {
-        throw new Error(`Execution ${execution.id} must be finished before review`);
-      }
-      if (execution.outcome !== "completed") {
-        throw new Error(`Execution ${execution.id} must complete successfully before review`);
-      }
-      if (ticket.state !== "REVIEWING") {
-        throw new Error(`Ticket ${ticket.key} is not ready for review`);
-      }
-
-      const policy = requiredProjectPolicy(database, projectId);
-      const reviewerProfile = resolveAgentProfileForExecution(
-        database,
-        projectId,
-        "reviewer",
-        input.reviewerProfileId,
-      );
-      const verdict = requiredText(input.verdict, "verdict");
-      const findings = input.findings || [];
-      const artifacts = input.artifacts || [];
-      const timestamp = now();
-      const review = {
-        id: `review_${randomUUID()}`,
-        projectId,
-        ticketId,
-        executionId: execution.id,
-        reviewerProfileId: reviewerProfile.id,
-        verdict,
-        summaryMd: optionalText(input.summaryMd),
-        findingsCount: findings.length,
-        blockedKind: optionalText(input.blockedKind),
-        createdAt: timestamp,
-      };
-      const nextState = deriveTicketStateForReviewVerdict(policy, verdict);
-      const ticketSummary =
-        review.summaryMd ||
-        `${ticket.key} review ${verdict === "passed" ? "passed" : verdict === "rework" ? "requested rework" : "blocked"}`;
-
-      withTransaction(database, () => {
-        database
-          .prepare(
-            `insert into reviews (
-              id, project_id, ticket_id, execution_id, reviewer_profile_id,
-              verdict, summary_md, findings_count, blocked_kind, created_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(
-            review.id,
-            review.projectId,
-            review.ticketId,
-            review.executionId,
-            review.reviewerProfileId,
-            review.verdict,
-            review.summaryMd,
-            review.findingsCount,
-            review.blockedKind,
-            review.createdAt,
-          );
-
-        for (const finding of findings) {
-          database
-            .prepare(
-              `insert into review_findings (
-                id, review_id, severity, category, file_path, line_number, title, details_md, created_at
-              ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            )
-            .run(
-              `review_finding_${randomUUID()}`,
-              review.id,
-              finding.severity,
-              finding.category,
-              optionalText(finding.filePath),
-              finding.lineNumber || null,
-              finding.title,
-              optionalText(finding.detailsMd),
-              timestamp,
-            );
-        }
-
-        insertArtifacts(
-          database,
-          projectId,
-          ticketId,
-          {
-            reviewId: review.id,
-          },
-          artifacts,
-          timestamp,
-        );
-
-        database
-          .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
-          .run(nextState, ticketSummary, timestamp, projectId, ticketId);
-
-        insertEvent(database, {
-          projectId,
-          ticketId,
-          type: "review.completed",
-          summary: `${ticket.key} review ${verdict}`,
-          detail: review.summaryMd || `${findings.length} finding${findings.length === 1 ? "" : "s"}`,
-          ...deriveReviewEventReason(review),
-        });
-      });
-
-      if (verdict === "passed") {
-        startAutoRoutedLaneExecution({
-          store: this,
-          database,
-          projectId,
-          ticketId,
-          reason: `${ticket.key} review passed; Floop routed the validator lane.`,
-        });
-      }
-
-      return reviewDto(getReviewsByTicketId(database, projectId, [ticketId]).get(ticketId)[0]);
-    },
-
-    listValidations(projectId, ticketId) {
-      if (!getTicketRow(database, projectId, ticketId)) {
-        return null;
-      }
-
-      return (getValidationRunsByTicketId(database, projectId, [ticketId]).get(ticketId) || []).map(
-        validationRunDto,
-      );
-    },
-
-    createValidation(projectId, ticketId, input) {
-      const ticket = getTicketRow(database, projectId, ticketId);
-      if (!ticket) {
-        return null;
-      }
-
-      if (input.executionId) {
-        const execution = getExecutionRow(database, projectId, input.executionId);
-        if (!execution || execution.ticket_id !== ticketId) {
-          throw new Error(`Unknown execution for ticket ${ticket.key}: ${input.executionId}`);
-        }
-        if (!execution.finished_at) {
-          throw new Error(`Execution ${execution.id} must be finished before validation`);
-        }
-        if (execution.outcome !== "completed") {
-          throw new Error(`Execution ${execution.id} must complete successfully before validation`);
-        }
-      }
-
-      if (ticket.state !== "VALIDATING") {
-        throw new Error(`Ticket ${ticket.key} is not ready for validation`);
-      }
-
-      const repoTargets = getRepoTargetsByTicketId(database, [ticketId]).get(ticketId) || [];
-      const repoIds = normalizeValidationRepoIds(database, projectId, ticket, repoTargets, input.repoIds || []);
-      const verdict = requiredText(input.verdict, "verdict");
-      const timestamp = now();
-      const policy = requiredProjectPolicy(database, projectId);
-      const nextState = deriveTicketStateForValidationVerdict(policy, verdict);
-      const summaryMd = optionalText(input.summaryMd);
-      const ticketSummary =
-        summaryMd ||
-        `${ticket.key} validation ${verdict === "passed" ? "passed" : verdict === "failed" ? "found rework" : "blocked"}`;
-      const commandProfile = optionalText(input.commandProfile);
-      const commands = input.commands || [];
-      const artifacts = input.artifacts || [];
-      const validationIds = [];
-      const mergePolicyBlocks =
-        verdict === "passed"
-          ? buildMergePolicyBlocks(policy, getLatestReviewRow(database, projectId, ticketId), {
-              verdict,
-              command_profile: commandProfile,
-            })
-          : [];
-
-      withTransaction(database, () => {
-        for (const repoId of repoIds) {
-          const validationId = `validation_${randomUUID()}`;
-          validationIds.push(validationId);
-          database
-            .prepare(
-              `insert into validation_runs (
-                id, project_id, ticket_id, repo_id, execution_id, status, verdict,
-                command_profile, commands_json, summary_md, blocked_kind, started_at, finished_at
-              ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            )
-            .run(
-              validationId,
-              projectId,
-              ticketId,
-              repoId,
-              input.executionId || null,
-              "completed",
-              verdict,
-              commandProfile,
-              JSON.stringify(commands),
-              summaryMd,
-              optionalText(input.blockedKind),
-              timestamp,
-              timestamp,
-            );
-        }
-
-        for (const validationId of validationIds) {
-          insertArtifacts(
-            database,
-            projectId,
-            ticketId,
-            {
-              validationRunId: validationId,
-            },
-            artifacts,
-            timestamp,
-          );
-        }
-
-        database
-          .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
-          .run(nextState, ticketSummary, timestamp, projectId, ticketId);
-
-        insertEvent(database, {
-          projectId,
-          ticketId,
-          type: "validation.completed",
-          summary: `${ticket.key} validation ${verdict}`,
-          detail:
-            summaryMd ||
-            `${repoIds.length} repo target${repoIds.length === 1 ? "" : "s"} · ${commands.length} command${commands.length === 1 ? "" : "s"}`,
-          ...deriveValidationEventReason({
-            verdict,
-            blockedKind: optionalText(input.blockedKind),
-            mergePolicyBlock: mergePolicyBlocks[0] || null,
-          }),
-        });
-      });
-
-      return this.listValidations(projectId, ticketId);
-    },
+    ...evidenceCommands,
 
     getMergeStatus(projectId, ticketId) {
       const ticket = getTicketRow(database, projectId, ticketId);
@@ -1465,6 +1241,7 @@ export function createSqliteStore(options = {}) {
       return listProjectArtifacts(database, projectId, filters);
     },
   };
+  return store;
 }
 
 function countProjects(database) {
