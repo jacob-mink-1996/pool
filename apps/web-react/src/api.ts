@@ -316,7 +316,7 @@ export async function cleanWorktree(projectId: string, worktreeId: string): Prom
 export async function transitionTicket(
   projectId: string,
   ticketId: string,
-  input: { targetState: TicketState; reason: string },
+  input: { targetState: TicketState; reason: string; reasonCode: string },
 ): Promise<TicketDetail> {
   const payload = await fetchJson<{ ticket: TicketDetail }>(
     `/api/v1/projects/${projectId}/tickets/${ticketId}/transition`,

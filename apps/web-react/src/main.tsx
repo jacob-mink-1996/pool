@@ -68,6 +68,19 @@ import "./styles.css";
 type LoadState = "idle" | "loading" | "ready" | "error";
 type ThemeMode = "light" | "dark";
 type WorkspaceView = "board" | "ceremonies" | "ops";
+type DecisionKind = "approval" | "blocked" | "validation" | "stale" | "merge" | "ceremony";
+
+type DecisionQueueItem = {
+  id: string;
+  kind: DecisionKind;
+  label: string;
+  title: string;
+  detail: string;
+  age: string;
+  ticketId?: string;
+  ceremonyRunId?: string;
+  proposalIds?: string[];
+};
 
 function initialThemeMode(): ThemeMode {
   const storedTheme = window.localStorage.getItem("floop-theme");
@@ -288,6 +301,7 @@ function App() {
       await transitionTicket(projectId, ticketId, {
         targetState,
         reason: `Moved ${ticketSummary.key} to ${prettyState(targetState)} from the board.`,
+        reasonCode: "operator_board_move",
       });
       await refreshTicket(ticketId);
     } catch (dropError) {
@@ -475,7 +489,16 @@ function App() {
           ) : activeView === "ceremonies" ? (
             <CeremoniesPanel ceremonies={ceremonies} onRun={handleRunCeremony} onApply={handleApplyCeremony} />
           ) : (
-            <OpsPanel mergeQueue={mergeQueue} events={events} artifacts={artifacts} />
+            <OpsPanel
+              board={board}
+              mergeQueue={mergeQueue}
+              ceremonies={ceremonies}
+              events={events}
+              artifacts={artifacts}
+              onSelectTicket={selectTicket}
+              onApplyCeremony={handleApplyCeremony}
+              onOpenCeremonies={() => setActiveView("ceremonies")}
+            />
           )}
         </section>
       </main>
@@ -636,16 +659,77 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function OpsPanel({
+  board,
   mergeQueue,
+  ceremonies,
   events,
   artifacts,
+  onSelectTicket,
+  onApplyCeremony,
+  onOpenCeremonies,
 }: {
+  board: Board | null;
   mergeQueue: MergeQueueItem[];
+  ceremonies: CeremonyRun[];
   events: EventRecord[];
   artifacts: Artifact[];
+  onSelectTicket: (id: string) => void;
+  onApplyCeremony: (runId: string, proposalIds?: string[]) => Promise<void>;
+  onOpenCeremonies: () => void;
 }) {
+  const [busyDecisionId, setBusyDecisionId] = useState("");
+  const decisions = useMemo(
+    () => buildDecisionQueue({ board, mergeQueue, ceremonies }),
+    [board, mergeQueue, ceremonies],
+  );
+
+  async function actOnDecision(item: DecisionQueueItem) {
+    if (item.ticketId) {
+      onSelectTicket(item.ticketId);
+      return;
+    }
+    if (item.ceremonyRunId) {
+      if (item.proposalIds?.length) {
+        setBusyDecisionId(item.id);
+        try {
+          await onApplyCeremony(item.ceremonyRunId, item.proposalIds);
+        } finally {
+          setBusyDecisionId("");
+        }
+        return;
+      }
+      onOpenCeremonies();
+    }
+  }
+
   return (
     <section className="ops-panel" aria-label="Operations overview">
+      <div className="decision-queue">
+        <div className="section-heading">
+          <h3>Decision Queue</h3>
+          <span>{decisions.length}</span>
+        </div>
+        <div className="decision-list">
+          {decisions.length === 0 ? <p className="lane-empty">No operator decisions waiting.</p> : null}
+          {decisions.map((item) => (
+            <article key={item.id} className={`decision-item decision-${item.kind}`}>
+              <div className="decision-copy">
+                <span>{item.label} · {item.age}</span>
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
+              </div>
+              <button
+                className="quiet-button"
+                type="button"
+                disabled={busyDecisionId === item.id}
+                onClick={() => actOnDecision(item)}
+              >
+                {item.ceremonyRunId && item.proposalIds?.length ? "Apply" : "Open"}
+              </button>
+            </article>
+          ))}
+        </div>
+      </div>
       <div className="ops-column">
         <div className="section-heading">
           <h3>Merge Queue</h3>
@@ -691,6 +775,109 @@ function OpsPanel({
       </div>
     </section>
   );
+}
+
+function buildDecisionQueue({
+  board,
+  mergeQueue,
+  ceremonies,
+}: {
+  board: Board | null;
+  mergeQueue: MergeQueueItem[];
+  ceremonies: CeremonyRun[];
+}): DecisionQueueItem[] {
+  const tickets = board?.columns.flatMap((column) => column.tickets) || [];
+  const decisions: DecisionQueueItem[] = [];
+
+  for (const run of ceremonies) {
+    const pending = run.proposals.filter((proposal) => proposal.status === "pending");
+    if (pending.length > 0) {
+      decisions.push({
+        id: `ceremony:${run.id}`,
+        kind: "ceremony",
+        label: "Ceremony proposals",
+        title: `${prettyCeremony(run.type)} has ${pending.length} pending proposal${pending.length === 1 ? "" : "s"}`,
+        detail: run.summaryMd || "Review and apply the proposals that match current operator intent.",
+        age: formatDate(run.updatedAt || run.startedAt),
+        ceremonyRunId: run.id,
+        proposalIds: pending.map((proposal) => proposal.id),
+      });
+    }
+  }
+
+  for (const item of mergeQueue) {
+    if (item.mergeStatus?.requiresHumanApproval) {
+      decisions.push({
+        id: `approval:${item.id}`,
+        kind: "approval",
+        label: "Merge approval",
+        title: `${item.key} needs human approval`,
+        detail: item.mergeStatus.statusSummary || item.title,
+        age: formatDate(item.updatedAt),
+        ticketId: item.id,
+      });
+    } else if (item.mergeStatus?.canMerge) {
+      decisions.push({
+        id: `merge:${item.id}`,
+        kind: "merge",
+        label: "Merge ready",
+        title: `${item.key} is ready to merge`,
+        detail: item.mergeStatus.statusSummary || item.title,
+        age: formatDate(item.updatedAt),
+        ticketId: item.id,
+      });
+    }
+  }
+
+  for (const ticket of tickets) {
+    if (ticket.latestValidationVerdict === "failed") {
+      decisions.push({
+        id: `validation:${ticket.id}`,
+        kind: "validation",
+        label: "Failed validation",
+        title: `${ticket.key} needs validation follow-up`,
+        detail: ticket.latestSummary || ticket.title,
+        age: formatDate(ticket.updatedAt),
+        ticketId: ticket.id,
+      });
+      continue;
+    }
+
+    if (ticket.state === "BLOCKED" || ticket.state === "REWORK") {
+      decisions.push({
+        id: `blocked:${ticket.id}`,
+        kind: "blocked",
+        label: prettyState(ticket.state),
+        title: `${ticket.key} needs an unblock decision`,
+        detail: ticket.latestSummary || ticket.title,
+        age: formatDate(ticket.updatedAt),
+        ticketId: ticket.id,
+      });
+      continue;
+    }
+
+    if (isStaleActiveTicket(ticket)) {
+      decisions.push({
+        id: `stale:${ticket.id}`,
+        kind: "stale",
+        label: "Stale active run",
+        title: `${ticket.key} has been active since ${formatDate(ticket.updatedAt)}`,
+        detail: ticket.latestSummary || ticket.title,
+        age: formatDate(ticket.updatedAt),
+        ticketId: ticket.id,
+      });
+    }
+  }
+
+  return decisions.slice(0, 12);
+}
+
+function isStaleActiveTicket(ticket: BoardTicket) {
+  if (!["WORKING", "REVIEWING", "VALIDATING"].includes(ticket.state)) {
+    return false;
+  }
+  const updatedAt = Date.parse(ticket.updatedAt);
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt > 24 * 60 * 60 * 1000;
 }
 
 const ceremonyOptions: Array<{ type: CeremonyType; label: string; detail: string }> = [
@@ -1663,6 +1850,7 @@ function TicketActionForm({
         await transitionTicket(projectId, ticket.id, {
           targetState: String(form.get("targetState") || "READY") as TicketState,
           reason: String(form.get("summary") || `Move ${ticket.key}`),
+          reasonCode: "operator_ticket_action",
         });
       }
       await onRefresh(ticket.id);

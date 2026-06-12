@@ -287,6 +287,7 @@ export type CeremonyRun = {
   startedAt: string;
   finishedAt: string;
   appliedAt: string;
+  updatedAt: string;
   proposals: CeremonyProposal[];
   participants: CeremonyParticipant[];
 };

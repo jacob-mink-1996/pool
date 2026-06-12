@@ -410,7 +410,11 @@ async function transitionTicket(appUrl, projectId, ticketId, targetState) {
   const response = await fetch(`${appUrl}/api/v1/projects/${projectId}/tickets/${ticketId}/transition`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ targetState, reason: "Browser verifier board move coverage." }),
+    body: JSON.stringify({
+      targetState,
+      reason: "Browser verifier board move coverage.",
+      reasonCode: "browser_verifier_transition",
+    }),
   });
   assert.equal(response.ok, true, await response.text());
 }

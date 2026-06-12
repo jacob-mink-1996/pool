@@ -614,13 +614,69 @@ h3 {
 
 .ops-panel {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(360px, 1.6fr) repeat(3, minmax(180px, 0.8fr));
   gap: 10px;
   flex: 1 1 auto;
   min-height: 0;
   margin-bottom: 14px;
   overflow: auto;
   overscroll-behavior: contain;
+}
+
+.decision-queue {
+  display: grid;
+  align-self: start;
+  gap: 10px;
+  min-height: 260px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 12px;
+  background: var(--panel-warm);
+}
+
+.decision-list {
+  display: grid;
+  gap: 8px;
+}
+
+.decision-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+
+.decision-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.decision-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.decision-copy span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.decision-copy strong,
+.decision-copy p {
+  overflow-wrap: anywhere;
+}
+
+.decision-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .ops-column,
@@ -1766,6 +1822,7 @@ textarea {
   .summary-strip,
   .form-grid,
   .ops-panel,
+  .decision-queue,
   .ceremonies-panel,
   .action-grid,
   .repo-mode-list,

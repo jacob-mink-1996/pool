@@ -36,13 +36,13 @@ Steps:
 9. Versioned migrations - complete.
 10. Artifact durability contract - complete.
 11. Local trust/auth model - complete.
-12. Decision queue UI - next.
-13. Push/PR hygiene - pending.
+12. Decision queue UI - complete.
+13. Push/PR hygiene - next.
 
 Immediate next work:
 
-- surface approvals, blocked work, failed validations, stale active runs, merge
-  readiness, and pending ceremony proposals in one operator queue
+- push the current commit stack
+- verify branch status and prepare PR/summary hygiene
 
 ## Phase 9: Rebrand Consolidation
 
