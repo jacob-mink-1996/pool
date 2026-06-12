@@ -37,12 +37,11 @@ Steps:
 10. Artifact durability contract - complete.
 11. Local trust/auth model - complete.
 12. Decision queue UI - complete.
-13. Push/PR hygiene - next.
+13. Push/PR hygiene - complete.
 
 Immediate next work:
 
-- push the current commit stack
-- verify branch status and prepare PR/summary hygiene
+- current refactor stack pushed to `origin/main`
 
 ## Phase 9: Rebrand Consolidation
 
