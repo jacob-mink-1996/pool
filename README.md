@@ -157,6 +157,25 @@ Override the target if needed with:
 - `FLOOP_BASE_URL=http://127.0.0.1:4318`
 - `FLOOP_DEMO_PROJECT_ID=project_floop`
 
+### Record The Usage Demo
+
+To run the self-contained Playwright walkthrough without keeping video output:
+
+```bash
+npm run demo:proof
+```
+
+To record the walkthrough:
+
+```bash
+npm run demo:record
+```
+
+Recordings are written under `demo-recordings/` by default and ignored by git.
+Set `FLOOP_DEMO_OUTPUT_DIR=/path/to/output` to write them elsewhere. Set
+`FLOOP_DEMO_KEEP_FIXTURE=true` only when you need to inspect the temporary
+workspace and SQLite database after a run.
+
 ### Verify The MVP Loop Automatically
 
 To boot a temporary API instance, point it at a temporary real git repo, and verify the full

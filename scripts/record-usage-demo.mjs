@@ -25,7 +25,7 @@ import { createStore } from "../services/api/src/store.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const mode = process.argv.includes("--record") ? "record" : "proof";
-const outputRoot = resolve(repoRoot, "demo-recordings");
+const outputRoot = resolve(process.env.FLOOP_DEMO_OUTPUT_DIR || join(repoRoot, "demo-recordings"));
 const fixtureRoot = mkdtempSync(join(tmpdir(), `floop-usage-demo-${mode}-`));
 const workspaceRoot = join(fixtureRoot, "workspace");
 const targetRepoPath = join(fixtureRoot, "demo-product");
@@ -96,6 +96,8 @@ try {
   assert.equal(proof.followupTickets.length >= 1, true);
   assert.equal(proof.ceremonyRuns.length >= 2, true);
   assert.equal(proof.artifacts.length >= 3, true);
+  assert.equal(proof.runObservability.summary.executions >= 1, true);
+  assert.equal(proof.runObservability.summary.ceremonies >= 2, true);
 
   await context.close();
   context = null;
@@ -206,6 +208,8 @@ async function runWalkthrough(page, appUrl) {
   await pause(1000);
 
   await clickByText(page, "Ops");
+  await page.getByText("Run Observability").first().waitFor();
+  await page.getByText("Attention").first().waitFor();
   await page.getByText("Decision Queue").first().waitFor();
   await page.getByText("Ceremony proposals").first().waitFor();
   await page.getByText("Blocked").first().waitFor();
@@ -550,6 +554,7 @@ function collectProof() {
   const tickets = project ? store.listTickets(project.id) : [];
   const ceremonyRuns = project ? store.listCeremonyRuns(project.id) : [];
   const artifacts = project ? store.listArtifacts(project.id, { limit: 100 }) : [];
+  const runObservability = project ? collectRunObservability(project.id) : emptyRunObservability();
   return {
     projects,
     repos,
@@ -558,9 +563,40 @@ function collectProof() {
     followupTickets: tickets.filter((ticket) => ticket.title.startsWith("Document ")),
     ceremonyRuns,
     artifacts,
+    runObservability,
     targetRepoHead: existsSync(targetRepoPath)
       ? execFileSync("git", ["-C", targetRepoPath, "rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim()
       : "",
+  };
+}
+
+function collectRunObservability(projectId) {
+  const executions = store.listProjectExecutions(projectId, { limit: 50 }) || [];
+  const mergeRuns = store.listMergeRuns(projectId, { limit: 50 }) || [];
+  const ceremonyRuns = store.listCeremonyRuns(projectId) || [];
+  return {
+    summary: {
+      executions: executions.length,
+      mergeRuns: mergeRuns.length,
+      ceremonies: ceremonyRuns.length,
+      attention: [
+        ...executions.filter((execution) => execution.status === "needs_continue" || ["failed", "blocked"].includes(execution.outcome)),
+        ...mergeRuns.filter((run) => ["failed", "blocked"].includes(run.status)),
+        ...ceremonyRuns.filter((run) => run.proposals.some((proposal) => proposal.status === "pending")),
+      ].length,
+    },
+    runs: [
+      ...executions.map((execution) => ({ kind: "execution", id: execution.id, status: execution.status, outcome: execution.outcome })),
+      ...mergeRuns.map((run) => ({ kind: "merge", id: run.id, status: run.status, outcome: run.status })),
+      ...ceremonyRuns.map((run) => ({ kind: "ceremony", id: run.id, status: run.status, outcome: run.status })),
+    ],
+  };
+}
+
+function emptyRunObservability() {
+  return {
+    summary: { executions: 0, mergeRuns: 0, ceremonies: 0, attention: 0 },
+    runs: [],
   };
 }
 
@@ -654,7 +690,7 @@ function finalizeVideo(dir) {
   const source = join(dir, video);
   const target = join(dir, "floop-usage-demo.webm");
   renameSync(source, target);
-  copyFileSync(target, resolve(repoRoot, "demo-recordings", "floop-usage-demo-latest.webm"));
+  copyFileSync(target, resolve(outputRoot, "floop-usage-demo-latest.webm"));
   return target;
 }
 
