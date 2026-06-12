@@ -23,10 +23,15 @@ export function createEvidenceCommands({
   getRepoTargetsByTicketId,
   getReviewsByTicketId,
   getValidationRunsByTicketId,
+  listProjectArtifacts,
   startAutoRoutedLaneExecution,
   getStore,
 }) {
   const commands = {
+    listArtifacts(projectId, filters = {}) {
+      return listProjectArtifacts(database, projectId, filters);
+    },
+
     listReviews(projectId, ticketId) {
       if (!getTicketRow(database, projectId, ticketId)) {
         return null;

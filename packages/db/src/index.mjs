@@ -218,6 +218,7 @@ export function createSqliteStore(options = {}) {
     getRepoTargetsByTicketId,
     getReviewsByTicketId,
     getValidationRunsByTicketId,
+    listProjectArtifacts,
     startAutoRoutedLaneExecution,
     getStore: () => store,
   });
@@ -860,9 +861,6 @@ export function createSqliteStore(options = {}) {
       return listProjectEvents(database, projectId, filters);
     },
 
-    listArtifacts(projectId, filters = {}) {
-      return listProjectArtifacts(database, projectId, filters);
-    },
   };
   return store;
 }
