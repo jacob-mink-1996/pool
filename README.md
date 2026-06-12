@@ -170,3 +170,23 @@ Optional environment variables:
 
 - `FLOOP_MVP_REPEAT=3` to run the verification flow multiple times in a row
 - `FLOOP_PORT=4318` to pin the temporary API port
+
+### Run Workers Separately
+
+The API process is HTTP-only. Start the background workers in a separate process
+against the same SQLite database when you want execution, review, validation,
+merge, and ceremony automation to progress:
+
+```bash
+npm run start
+npm run start:workers
+```
+
+You can also run individual worker classes:
+
+```bash
+npm run start:worker:execution
+npm run start:worker:merge
+npm run start:worker:ceremony-automation
+npm run start:worker:ceremony-participant
+```

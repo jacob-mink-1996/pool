@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "node --watch src/server.mjs",
     "start": "node src/server.mjs",
+    "start:workers": "node src/worker-all.mjs",
+    "start:worker:execution": "node src/worker-execution.mjs",
+    "start:worker:merge": "node src/worker-merge.mjs",
+    "start:worker:ceremony-automation": "node src/worker-ceremony-automation.mjs",
+    "start:worker:ceremony-participant": "node src/worker-ceremony-participant.mjs",
     "test": "node --test src/*.test.mjs"
   }
 }

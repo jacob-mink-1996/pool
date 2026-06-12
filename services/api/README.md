@@ -7,7 +7,28 @@ Current implemented surface:
 - SQLite-backed persistence through `packages/db`
 - project, repo, ticket, event, and board read-model endpoints
 - seeded demo project for local development
-- background execution driver for scriptable adapter profiles
+- separate worker processes for execution, merge, ceremony automation, and ceremony participants
+
+Run the API process:
+
+```bash
+npm --workspace services/api run start
+```
+
+Run every worker against the same `FLOOP_DB_PATH`:
+
+```bash
+npm --workspace services/api run start:workers
+```
+
+Or run one worker class at a time:
+
+```bash
+npm --workspace services/api run start:worker:execution
+npm --workspace services/api run start:worker:merge
+npm --workspace services/api run start:worker:ceremony-automation
+npm --workspace services/api run start:worker:ceremony-participant
+```
 
 Useful environment variables:
 
@@ -22,7 +43,7 @@ Useful environment variables:
 
 Execution driver notes:
 
-- the API process includes a background execution driver
+- the API process does not run background drivers; start worker processes separately
 - `codex` profiles run through `codex exec` automatically
 - generic scriptable profiles can still run through `config.command`
 - adapter runs receive `FLOOP_CONTEXT_PATH`, `FLOOP_RESULT_PATH`, and `FLOOP_WORKTREE_PATH`

@@ -18,6 +18,7 @@ const repeat = Math.max(1, Number.parseInt(process.env.FLOOP_MVP_REPEAT || "1", 
 const keepFixture = process.env.FLOOP_VERIFY_KEEP_FIXTURE === "true";
 
 let serverProcess = null;
+let workerProcess = null;
 let failed = false;
 
 try {
@@ -26,6 +27,10 @@ try {
     cwd: repoRoot,
     dbPath: apiDbPath,
     port,
+  });
+  workerProcess = startWorkers({
+    cwd: repoRoot,
+    dbPath: apiDbPath,
   });
 
   await waitForHealth(baseUrl);
@@ -76,9 +81,16 @@ try {
     console.error("---- Floop API stderr ----");
     console.error(serverProcess.floopLogs.stderr.trim() || "(empty)");
   }
+  if (workerProcess?.floopLogs) {
+    console.error("---- Floop workers stdout ----");
+    console.error(workerProcess.floopLogs.stdout.trim() || "(empty)");
+    console.error("---- Floop workers stderr ----");
+    console.error(workerProcess.floopLogs.stderr.trim() || "(empty)");
+  }
   console.error(error.stack || error.message || String(error));
   process.exitCode = 1;
 } finally {
+  await stopProcess(workerProcess);
   await stopServer(serverProcess);
   if (!failed || !keepFixture) {
     rmSync(fixtureRoot, { recursive: true, force: true });
@@ -541,7 +553,38 @@ function startServer({ cwd, dbPath, port }) {
   return child;
 }
 
+function startWorkers({ cwd, dbPath }) {
+  const child = spawn(process.execPath, ["services/api/src/worker-all.mjs"], {
+    cwd,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      FLOOP_DB_PATH: dbPath,
+      FLOOP_SEED_DEMO: "false",
+      FLOOP_EXECUTION_POLL_MS: process.env.FLOOP_EXECUTION_POLL_MS || "100",
+      FLOOP_MERGE_POLL_MS: process.env.FLOOP_MERGE_POLL_MS || "100",
+      FLOOP_CEREMONY_POLL_MS: process.env.FLOOP_CEREMONY_POLL_MS || "1000",
+      FLOOP_CEREMONY_PARTICIPANT_POLL_MS: process.env.FLOOP_CEREMONY_PARTICIPANT_POLL_MS || "100",
+    },
+  });
+
+  let stderr = "";
+  let stdout = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+  child.floopLogs = { get stdout() { return stdout; }, get stderr() { return stderr; } };
+  return child;
+}
+
 async function stopServer(child) {
+  await stopProcess(child);
+}
+
+async function stopProcess(child) {
   if (!child || child.exitCode !== null) {
     return;
   }
