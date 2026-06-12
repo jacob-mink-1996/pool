@@ -1,4 +1,5 @@
 import {
+  isCeremonyType,
   isDependencyType,
   isRefinementMode,
   isRoleName,
@@ -198,6 +199,68 @@ export function validationRunDto(validation) {
     startedAt: validation.startedAt,
     finishedAt: validation.finishedAt,
     artifacts: (validation.artifacts || []).map(artifactDto),
+  };
+}
+
+export function ceremonyProposalDto(proposal) {
+  return {
+    id: proposal.id,
+    projectId: proposal.projectId,
+    runId: proposal.runId,
+    kind: proposal.kind,
+    status: proposal.status,
+    summary: proposal.summary,
+    ticketId: proposal.ticketId || "",
+    ticketKey: proposal.ticketKey || "",
+    ticketTitle: proposal.ticketTitle || "",
+    payload: { ...(proposal.payload || {}) },
+    appliedTicketId: proposal.appliedTicketId || "",
+    appliedAt: proposal.appliedAt || "",
+    createdAt: proposal.createdAt,
+  };
+}
+
+export function ceremonyParticipantDto(participant) {
+  return {
+    id: participant.id,
+    projectId: participant.projectId,
+    runId: participant.runId,
+    role: participant.role,
+    status: participant.status,
+    outcome: participant.outcome || "",
+    summaryMd: participant.summaryMd || "",
+    questionsMd: participant.questionsMd || "",
+    riskMd: participant.riskMd || "",
+    payload: { ...(participant.payload || {}) },
+    startedAt: participant.startedAt || "",
+    finishedAt: participant.finishedAt || "",
+    createdAt: participant.createdAt,
+    updatedAt: participant.updatedAt,
+  };
+}
+
+export function ceremonyRunDto(run, proposals = [], participants = []) {
+  const scope = { ...(run.scope || {}) };
+  return {
+    id: run.id,
+    projectId: run.projectId,
+    type: run.type,
+    status: run.status,
+    scope,
+    participantRoles: Array.isArray(scope.participantRoles) ? scope.participantRoles : [],
+    deciderRole: typeof scope.deciderRole === "string" ? scope.deciderRole : "",
+    consensusPolicy: typeof scope.consensusPolicy === "string" ? scope.consensusPolicy : "",
+    inputSnapshot: { ...(run.inputSnapshot || {}) },
+    summaryMd: run.summaryMd,
+    questionsMd: run.questionsMd,
+    riskMd: run.riskMd,
+    createdByKind: run.createdByKind,
+    createdByRef: run.createdByRef,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt || "",
+    appliedAt: run.appliedAt || "",
+    proposals: proposals.map(ceremonyProposalDto),
+    participants: participants.map(ceremonyParticipantDto),
   };
 }
 
@@ -406,6 +469,10 @@ export function parseUpdateProjectPolicyInput(body) {
       throw new Error(`Invalid ticket state: ${agentCreatedTicketDefaultState}`);
     }
     parsed.agentCreatedTicketDefaultState = agentCreatedTicketDefaultState;
+  }
+
+  if (hasOwn(body, "ceremonyAutomation")) {
+    parsed.ceremonyAutomation = parseCeremonyAutomation(body.ceremonyAutomation);
   }
 
   return parsed;
@@ -660,6 +727,48 @@ export function parseMergeTicketInput(body) {
   return parsed;
 }
 
+export function parseCreateCeremonyRunInput(body) {
+  assertObject(body);
+  const type = requiredString(body, "type");
+  if (!isCeremonyType(type)) {
+    throw new Error(`Invalid ceremony type: ${type}`);
+  }
+  const participantRoles = parseCeremonyParticipantRoles(body.participantRoles);
+  const deciderRole = optionalString(body, "deciderRole", "");
+  if (deciderRole && !isRoleName(deciderRole)) {
+    throw new Error(`Invalid ceremony decider role: ${deciderRole}`);
+  }
+
+  return compactObject({
+    type,
+    scope: hasOwn(body, "scope") ? optionalObject(body, "scope") : {},
+    participantRoles,
+    deciderRole,
+    consensusPolicy: optionalString(body, "consensusPolicy", ""),
+    createdByKind: optionalString(body, "createdByKind", "human"),
+    createdByRef: optionalString(body, "createdByRef", "operator"),
+  });
+}
+
+export function parseApplyCeremonyRunInput(body) {
+  assertObject(body || {});
+  const proposalIds = body?.proposalIds;
+  if (proposalIds === undefined) {
+    return { proposalIds: [] };
+  }
+  if (!Array.isArray(proposalIds)) {
+    throw new Error("Field proposalIds must be an array");
+  }
+  return {
+    proposalIds: proposalIds.map((proposalId, index) => {
+      if (typeof proposalId !== "string" || !proposalId.trim()) {
+        throw new Error(`Field proposalIds[${index}] must be a non-empty string`);
+      }
+      return proposalId.trim();
+    }),
+  };
+}
+
 function parseRepoTargets(value) {
   if (value === undefined) {
     return [];
@@ -876,6 +985,72 @@ function parseRepoIds(value) {
     }
     return repoId.trim();
   });
+}
+
+function parseCeremonyParticipantRoles(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error("Field participantRoles must be an array");
+  }
+
+  const roles = [];
+  for (const [index, role] of value.entries()) {
+    if (typeof role !== "string" || !role.trim()) {
+      throw new Error(`Field participantRoles[${index}] must be a non-empty string`);
+    }
+    const normalized = role.trim();
+    if (!isRoleName(normalized)) {
+      throw new Error(`Invalid ceremony participant role: ${normalized}`);
+    }
+    if (!roles.includes(normalized)) {
+      roles.push(normalized);
+    }
+  }
+  return roles;
+}
+
+function parseCeremonyAutomation(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Field ceremonyAutomation must be a JSON object");
+  }
+
+  const parsed = { ...value };
+  if (hasOwn(parsed, "enabled") && typeof parsed.enabled !== "boolean") {
+    throw new Error("Field ceremonyAutomation.enabled must be a boolean");
+  }
+  if (hasOwn(parsed, "mode") && typeof parsed.mode !== "string") {
+    throw new Error("Field ceremonyAutomation.mode must be a string");
+  }
+  if (hasOwn(parsed, "triggers")) {
+    if (!parsed.triggers || typeof parsed.triggers !== "object" || Array.isArray(parsed.triggers)) {
+      throw new Error("Field ceremonyAutomation.triggers must be a JSON object");
+    }
+    for (const [ceremonyType, trigger] of Object.entries(parsed.triggers)) {
+      if (!isCeremonyType(ceremonyType)) {
+        throw new Error(`Invalid ceremony automation trigger: ${ceremonyType}`);
+      }
+      if (!trigger || typeof trigger !== "object" || Array.isArray(trigger)) {
+        throw new Error(`Field ceremonyAutomation.triggers.${ceremonyType} must be a JSON object`);
+      }
+      if (hasOwn(trigger, "participantRoles")) {
+        parseCeremonyParticipantRoles(trigger.participantRoles);
+      }
+      if (hasOwn(trigger, "deciderRole")) {
+        if (typeof trigger.deciderRole !== "string" || !isRoleName(trigger.deciderRole)) {
+          throw new Error(`Invalid ceremony automation decider role: ${trigger.deciderRole}`);
+        }
+      }
+      if (hasOwn(trigger, "enabled") && typeof trigger.enabled !== "boolean") {
+        throw new Error(`Field ceremonyAutomation.triggers.${ceremonyType}.enabled must be a boolean`);
+      }
+      if (hasOwn(trigger, "minIntervalMinutes")) {
+        requiredPositiveNestedInteger(trigger.minIntervalMinutes, `ceremonyAutomation.triggers.${ceremonyType}.minIntervalMinutes`);
+      }
+    }
+  }
+  return parsed;
 }
 
 function optionalNestedString(source, field) {

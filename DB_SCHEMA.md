@@ -76,8 +76,15 @@ Suggested fields:
 - `max_auto_continue_iterations` integer not null default 3
 - `refinement_mode` text not null default `user_approved`
 - `agent_created_ticket_default_state` text not null
+- `ceremony_automation_json` jsonb not null default `{}`
 - `created_at` timestamptz not null
 - `updated_at` timestamptz not null
+
+`ceremony_automation_json` stores the project-level automatic ceremony trigger
+profile. The default profile is operator-approved and includes sensible triggers
+for refinement, planning, daily triage, review/demo prep, and retro. Each trigger
+can declare whether it is enabled, a minimum interval, participant roles, decider
+role, and consensus policy.
 
 ### `agent_profiles`
 
@@ -165,6 +172,74 @@ Suggested fields:
 Suggested constraints:
 
 - unique `(ticket_id, repo_id)`
+
+### `ceremony_runs`
+
+Durable record of an agent ceremony over a project snapshot.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `type` text not null
+- `status` text not null
+- `scope_json` jsonb not null
+- `input_snapshot_json` jsonb not null
+- `summary_md` text
+- `questions_md` text
+- `risk_md` text
+- `created_by_kind` text not null
+- `created_by_ref` text
+- `started_at` timestamptz not null
+- `finished_at` timestamptz
+- `applied_at` timestamptz
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+### `ceremony_proposals`
+
+Reviewable proposed changes from a ceremony run. Applying a proposal uses the
+normal ticket mutation paths.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `run_id` UUID FK -> `ceremony_runs.id`
+- `kind` text not null
+- `status` text not null
+- `summary` text not null
+- `ticket_id` UUID FK -> `tickets.id`
+- `payload_json` jsonb not null
+- `applied_ticket_id` UUID FK -> `tickets.id`
+- `applied_at` timestamptz
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+### `ceremony_participants`
+
+Stores one role contribution for a ceremony fan-out run.
+
+Suggested fields:
+
+- `id` UUID PK
+- `project_id` UUID FK -> `projects.id`
+- `run_id` UUID FK -> `ceremony_runs.id`
+- `role` text not null
+- `status` text not null
+- `outcome` text not null default ''
+- `summary_md` text not null default ''
+- `questions_md` text not null default ''
+- `risk_md` text not null default ''
+- `payload_json` jsonb not null default `{}`
+- `started_at` timestamptz
+- `finished_at` timestamptz
+- `created_at` timestamptz not null
+- `updated_at` timestamptz not null
+
+The ceremony participant driver runs pending participants through their role
+profiles in parallel. Once all participants complete, Pool appends an
+agent-consensus note proposal to the ceremony run.
 
 ### `executions`
 

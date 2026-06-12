@@ -105,7 +105,8 @@ try {
 
   await clickText("Settings");
   await waitForScript("document.querySelector('.settings-drawer') !== null");
-  await assertScript("document.querySelectorAll('.toggle-list input[type=\"checkbox\"]').length === 3", "settings policy checkboxes render");
+  await assertScript("document.querySelectorAll('.toggle-list input[type=\"checkbox\"]').length >= 4", "settings policy checkboxes render");
+  await assertScript("document.body.innerText.includes('Enable automatic ceremony triggers')", "settings ceremony trigger controls render");
   await assertScript("getComputedStyle(document.querySelector('.toggle-list label')).borderStyle !== 'none'", "settings checkbox rows are styled");
   await setFormValue("Save project", "name", "Pool QA Control");
   await setFormValue("Save project", "description", "Browser-tested pool operations.");

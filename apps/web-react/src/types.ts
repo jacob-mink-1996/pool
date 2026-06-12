@@ -15,6 +15,7 @@ export type TicketState =
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
 
 export type RefinementMode = "autonomous" | "user_approved" | "user_participant" | "user_only";
+export type CeremonyType = "refinement" | "planning" | "daily_triage" | "review_demo_prep" | "retro";
 
 export type RoleName =
   | "product_manager"
@@ -48,6 +49,22 @@ export type ProjectPolicy = {
   maxAutoContinueIterations: number;
   refinementMode: RefinementMode;
   agentCreatedTicketDefaultState: TicketState;
+  ceremonyAutomation: CeremonyAutomation;
+};
+
+export type CeremonyAutomation = {
+  enabled: boolean;
+  mode: string;
+  triggers: Record<string, CeremonyAutomationTrigger>;
+};
+
+export type CeremonyAutomationTrigger = {
+  enabled: boolean;
+  minIntervalMinutes?: number;
+  participantRoles?: RoleName[];
+  deciderRole?: RoleName;
+  consensusPolicy?: string;
+  [key: string]: unknown;
 };
 
 export type RoleProfile = {
@@ -78,6 +95,7 @@ export type ProjectPolicyInput = {
   maxAutoContinueIterations: number;
   refinementMode: RefinementMode;
   agentCreatedTicketDefaultState: TicketState;
+  ceremonyAutomation?: CeremonyAutomation;
 };
 
 export type BoardTicket = {
@@ -216,6 +234,61 @@ export type MergeStatus = {
     startedAt: string;
     finishedAt: string;
   };
+};
+
+export type CeremonyProposal = {
+  id: string;
+  projectId: string;
+  runId: string;
+  kind: string;
+  status: string;
+  summary: string;
+  ticketId: string;
+  ticketKey: string;
+  ticketTitle: string;
+  payload: Record<string, unknown>;
+  appliedTicketId: string;
+  appliedAt: string;
+  createdAt: string;
+};
+
+export type CeremonyParticipant = {
+  id: string;
+  projectId: string;
+  runId: string;
+  role: RoleName;
+  status: string;
+  outcome: string;
+  summaryMd: string;
+  questionsMd: string;
+  riskMd: string;
+  payload: Record<string, unknown>;
+  startedAt: string;
+  finishedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CeremonyRun = {
+  id: string;
+  projectId: string;
+  type: CeremonyType;
+  status: string;
+  scope: Record<string, unknown>;
+  participantRoles: RoleName[];
+  deciderRole: RoleName | "";
+  consensusPolicy: string;
+  inputSnapshot: Record<string, unknown>;
+  summaryMd: string;
+  questionsMd: string;
+  riskMd: string;
+  createdByKind: string;
+  createdByRef: string;
+  startedAt: string;
+  finishedAt: string;
+  appliedAt: string;
+  proposals: CeremonyProposal[];
+  participants: CeremonyParticipant[];
 };
 
 export type TicketDetail = BoardTicket & {

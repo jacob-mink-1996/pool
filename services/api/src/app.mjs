@@ -6,8 +6,10 @@ import { homedir } from "node:os";
 import { isTicketState } from "../../../packages/domain/src/index.mjs";
 import {
   parseAddDependencyInput,
+  parseApplyCeremonyRunInput,
   parseCompleteExecutionInput,
   parseContinueExecutionInput,
+  parseCreateCeremonyRunInput,
   parseCreateReviewInput,
   parseCreateExecutionInput,
   parseMergeTicketInput,
@@ -140,6 +142,32 @@ function handleRoute(route, url, body, store) {
         }
         return { status: 200, body: { queue } };
       }
+    case "projectCeremonies":
+      if (route.method === "GET") {
+        const ceremonies = store.listCeremonyRuns(route.params.projectId);
+        if (!ceremonies) {
+          return { status: 404, body: { error: "not_found" } };
+        }
+        return { status: 200, body: { ceremonies } };
+      }
+      return respondCreated(
+        store.createCeremonyRun(route.params.projectId, parseCreateCeremonyRunInput(body)),
+        "ceremony",
+      );
+    case "projectCeremony":
+      return respondMaybe(
+        store.getCeremonyRun(route.params.projectId, route.params.runId),
+        "ceremony",
+      );
+    case "projectCeremonyApply":
+      return respondMaybe(
+        store.applyCeremonyRun(
+          route.params.projectId,
+          route.params.runId,
+          parseApplyCeremonyRunInput(body || {}),
+        ),
+        "ceremony",
+      );
     case "projectAgentProfiles":
       {
         const profiles = store.listRoleProfiles(route.params.projectId);
@@ -811,6 +839,10 @@ function matchRoute(method, pathname) {
     { method: "PATCH", pattern: /^\/api\/v1\/projects\/([^/]+)\/agent-profiles\/([^/]+)$/, name: "projectAgentProfile", keys: ["projectId", "role"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/board$/, name: "projectBoard", keys: ["projectId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/merge-queue$/, name: "projectMergeQueue", keys: ["projectId"] },
+    { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/ceremonies$/, name: "projectCeremonies", keys: ["projectId"] },
+    { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/ceremonies$/, name: "projectCeremonies", keys: ["projectId"] },
+    { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/ceremonies\/([^/]+)$/, name: "projectCeremony", keys: ["projectId", "runId"] },
+    { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/ceremonies\/([^/]+)\/apply$/, name: "projectCeremonyApply", keys: ["projectId", "runId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)$/, name: "project", keys: ["projectId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/repos$/, name: "repos", keys: ["projectId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/repos$/, name: "repos", keys: ["projectId"] },

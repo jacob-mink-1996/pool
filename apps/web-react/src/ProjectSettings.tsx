@@ -10,6 +10,9 @@ import {
 } from "./api";
 import { prettyRole, prettyState, ticketStates } from "./domain";
 import type {
+  CeremonyAutomation,
+  CeremonyAutomationTrigger,
+  CeremonyType,
   Project,
   ProjectPolicyInput,
   ProjectUpdateInput,
@@ -28,6 +31,65 @@ const refinementModes: Array<{ value: RefinementMode; label: string; detail: str
   { value: "user_participant", label: "User participant", detail: "Pool and the user collaborate before readiness." },
   { value: "user_only", label: "User only", detail: "Only user action brings tickets out of refinement." },
 ];
+
+const ceremonyLabels: Record<CeremonyType, string> = {
+  refinement: "Refinement",
+  planning: "Planning",
+  daily_triage: "Daily triage",
+  review_demo_prep: "Review/demo prep",
+  retro: "Retro",
+};
+
+const defaultCeremonyAutomation: CeremonyAutomation = {
+  enabled: false,
+  mode: "operator_approved",
+  triggers: {
+    refinement: {
+      enabled: true,
+      onTicketCreatedStates: ["DRAFT", "PROPOSED"],
+      onBacklogChange: true,
+      minIntervalMinutes: 30,
+      participantRoles: ["product_manager", "architect", "developer", "reviewer"],
+      deciderRole: "product_manager",
+      consensusPolicy: "decider_synthesizes_objections",
+    },
+    planning: {
+      enabled: true,
+      onReadyQueueChanged: true,
+      onCapacityAvailable: true,
+      minIntervalMinutes: 60,
+      participantRoles: ["product_manager", "architect", "developer", "integrator"],
+      deciderRole: "integrator",
+      consensusPolicy: "decider_synthesizes_objections",
+    },
+    daily_triage: {
+      enabled: true,
+      onStaleActiveWorkHours: 24,
+      onBlockedOrRework: true,
+      minIntervalMinutes: 240,
+      participantRoles: ["product_manager", "developer", "reviewer", "validator"],
+      deciderRole: "product_manager",
+      consensusPolicy: "blockers_and_stale_work_win",
+    },
+    review_demo_prep: {
+      enabled: true,
+      onDoneOrMergeReady: true,
+      minIntervalMinutes: 120,
+      participantRoles: ["product_manager", "reviewer", "validator", "integrator"],
+      deciderRole: "reviewer",
+      consensusPolicy: "only_evidence_backed_done_work_is_demoable",
+    },
+    retro: {
+      enabled: true,
+      onRepeatedBlockedOrReworkCount: 3,
+      onCycleComplete: true,
+      minIntervalMinutes: 1440,
+      participantRoles: ["product_manager", "architect", "developer", "reviewer", "validator"],
+      deciderRole: "product_manager",
+      consensusPolicy: "recurring_systemic_risk_wins",
+    },
+  },
+};
 
 export function SettingsDrawer({
   projectId,
@@ -180,6 +242,22 @@ function DeleteProjectSection({
   );
 }
 
+function triggerSummary(type: CeremonyType, trigger: CeremonyAutomationTrigger) {
+  if (type === "refinement") {
+    return "Draft/proposed tickets or backlog changes";
+  }
+  if (type === "planning") {
+    return "Ready queue changes or execution capacity opens";
+  }
+  if (type === "daily_triage") {
+    return "Blocked, rework, or stale active work";
+  }
+  if (type === "review_demo_prep") {
+    return "Done or merge-ready work appears";
+  }
+  return `Repeated blocked/rework patterns, ${trigger.onRepeatedBlockedOrReworkCount || 3}+ signals`;
+}
+
 function SettingsFact({ label, value }: { label: string; value: string }) {
   return (
     <div className="fact">
@@ -250,6 +328,29 @@ function PolicyForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const existingAutomation = policy?.ceremonyAutomation || defaultCeremonyAutomation;
+    const ceremonyAutomation: CeremonyAutomation = {
+      ...defaultCeremonyAutomation,
+      ...existingAutomation,
+      enabled: form.get("ceremonyAutomationEnabled") === "on",
+      mode: String(form.get("ceremonyAutomationMode") || existingAutomation.mode || "operator_approved"),
+      triggers: Object.fromEntries(
+        (Object.keys(ceremonyLabels) as CeremonyType[]).map((type) => {
+          const existingTrigger = existingAutomation.triggers?.[type] || defaultCeremonyAutomation.triggers[type];
+          return [
+            type,
+            {
+              ...defaultCeremonyAutomation.triggers[type],
+              ...existingTrigger,
+              enabled: form.get(`ceremonyTrigger:${type}:enabled`) === "on",
+              minIntervalMinutes: Number(
+                form.get(`ceremonyTrigger:${type}:minIntervalMinutes`) || existingTrigger.minIntervalMinutes || 30,
+              ),
+            },
+          ];
+        }),
+      ),
+    };
     await onSubmit({
       requireReviewer: form.get("requireReviewer") === "on",
       requireValidator: form.get("requireValidator") === "on",
@@ -260,6 +361,7 @@ function PolicyForm({
       maxAutoContinueIterations: Number(form.get("maxAutoContinueIterations") || 1),
       refinementMode: String(form.get("refinementMode") || "user_approved") as RefinementMode,
       agentCreatedTicketDefaultState: String(form.get("agentCreatedTicketDefaultState") || "PROPOSED") as TicketState,
+      ceremonyAutomation,
     });
   }
 
@@ -310,6 +412,58 @@ function PolicyForm({
             {mode.detail}
           </span>
         ))}
+      </div>
+      <div className="subform">
+        <div className="section-heading">
+          <h3>Ceremony Triggers</h3>
+          <span className="section-note">Automation</span>
+        </div>
+        <div className="toggle-list">
+          <label>
+            <input
+              name="ceremonyAutomationEnabled"
+              type="checkbox"
+              defaultChecked={policy?.ceremonyAutomation?.enabled ?? false}
+            />{" "}
+            Enable automatic ceremony triggers
+          </label>
+        </div>
+        <label>
+          <span>Automation mode</span>
+          <select name="ceremonyAutomationMode" defaultValue={policy?.ceremonyAutomation?.mode || "operator_approved"}>
+            <option value="operator_approved">Operator approves runs</option>
+            <option value="fully_automatic">Fully automatic</option>
+          </select>
+        </label>
+        <div className="compact-list">
+          {(Object.keys(ceremonyLabels) as CeremonyType[]).map((type) => {
+            const trigger = policy?.ceremonyAutomation?.triggers?.[type] || defaultCeremonyAutomation.triggers[type];
+            return (
+              <article key={type} className="compact-item split-item">
+                <label className="check-row">
+                  <input
+                    name={`ceremonyTrigger:${type}:enabled`}
+                    type="checkbox"
+                    defaultChecked={trigger.enabled}
+                  />
+                  <span>
+                    <strong>{ceremonyLabels[type]}</strong>
+                    <small>{triggerSummary(type, trigger)}</small>
+                  </span>
+                </label>
+                <label>
+                  <span>Min</span>
+                  <input
+                    name={`ceremonyTrigger:${type}:minIntervalMinutes`}
+                    type="number"
+                    min={1}
+                    defaultValue={trigger.minIntervalMinutes || 30}
+                  />
+                </label>
+              </article>
+            );
+          })}
+        </div>
       </div>
       <button className="primary-button" type="submit" disabled={Boolean(busy)}>
         {busy === "Saving policy" ? busy : "Save policy"}

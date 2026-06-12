@@ -56,6 +56,8 @@ export const dependencyTypes = ["finish_to_start"];
 
 export const refinementModes = ["autonomous", "user_approved", "user_participant", "user_only"];
 
+export const ceremonyTypes = ["refinement", "planning", "daily_triage", "review_demo_prep", "retro"];
+
 export const blockerKinds = [
   "needs_human_input",
   "needs_dependency",
@@ -81,6 +83,10 @@ export const eventTypes = [
   "worktree.cleaned",
   "merge.started",
   "merge.completed",
+  "ceremony.started",
+  "ceremony.proposed",
+  "ceremony.applied",
+  "ceremony.rejected",
 ];
 
 export function isTicketState(value) {
@@ -121,4 +127,8 @@ export function isDependencyType(value) {
 
 export function isRefinementMode(value) {
   return refinementModes.includes(value);
+}
+
+export function isCeremonyType(value) {
+  return ceremonyTypes.includes(value);
 }

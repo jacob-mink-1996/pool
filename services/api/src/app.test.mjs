@@ -353,6 +353,18 @@ test("project policy and role profiles can be patched through the API", async ()
         maxParallelMerges: 2,
         maxAutoContinueIterations: 9,
         agentCreatedTicketDefaultState: "READY",
+        ceremonyAutomation: {
+          enabled: true,
+          mode: "operator_approved",
+          triggers: {
+            daily_triage: {
+              enabled: true,
+              minIntervalMinutes: 120,
+              participantRoles: ["product_manager", "developer", "reviewer"],
+              deciderRole: "product_manager",
+            },
+          },
+        },
       }),
     });
     const updatePolicyBody = await updatePolicyResponse.json();
@@ -382,6 +394,8 @@ test("project policy and role profiles can be patched through the API", async ()
     assert.equal(updatePolicyBody.policy.maxParallelMerges, 2);
     assert.equal(updatePolicyBody.policy.requireReviewer, false);
     assert.equal(updatePolicyBody.policy.requiredValidationCommandProfileForMerge, "ci");
+    assert.equal(updatePolicyBody.policy.ceremonyAutomation.enabled, true);
+    assert.equal(updatePolicyBody.policy.ceremonyAutomation.triggers.daily_triage.minIntervalMinutes, 120);
     assert.equal(updateProfileResponse.status, 200);
     assert.equal(updateProfileBody.profile.role, "developer");
     assert.equal(updateProfileBody.profile.adapter, "codex-cli");
@@ -396,6 +410,67 @@ test("project policy and role profiles can be patched through the API", async ()
       projectBody.project.roleProfiles.find((profile) => profile.role === "developer").adapter,
       "codex-cli",
     );
+  });
+});
+
+test("ceremony endpoints create proposal runs and apply approved proposals", async () => {
+  await withServer(async (baseUrl) => {
+    const createTicketResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "API ceremony refinement target",
+        brief: "Needs a better plan.",
+        state: "PROPOSED",
+        priority: "medium",
+        assignedRole: "developer",
+      }),
+    });
+    const createTicketBody = await createTicketResponse.json();
+
+    const runResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/ceremonies`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "refinement",
+        participantRoles: ["product_manager", "developer", "developer", "reviewer"],
+        deciderRole: "product_manager",
+        consensusPolicy: "decider_synthesizes_objections",
+      }),
+    });
+    const runBody = await runResponse.json();
+    const proposal = runBody.ceremony.proposals.find(
+      (item) => item.ticketId === createTicketBody.ticket.id && item.kind === "ticket_patch",
+    );
+
+    const listResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/ceremonies`);
+    const listBody = await listResponse.json();
+
+    const applyResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_pool/ceremonies/${runBody.ceremony.id}/apply`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ proposalIds: [proposal.id] }),
+      },
+    );
+    const applyBody = await applyResponse.json();
+
+    const ticketResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/${createTicketBody.ticket.id}`);
+    const ticketBody = await ticketResponse.json();
+
+    assert.equal(createTicketResponse.status, 201);
+    assert.equal(runResponse.status, 201);
+    assert.equal(runBody.ceremony.type, "refinement");
+    assert.deepEqual(runBody.ceremony.participantRoles, ["product_manager", "developer", "reviewer"]);
+    assert.equal(runBody.ceremony.deciderRole, "product_manager");
+    assert.equal(runBody.ceremony.consensusPolicy, "decider_synthesizes_objections");
+    assert.ok(proposal);
+    assert.equal(listResponse.status, 200);
+    assert.equal(listBody.ceremonies[0].id, runBody.ceremony.id);
+    assert.equal(applyResponse.status, 200);
+    assert.equal(applyBody.ceremony.proposals.find((item) => item.id === proposal.id).status, "applied");
+    assert.match(ticketBody.ticket.acceptanceCriteriaMd, /Scope is explicit/);
   });
 });
 

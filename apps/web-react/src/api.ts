@@ -1,6 +1,8 @@
 import type {
   Artifact,
   Board,
+  CeremonyRun,
+  CeremonyType,
   DirectoryCreateResult,
   DirectoryListing,
   EventRecord,
@@ -14,8 +16,8 @@ import type {
   RepoInput,
   RepoMetadata,
   RepoUpdateInput,
-  RoleName,
   RoleProfile,
+  RoleName,
   TicketDetail,
   TicketState,
   Worktree,
@@ -128,6 +130,42 @@ export async function listRepos(projectId: string): Promise<Repo[]> {
 export async function listMergeQueue(projectId: string): Promise<MergeQueueItem[]> {
   const payload = await fetchJson<{ queue: MergeQueueItem[] }>(`/api/v1/projects/${projectId}/merge-queue`);
   return payload.queue;
+}
+
+export async function listCeremonies(projectId: string): Promise<CeremonyRun[]> {
+  const payload = await fetchJson<{ ceremonies: CeremonyRun[] }>(`/api/v1/projects/${projectId}/ceremonies`);
+  return payload.ceremonies;
+}
+
+export async function createCeremony(
+  projectId: string,
+  input: {
+    type: CeremonyType;
+    scope?: Record<string, unknown>;
+    participantRoles?: RoleName[];
+    deciderRole?: RoleName | "";
+    consensusPolicy?: string;
+  },
+): Promise<CeremonyRun> {
+  const payload = await fetchJson<{ ceremony: CeremonyRun }>(`/api/v1/projects/${projectId}/ceremonies`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return payload.ceremony;
+}
+
+export async function applyCeremony(
+  projectId: string,
+  runId: string,
+  proposalIds: string[] = [],
+): Promise<CeremonyRun> {
+  const payload = await fetchJson<{ ceremony: CeremonyRun }>(`/api/v1/projects/${projectId}/ceremonies/${runId}/apply`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ proposalIds }),
+  });
+  return payload.ceremony;
 }
 
 export async function listEvents(projectId: string, limit = 20): Promise<EventRecord[]> {

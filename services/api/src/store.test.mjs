@@ -95,6 +95,19 @@ test("store updates project policy and role profiles", () => {
     maxAutoContinueIterations: 8,
     refinementMode: "user_participant",
     agentCreatedTicketDefaultState: "READY",
+    ceremonyAutomation: {
+      enabled: true,
+      mode: "fully_automatic",
+      triggers: {
+        refinement: {
+          enabled: true,
+          minIntervalMinutes: 15,
+          participantRoles: ["product_manager", "developer"],
+          deciderRole: "product_manager",
+          consensusPolicy: "decider_synthesizes_objections",
+        },
+      },
+    },
   });
   const updatedRoleProfile = store.updateRoleProfile("project_pool", "developer", {
     adapter: "codex-cli",
@@ -111,6 +124,9 @@ test("store updates project policy and role profiles", () => {
   assert.equal(updatedPolicy.maxAutoContinueIterations, 8);
   assert.equal(updatedPolicy.refinementMode, "user_participant");
   assert.equal(updatedPolicy.agentCreatedTicketDefaultState, "READY");
+  assert.equal(updatedPolicy.ceremonyAutomation.enabled, true);
+  assert.equal(updatedPolicy.ceremonyAutomation.mode, "fully_automatic");
+  assert.equal(updatedPolicy.ceremonyAutomation.triggers.refinement.minIntervalMinutes, 15);
 
   assert.equal(updatedRoleProfile.role, "developer");
   assert.equal(updatedRoleProfile.adapter, "codex-cli");
@@ -125,6 +141,7 @@ test("store updates project policy and role profiles", () => {
   assert.equal(project.policy.maxParallelMerges, 2);
   assert.equal(project.policy.refinementMode, "user_participant");
   assert.equal(project.policy.agentCreatedTicketDefaultState, "READY");
+  assert.equal(project.policy.ceremonyAutomation.triggers.refinement.deciderRole, "product_manager");
   assert.equal(project.roleProfiles.find((profile) => profile.role === "developer").adapter, "codex-cli");
   assert.equal(store.listEvents("project_pool").at(-1).summary, "Pool developer profile updated");
 
@@ -151,6 +168,42 @@ test("store transitions tickets and records events", () => {
   assert.equal(transitioned.events.at(-1).action, "transitioned");
   assert.equal(transitioned.events.at(-1).lane, "ticket");
   assert.match(transitioned.events.at(-1).cursor, /:/);
+  store.close();
+});
+
+test("store creates ceremony proposals and applies approved ticket patches", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  const draft = store.createTicket("project_pool", {
+    title: "Thin refinement candidate",
+    brief: "Needs details.",
+    assignedRole: "developer",
+    state: "PROPOSED",
+  });
+
+  const run = store.createCeremonyRun("project_pool", {
+    type: "refinement",
+    createdByKind: "human",
+    createdByRef: "test",
+  });
+  const proposal = run.proposals.find((item) => item.ticketId === draft.id && item.kind === "ticket_patch");
+
+  assert.ok(proposal);
+  assert.equal(run.status, "proposed");
+  assert.deepEqual(run.participantRoles, ["product_manager", "architect", "developer", "reviewer"]);
+  assert.equal(run.deciderRole, "product_manager");
+  assert.equal(run.consensusPolicy, "decider_synthesizes_objections");
+  assert.equal(run.participants.length, 4);
+  assert.equal(run.participants.every((participant) => participant.status === "pending"), true);
+  assert.equal(proposal.status, "pending");
+
+  const applied = store.applyCeremonyRun("project_pool", run.id, {
+    proposalIds: [proposal.id],
+  });
+  const updated = store.getTicket("project_pool", draft.id);
+
+  assert.equal(applied.proposals.find((item) => item.id === proposal.id).status, "applied");
+  assert.match(updated.acceptanceCriteriaMd, /Scope is explicit/);
+  assert.equal(store.listEvents("project_pool").at(-1).type, "ceremony.applied");
   store.close();
 });
 
