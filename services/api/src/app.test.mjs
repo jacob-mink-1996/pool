@@ -35,7 +35,7 @@ test("health endpoint responds successfully", async () => {
 
     assert.equal(response.status, 200);
     assert.equal(body.ok, true);
-    assert.equal(body.service, "pool-api");
+    assert.equal(body.service, "floop-api");
   });
 });
 
@@ -45,7 +45,7 @@ test("meta endpoint exposes runtime defaults for the web app", async () => {
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.equal(body.name, "Pool");
+    assert.equal(body.name, "Floop");
     assert.equal(body.product, true);
     assert.equal(typeof body.workspaceRoot, "string");
     assert.equal(body.workspaceRoot.length > 0, true);
@@ -180,7 +180,7 @@ test("root route serves the operator web app", async () => {
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
-    assert.match(html, /Pool Mission Control/);
+    assert.match(html, /Floop Mission Control/);
     assert.match(html, /<div id="root"><\/div>|status-banner/);
   });
 });
@@ -215,7 +215,7 @@ test("head requests succeed for web assets", async () => {
   });
 });
 
-test("project creation bootstraps a blank Pool workspace", async () => {
+test("project creation bootstraps a blank Floop workspace", async () => {
   await withServer(
     async (baseUrl) => {
       const projectsResponse = await fetch(`${baseUrl}/api/v1/projects`);
@@ -274,7 +274,7 @@ test("project creation bootstraps a blank Pool workspace", async () => {
       });
       const ticketBody = await ticketResponse.json();
       assert.equal(ticketResponse.status, 201);
-      assert.equal(ticketBody.ticket.key, "POOL-1");
+      assert.equal(ticketBody.ticket.key, "FLOOP-1");
       assert.equal(ticketBody.ticket.repoTargets[0].repoId, repoBody.repo.id);
     },
     { seedDemo: false, workspaceRoot: "/workspace/blank-pool" },
@@ -323,7 +323,7 @@ test("project metadata can be patched through the API", async () => {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        name: "Pool Mission Control",
+        name: "Floop Mission Control",
         description: "Operational cockpit for governed delivery.",
         workspaceRoot: "/workspace/pool-prod",
         defaultBaseBranch: "trunk",
@@ -332,7 +332,7 @@ test("project metadata can be patched through the API", async () => {
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.equal(body.project.name, "Pool Mission Control");
+    assert.equal(body.project.name, "Floop Mission Control");
     assert.equal(body.project.description, "Operational cockpit for governed delivery.");
     assert.equal(body.project.workspaceRoot, "/workspace/pool-prod");
     assert.equal(body.project.defaultBaseBranch, "trunk");
@@ -579,7 +579,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
             {
               kind: "patch",
               label: "Implementation diff",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2.patch",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2.patch",
             },
           ],
         }),
@@ -600,7 +600,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
             {
               kind: "report",
               label: "Reviewer notes",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2-review.md",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2-review.md",
             },
           ],
           findings: [
@@ -661,7 +661,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
             {
               kind: "log",
               label: "Validation output",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2-validation.log",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2-validation.log",
             },
           ],
         }),

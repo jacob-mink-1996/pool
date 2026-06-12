@@ -52,7 +52,7 @@ async function startPoolApi(repoRoot) {
   });
   process.env.POOL_PORT = String(actualPort);
   await waitForHealth({ host, port: actualPort });
-  console.log(`Pool desktop API listening on http://${host}:${actualPort}`);
+  console.log(`Floop desktop API listening on http://${host}:${actualPort}`);
 
   return { host, port: actualPort };
 }
@@ -89,7 +89,7 @@ function createMainWindow({ host, port }) {
     height: 960,
     minWidth: 960,
     minHeight: 680,
-    title: "Pool",
+    title: "Floop",
     backgroundColor: "#f6f7f9",
     show: false,
     webPreferences: {
@@ -147,7 +147,7 @@ async function stopPoolApi() {
 function installMenu() {
   const template = [
     {
-      label: "Pool",
+      label: "Floop",
       submenu: [
         { role: "about" },
         { type: "separator" },
@@ -208,9 +208,9 @@ app.whenReady()
     });
   })
   .catch((error) => {
-    console.error("Pool desktop failed to start", error);
+    console.error("Floop desktop failed to start", error);
     dialog.showErrorBox(
-      "Pool failed to start",
+      "Floop failed to start",
       error instanceof Error ? error.message : String(error),
     );
     app.quit();
@@ -223,7 +223,7 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   stopPoolApi()
     .catch((error) => {
-      console.error("Failed to stop Pool API cleanly", error);
+      console.error("Failed to stop Floop API cleanly", error);
     })
     .finally(() => app.quit());
 });

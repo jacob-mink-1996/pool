@@ -2,7 +2,7 @@
 
 ## API Goals
 
-Pool's API should support three modes cleanly:
+Floop's API should support three modes cleanly:
 
 - operator-driven UI actions
 - background orchestration
@@ -80,7 +80,7 @@ List recent agent ceremony runs and their proposals.
 
 ### `POST /api/v1/projects/:projectId/ceremonies`
 
-Create a ceremony run. Pool currently supports:
+Create a ceremony run. Floop currently supports:
 
 - `refinement`
 - `planning`
@@ -97,7 +97,7 @@ Expected fields:
 - `consensusPolicy`
 
 Ceremony runs produce reviewable proposals. They do not mutate tickets until an
-operator applies proposals. When participant roles are configured, Pool also
+operator applies proposals. When participant roles are configured, Floop also
 creates ceremony participant records; the participant driver runs those role
 profiles in parallel and appends an agent-consensus note proposal after every
 participant completes.
@@ -114,7 +114,7 @@ Expected fields:
 
 - `proposalIds[]`
 
-If `proposalIds` is omitted or empty, Pool applies all pending proposals in the
+If `proposalIds` is omitted or empty, Floop applies all pending proposals in the
 run.
 
 ### `PATCH /api/v1/projects/:projectId`
@@ -123,7 +123,7 @@ Update project metadata.
 
 ### `DELETE /api/v1/projects/:projectId`
 
-Delete a project and all Pool-managed child records for it, including repos,
+Delete a project and all Floop-managed child records for it, including repos,
 tickets, dependencies, executions, worktrees, reviews, validations, artifacts,
 merge runs, events, policies, and role profiles.
 
@@ -322,7 +322,7 @@ Expected fields:
 - `followupTickets[]`
 
 `followupTickets[]` uses the normal ticket creation fields, excluding
-`parentTicketId`. Pool persists these as child tickets of the completed
+`parentTicketId`. Floop persists these as child tickets of the completed
 execution's ticket. Child ticket readiness is governed by `refinementMode`:
 `autonomous` may honor `agentCreatedTicketDefaultState` or an agent-requested
 state, while `user_approved`, `user_participant`, and `user_only` keep

@@ -1169,7 +1169,7 @@ export function createSqliteStore(options = {}) {
             )
             .get(projectId).max_key_index,
         ) + 1;
-      const key = `POOL-${nextIndex}`;
+      const key = `FLOOP-${nextIndex}`;
       const ticketId = `ticket_${slugify(projectId)}_${nextIndex}`;
       const ticket = {
         id: ticketId,
@@ -1634,7 +1634,7 @@ export function createSqliteStore(options = {}) {
           database,
           projectId,
           ticketId,
-          reason: `${ticket.key} review passed; Pool routed the validator lane.`,
+          reason: `${ticket.key} review passed; Floop routed the validator lane.`,
         });
       }
 
@@ -1864,7 +1864,7 @@ export function createSqliteStore(options = {}) {
                where project_id = ? and id = ?`,
             )
             .run(
-              "Pool recovered after restart before this merge lane reported a final result.",
+              "Floop recovered after restart before this merge lane reported a final result.",
               timestamp,
               projectId,
               latestRun.id,
@@ -1977,7 +1977,7 @@ export function createSqliteStore(options = {}) {
     reconcileActiveMergeRuns(input = {}) {
       const summaryMd = optionalText(
         input.summaryMd,
-        "Pool recovered after restart before this merge lane reported a final result.",
+        "Floop recovered after restart before this merge lane reported a final result.",
       );
       return this.listActiveMergeRuns()
         .map((mergeRun) =>
@@ -2152,7 +2152,7 @@ export function createSqliteStore(options = {}) {
       const activeExecutions = this.listActiveExecutions();
       const summaryMd = optionalText(
         input.summaryMd,
-        "Pool recovered after restart before this lane reported a final result.",
+        "Floop recovered after restart before this lane reported a final result.",
       );
       const remainingWorkMd = optionalText(
         input.remainingWorkMd,
@@ -2425,7 +2425,7 @@ export function createSqliteStore(options = {}) {
           database,
           projectId,
           ticketId: execution.ticket_id,
-          reason: `${ticket.key} implementation completed; Pool routed the next evidence lane.`,
+          reason: `${ticket.key} implementation completed; Floop routed the next evidence lane.`,
         });
       }
 
@@ -3929,8 +3929,8 @@ function buildRetroProposals(snapshot, timestamp) {
       ticket: {
         title: "Reduce blocked and rework loops",
         brief: `Retro observed ${blockedCount} blocked ticket(s) and ${reworkCount} rework ticket(s). Identify one policy, prompt, or validation improvement that would reduce repeat stalls.`,
-        acceptanceCriteriaMd: "- Root cause is named\n- One concrete system or process change is proposed\n- Success signal is measurable from Pool events",
-        definitionOfDoneMd: "- Improvement is implemented or documented\n- Pool evidence shows the change is inspectable",
+        acceptanceCriteriaMd: "- Root cause is named\n- One concrete system or process change is proposed\n- Success signal is measurable from Floop events",
+        definitionOfDoneMd: "- Improvement is implemented or documented\n- Floop evidence shows the change is inspectable",
         priority: blockedCount > 0 ? "high" : "medium",
         state: "PROPOSED",
         assignedRole: "product_manager",
@@ -4989,8 +4989,8 @@ function seed(database, workspaceRoot) {
       .run(
         projectId,
         "pool",
-        "Pool",
-        "Governed autonomous delivery control plane.",
+        "Floop",
+        "Fleet Loop autonomous delivery control plane.",
         workspaceRoot,
         "main",
         timestamp,
@@ -5011,7 +5011,7 @@ function seed(database, workspaceRoot) {
     const seededTickets = [
       {
         id: "ticket_project_pool_1",
-        key: "POOL-1",
+        key: "FLOOP-1",
         title: "Stand up real API service skeleton",
         brief: "Replace bootstrap-root API with the actual product service.",
         state: "WORKING",
@@ -5020,12 +5020,12 @@ function seed(database, workspaceRoot) {
         definitionOfDoneMd: "- service boots\n- domain package wired\n- MVP endpoints respond",
         assignedRole: "developer",
         latestSummary: "API scaffolding in progress",
-        branchName: "pool-1-api-skeleton",
+        branchName: "floop-1-api-skeleton",
         targetScopeMd: "services/api and shared packages",
       },
       {
         id: "ticket_project_pool_2",
-        key: "POOL-2",
+        key: "FLOOP-2",
         title: "Define first transport contracts",
         brief: "Codify project, repo, ticket, and event response shapes.",
         state: "READY",
@@ -5034,7 +5034,7 @@ function seed(database, workspaceRoot) {
         definitionOfDoneMd: "- backend uses shared contracts",
         assignedRole: "architect",
         latestSummary: "Ready for contract pass",
-        branchName: "pool-2-contracts",
+        branchName: "floop-2-contracts",
         targetScopeMd: "packages/contracts",
       },
     ];
@@ -5085,7 +5085,7 @@ function seed(database, workspaceRoot) {
     insertEvent(database, {
       projectId,
       type: "project.created",
-      summary: "Project Pool seeded",
+      summary: "Project Floop seeded",
     });
     insertEvent(database, {
       projectId,
@@ -5155,7 +5155,7 @@ function assertDeletableWorktreePath(worktreePath) {
   const resolvedPath = resolve(worktreePath);
   const marker = `${sep}.pool${sep}worktrees${sep}`;
   if (!resolvedPath.includes(marker)) {
-    throw new Error(`Refusing to delete non-Pool worktree path: ${worktreePath}`);
+    throw new Error(`Refusing to delete non-Floop worktree path: ${worktreePath}`);
   }
 }
 

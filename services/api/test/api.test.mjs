@@ -7,7 +7,7 @@ import { createPoolServer } from "../src/app.mjs";
 import { createStore } from "../src/store.mjs";
 
 test("API exposes persistent board and filtered ticket read models", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-api-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
   const filename = join(fixtureDir, "pool.sqlite");
   const store = createStore({
     filename,
@@ -49,7 +49,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(filteredResponse.status, 200);
     const filteredPayload = await filteredResponse.json();
     assert.equal(filteredPayload.tickets.length, 1);
-    assert.equal(filteredPayload.tickets[0].key, "POOL-3");
+    assert.equal(filteredPayload.tickets[0].key, "FLOOP-3");
 
     const childResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets`, {
       method: "POST",
@@ -111,7 +111,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(dependencyResponse.status, 200);
     const dependencyPayload = await dependencyResponse.json();
     assert.equal(dependencyPayload.ticket.dependencies.length, 1);
-    assert.equal(dependencyPayload.ticket.dependencies[0].blockingTicketKey, "POOL-1");
+    assert.equal(dependencyPayload.ticket.dependencies[0].blockingTicketKey, "FLOOP-1");
 
     const dependencyCycleResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/dependencies`,
@@ -138,7 +138,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
 });
 
 test("API exposes execution start, completion, continuation, and cancellation flows", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-api-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
   const filename = join(fixtureDir, "pool.sqlite");
   const store = createStore({
     filename,
@@ -166,13 +166,13 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     const createExecutionBody = await createExecutionResponse.json();
     assert.equal(createExecutionBody.execution.status, "running");
     assert.equal(createExecutionBody.execution.iteration, 1);
-    assert.equal(createExecutionBody.execution.ticketKey, "POOL-2");
+    assert.equal(createExecutionBody.execution.ticketKey, "FLOOP-2");
     assert.equal(createExecutionBody.execution.ticketTitle, "Define first transport contracts");
     assert.equal(createExecutionBody.execution.ticketState, "WORKING");
     assert.equal(createExecutionBody.execution.agentProfileId, "profile_project_pool_developer");
     assert.equal(createExecutionBody.execution.worktrees.length, 1);
     assert.equal(createExecutionBody.execution.worktrees[0].repoSlug, "pool");
-    assert.match(createExecutionBody.execution.worktrees[0].path, /\/workspace\/pool\/\.pool\/worktrees\/pool-2\/pool\/iter-1$/);
+    assert.match(createExecutionBody.execution.worktrees[0].path, /\/workspace\/pool\/\.pool\/worktrees\/floop-2\/pool\/iter-1$/);
 
     const executionDetailResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/executions/${createExecutionBody.execution.id}`,
@@ -180,7 +180,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(executionDetailResponse.status, 200);
     const executionDetailBody = await executionDetailResponse.json();
     assert.equal(executionDetailBody.execution.id, createExecutionBody.execution.id);
-    assert.equal(executionDetailBody.execution.ticketKey, "POOL-2");
+    assert.equal(executionDetailBody.execution.ticketKey, "FLOOP-2");
     assert.equal(executionDetailBody.execution.ticketTitle, "Define first transport contracts");
     assert.equal(executionDetailBody.execution.ticketState, "WORKING");
 
@@ -190,7 +190,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(listExecutionsResponse.status, 200);
     const listExecutionsBody = await listExecutionsResponse.json();
     assert.equal(listExecutionsBody.executions.length, 1);
-    assert.equal(listExecutionsBody.executions[0].ticketKey, "POOL-2");
+    assert.equal(listExecutionsBody.executions[0].ticketKey, "FLOOP-2");
 
     const completeExecutionResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/executions/${createExecutionBody.execution.id}/complete`,
@@ -304,7 +304,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     );
     assert.equal(concurrencyRejectedResponse.status, 409);
     const concurrencyRejectedBody = await concurrencyRejectedResponse.json();
-    assert.match(concurrencyRejectedBody.message, /Project execution limit reached for POOL-2/);
+    assert.match(concurrencyRejectedBody.message, /Project execution limit reached for FLOOP-2/);
 
     const continueExecutionResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/executions/${seedContinuationBody.execution.id}/continue`,
@@ -321,7 +321,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(continueExecutionBody.execution.iteration, 2);
     assert.equal(continueExecutionBody.execution.status, "running");
     assert.equal(continueExecutionBody.execution.worktrees[0].status, "active");
-    assert.match(continueExecutionBody.execution.worktrees[0].path, /\/workspace\/pool\/\.pool\/worktrees\/pool-1\/pool\/iter-2$/);
+    assert.match(continueExecutionBody.execution.worktrees[0].path, /\/workspace\/pool\/\.pool\/worktrees\/floop-1\/pool\/iter-2$/);
 
     const cleanActiveWorktreeResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/worktrees/${continueExecutionBody.execution.worktrees[0].id}/clean`,
@@ -343,7 +343,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     );
     assert.equal(overContinueResponse.status, 409);
     const overContinueBody = await overContinueResponse.json();
-    assert.match(overContinueBody.message, /POOL-1 reached the continuation limit of 1 iterations/);
+    assert.match(overContinueBody.message, /FLOOP-1 reached the continuation limit of 1 iterations/);
 
     const cancelExecutionResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_pool/executions/${continueExecutionBody.execution.id}/cancel`,
@@ -392,7 +392,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
 });
 
 test("API exposes review and validation evidence flows", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-api-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
   const filename = join(fixtureDir, "pool.sqlite");
   const store = createStore({
     filename,
@@ -431,7 +431,7 @@ test("API exposes review and validation evidence flows", async () => {
             {
               kind: "patch",
               label: "Implementation diff",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2.patch",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2.patch",
             },
           ],
         }),
@@ -452,7 +452,7 @@ test("API exposes review and validation evidence flows", async () => {
             {
               kind: "report",
               label: "Reviewer notes",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2-review.md",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2-review.md",
             },
           ],
         }),
@@ -486,7 +486,7 @@ test("API exposes review and validation evidence flows", async () => {
             {
               kind: "log",
               label: "Validation output",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2-validation.log",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2-validation.log",
             },
           ],
         }),
@@ -529,7 +529,7 @@ test("API exposes review and validation evidence flows", async () => {
 });
 
 test("API exposes merge readiness and merge completion flows", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-api-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
   const filename = join(fixtureDir, "pool.sqlite");
   const store = createStore({
     filename,
@@ -572,7 +572,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
     assert.equal(queueResponse.status, 200);
     const queueBody = await queueResponse.json();
     assert.equal(queueBody.queue.length, 1);
-    assert.equal(queueBody.queue[0].key, "POOL-2");
+    assert.equal(queueBody.queue[0].key, "FLOOP-2");
     assert.equal(queueBody.queue[0].mergeStatus.canMerge, true);
 
     const approvalRejectedResponse = await fetch(
@@ -637,7 +637,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
 });
 
 test("API exposes filtered project activity events with ticket and repo context", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-api-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
   const filename = join(fixtureDir, "pool.sqlite");
   const store = createStore({
     filename,
@@ -669,7 +669,7 @@ test("API exposes filtered project activity events with ticket and repo context"
     assert.equal(filteredEventsResponse.status, 200);
     const filteredEventsBody = await filteredEventsResponse.json();
     assert.equal(filteredEventsBody.events.length, 1);
-    assert.equal(filteredEventsBody.events[0].ticketKey, "POOL-2");
+    assert.equal(filteredEventsBody.events[0].ticketKey, "FLOOP-2");
     assert.equal(filteredEventsBody.events[0].ticketTitle, "Define first transport contracts");
     assert.equal(filteredEventsBody.events[0].repoSlug, "pool");
     assert.equal(filteredEventsBody.events[0].repoName, "pool");
@@ -696,7 +696,7 @@ test("API exposes filtered project activity events with ticket and repo context"
 });
 
 test("API exposes project artifact feeds with ticket context and filters", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-api-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
   const filename = join(fixtureDir, "pool.sqlite");
   const store = createStore({
     filename,
@@ -735,7 +735,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
             {
               kind: "patch",
               label: "Implementation diff",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2.patch",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2.patch",
             },
           ],
         }),
@@ -756,7 +756,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
             {
               kind: "report",
               label: "Reviewer notes",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2-review.md",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2-review.md",
             },
           ],
         }),
@@ -779,7 +779,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
             {
               kind: "log",
               label: "Validation output",
-              uri: "file:///workspace/pool/.pool/artifacts/pool-2-validation.log",
+              uri: "file:///workspace/pool/.pool/artifacts/floop-2-validation.log",
             },
           ],
         }),
@@ -812,7 +812,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
     const artifactsBody = await artifactsResponse.json();
     assert.equal(artifactsBody.artifacts.length, 2);
     assert.equal(artifactsBody.artifacts[0].label, "Merge commit");
-    assert.equal(artifactsBody.artifacts[0].ticketKey, "POOL-2");
+    assert.equal(artifactsBody.artifacts[0].ticketKey, "FLOOP-2");
     assert.equal(artifactsBody.artifacts[0].ticketTitle, "Define first transport contracts");
     assert.equal(artifactsBody.artifacts[1].kind, "log");
 

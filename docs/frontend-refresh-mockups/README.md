@@ -1,12 +1,12 @@
-# Pool Frontend Refresh Mockups
+# Floop Frontend Refresh Mockups
 
-Open `index.html` in a browser to review eight static frontend directions for Pool.
+Open `index.html` in a browser to review eight static frontend directions for Floop.
 
 Open `interaction-modes.html` to review how hands-off agent flows could change the Control Room and Execution Log surfaces.
 
-Open `pool-inspired.html` to review more brand-native UI directions based on lanes, depth, surface, and deck metaphors.
+Open `floop-inspired.html` to review more brand-native UI directions based on lanes, depth, surface, and deck metaphors.
 
-Open `pool-component-language.html` to review a harder-edged component system that avoids generic rounded rectangles and capsule-heavy UI.
+Open `floop-component-language.html` to review a harder-edged component system that avoids generic rounded rectangles and capsule-heavy UI.
 
 ## Reference Signals
 
@@ -24,7 +24,7 @@ Open `pool-component-language.html` to review a harder-edged component system th
 5. **Ops Pulse**: monitoring-first daily view. Useful for standups and “what needs attention?” scanning.
 6. **Triage Matrix**: dense utilitarian console. Best for backlog routing and batch decisions.
 7. **Planning Desk**: refinement-first writing surface. Best if input quality is the main bottleneck.
-8. **Execution Log**: live run supervision. Best if Pool should feel like controlled automation.
+8. **Execution Log**: live run supervision. Best if Floop should feel like controlled automation.
 
 ## Recommendation
 
@@ -39,7 +39,7 @@ After the second iteration, the strongest combined direction is:
 - **Exception Queue** as the hands-off/autopilot mode surface.
 - Explicit autonomy levels: Ask, Supervise, Autopilot, Hold.
 
-After the Pool-inspired iteration, the most ownable language is:
+After the Floop-inspired iteration, the most ownable language is:
 
 - **Lanes** for parallel agent work.
 - **Depth** for progressive inspection: status, evidence, raw logs.
@@ -62,5 +62,5 @@ After the component-language iteration, the strongest primitives are:
 - Move raw agent output behind evidence summaries, except in an Execution Log view.
 - Preserve existing domain objects and API contracts: project, board groups, tickets, events, artifacts, merge queue, repos, and policy.
 - Add an autonomy-mode model before redesigning screens, because mode changes what information should be primary.
-- Use Pool metaphor as structure and interaction language, not as literal decoration.
-- Avoid default rounded SaaS geometry; use Pool-specific primitives before adding new generic panels.
+- Use Floop metaphor as structure and interaction language, not as literal decoration.
+- Avoid default rounded SaaS geometry; use Floop-specific primitives before adding new generic panels.

@@ -21,9 +21,9 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
 
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
-    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
@@ -69,7 +69,7 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
 
     assert.equal(mergedTicket.state, "DONE");
     assert.equal(mergedTicket.mergeStatus.latestRun.status, "completed");
-    assert.equal(mergedTicket.mergeStatus.latestRun.approvedByRef, "pool-auto");
+    assert.equal(mergedTicket.mergeStatus.latestRun.approvedByRef, "floop-auto");
     assert.ok(mergeArtifact);
 
     const mergeSummary = JSON.parse(readFileSync(new URL(mergeArtifact.uri), "utf8"));
@@ -97,9 +97,9 @@ test("merge driver blocks when the target repo worktree is dirty", async () => {
 
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
-    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
@@ -146,7 +146,7 @@ test("merge driver blocks when the target repo worktree is dirty", async () => {
     assert.ok(blockedArtifact);
     assert.match(readFileSync(new URL(blockedArtifact.uri), "utf8"), /dirty_target_worktree/);
     assert.throws(() => readFileSync(join(repoRoot, "feature.txt"), "utf8"), /ENOENT/);
-    assert.equal(execution.worktrees[0].branchName.includes("pool-2"), true);
+    assert.equal(execution.worktrees[0].branchName.includes("floop-2"), true);
   } finally {
     store.close();
     rmSync(fixtureDir, { recursive: true, force: true });
@@ -165,9 +165,9 @@ test("merge driver retries blocked runs and records already-applied source branc
 
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
-    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
@@ -202,7 +202,7 @@ test("merge driver retries blocked runs and records already-applied source branc
     const interrupted = store.startMergeRun("project_pool", "ticket_project_pool_2", {
       strategy: "squash",
       approvedByKind: "system",
-      approvedByRef: "pool-auto",
+      approvedByRef: "floop-auto",
       claimToken: "merge-worker",
     });
     store.completeMergeRun("project_pool", interrupted.id, {
@@ -211,7 +211,7 @@ test("merge driver retries blocked runs and records already-applied source branc
       failureKind: "interrupted",
     });
     execFileSync("git", ["-C", repoRoot, "merge", "--squash", execution.worktrees[0].branchName]);
-    execFileSync("git", ["-C", repoRoot, "commit", "-m", "POOL-2: already published"]);
+    execFileSync("git", ["-C", repoRoot, "commit", "-m", "FLOOP-2: already published"]);
     store.transitionTicket("project_pool", "ticket_project_pool_2", {
       targetState: "READY_TO_MERGE",
       reason: "Retry interrupted merge after confirming target ref was published.",
@@ -264,7 +264,7 @@ test("merge driver reconciles interrupted active merge runs on startup", async (
     store.startMergeRun("project_pool", "ticket_project_pool_2", {
       strategy: "squash",
       approvedByKind: "system",
-      approvedByRef: "pool-auto",
+      approvedByRef: "floop-auto",
       claimToken: "merge-worker",
     });
 
@@ -321,9 +321,9 @@ process.exit(result.status ?? 1);
     );
 
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
-    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
@@ -374,8 +374,8 @@ process.exit(result.status ?? 1);
     assert.equal(mergedTicket.state, "DONE");
     assert.equal(readFileSync(counterPath, "utf8"), "2");
     assert.equal(mergedTicket.mergeStatus.latestRun.status, "completed");
-    assert.equal(mergedTicket.mergeStatus.latestRun.approvedByRef, "pool-auto");
-    assert.equal(execution.worktrees[0].branchName.includes("pool-2"), true);
+    assert.equal(mergedTicket.mergeStatus.latestRun.approvedByRef, "floop-auto");
+    assert.equal(execution.worktrees[0].branchName.includes("floop-2"), true);
   } finally {
     store.close();
     rmSync(fixtureDir, { recursive: true, force: true });
@@ -412,9 +412,9 @@ process.exit(result.status ?? 1);
     );
 
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
-    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
@@ -458,7 +458,7 @@ process.exit(result.status ?? 1);
       const competingStart = store.startMergeRun("project_pool", "ticket_project_pool_2", {
         strategy: "squash",
         approvedByKind: "system",
-        approvedByRef: "pool-auto",
+        approvedByRef: "floop-auto",
         claimToken: "merge-worker-b",
       });
 
@@ -466,7 +466,7 @@ process.exit(result.status ?? 1);
 
       assert.equal(competingStart, null);
       assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").state, "DONE");
-      assert.equal(execution.worktrees[0].branchName.includes("pool-2"), true);
+      assert.equal(execution.worktrees[0].branchName.includes("floop-2"), true);
     } finally {
       process.env.PATH = originalPath;
       delete process.env.POOL_REAL_GIT;

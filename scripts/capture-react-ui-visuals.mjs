@@ -45,7 +45,7 @@ try {
   await screenshot("01b-desktop-settings-deep-end");
   await clickSelector(".settings-drawer .drawer-heading button[aria-label='Close settings']");
   await waitForScript("document.querySelector('.settings-drawer') === null");
-  await clickText("Use pool-day theme");
+  await clickText("Use day theme");
   await waitForScript("document.documentElement.dataset.theme === 'light'");
   await clickText("Collapse project rail");
   await waitForScript("document.querySelector('.app-shell.is-rail-collapsed') !== null");
@@ -123,7 +123,7 @@ try {
   await delay(150);
   await screenshot("16-mobile-detail-scrolled");
 
-  console.log(`Pool visual screenshots written to ${outputDir}`);
+  console.log(`Floop visual screenshots written to ${outputDir}`);
 } finally {
   if (sessionId) {
     await webdriver("DELETE", `/session/${sessionId}`).catch(() => {});

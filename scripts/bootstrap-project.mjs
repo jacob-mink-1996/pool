@@ -25,7 +25,7 @@ async function main() {
   const projectName = args.projectName || humanizeSlug(repoSlug);
   const projectSlug = args.projectSlug || slugify(projectName) || repoSlug;
   const defaultBranch = args.defaultBranch || "main";
-  const projectDescription = args.projectDescription || "Pool-managed autonomous delivery project.";
+  const projectDescription = args.projectDescription || "Floop-managed autonomous delivery project.";
   const ciCommand = args.ciCommand || "npm test";
   const humanApproval = parseBooleanFlag(args.humanApprovalBeforeMerge, false);
 
@@ -71,7 +71,7 @@ async function main() {
   assert.equal(policy.policy.requiredValidationCommandProfileForMerge, "ci");
   assert.equal(profiles.profiles.some((item) => item.role === "developer"), true);
 
-  console.log(`Bootstrapped Pool project ${projectSummary.project.name} (${projectSummary.project.id})`);
+  console.log(`Bootstrapped Floop project ${projectSummary.project.name} (${projectSummary.project.id})`);
   console.log(`Base URL: ${baseUrl}`);
   console.log(`Workspace: ${projectSummary.project.workspaceRoot}`);
   console.log(`Primary repo: ${repo.name} (${repo.localPath})`);
@@ -269,7 +269,7 @@ function escapeSingleQuoted(value) {
 }
 
 function printHelp() {
-  console.log(`Pool project bootstrap
+  console.log(`Floop project bootstrap
 
 Usage:
   node scripts/bootstrap-project.mjs --repo-path /path/to/repo [options]

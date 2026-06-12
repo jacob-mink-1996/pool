@@ -71,9 +71,9 @@ try {
 } catch (error) {
   failed = true;
   if (serverProcess?.poolLogs) {
-    console.error("---- Pool API stdout ----");
+    console.error("---- Floop API stdout ----");
     console.error(serverProcess.poolLogs.stdout.trim() || "(empty)");
-    console.error("---- Pool API stderr ----");
+    console.error("---- Floop API stderr ----");
     console.error(serverProcess.poolLogs.stderr.trim() || "(empty)");
   }
   console.error(error.stack || error.message || String(error));
@@ -496,16 +496,16 @@ async function assertMissionControlServed(baseUrl) {
   const response = await fetch(baseUrl);
   const html = await response.text();
   assert.equal(response.ok, true);
-  assert.match(html, /Pool Mission Control/);
+  assert.match(html, /Floop Mission Control/);
 }
 
 function initializeTargetRepo(targetRepoPath) {
   execFileSync("mkdir", ["-p", workspaceRoot]);
   execFileSync("mkdir", ["-p", targetRepoPath]);
   execFileSync("git", ["init", "-b", "main", targetRepoPath]);
-  execFileSync("git", ["-C", targetRepoPath, "config", "user.name", "Pool MVP Verify"]);
+  execFileSync("git", ["-C", targetRepoPath, "config", "user.name", "Floop MVP Verify"]);
   execFileSync("git", ["-C", targetRepoPath, "config", "user.email", "pool-mvp@example.com"]);
-  writeFileSync(join(targetRepoPath, "README.md"), "# Pool MVP verification repo\n", "utf8");
+  writeFileSync(join(targetRepoPath, "README.md"), "# Floop MVP verification repo\n", "utf8");
   execFileSync("git", ["-C", targetRepoPath, "add", "README.md"]);
   execFileSync("git", ["-C", targetRepoPath, "commit", "-m", "Seed verification repo"]);
 }
@@ -568,7 +568,7 @@ async function waitForHealth(baseUrl, timeoutMs = 10000) {
     }
     await sleep(100);
   }
-  throw new Error(`Timed out waiting for Pool API health at ${baseUrl}`);
+  throw new Error(`Timed out waiting for Floop API health at ${baseUrl}`);
 }
 
 async function updateRoleProfile(baseUrl, projectId, role, payload) {

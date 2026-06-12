@@ -37,14 +37,14 @@ try {
   await waitForScript("document.querySelectorAll('.ticket-card').length >= 2");
   await assertNoUiErrors();
   await assertScript("document.querySelector('.project-description') !== null", "project description is visible in the topbar");
-  await assertScript("document.documentElement.dataset.theme === 'light'", "pool-day theme is the default");
+  await assertScript("document.documentElement.dataset.theme === 'light'", "floop-day theme is the default");
   await clickText("Use deep-end theme");
   await waitForScript("document.documentElement.dataset.theme === 'dark'");
   await assertScript("getComputedStyle(document.body).backgroundColor !== 'rgb(246, 242, 232)'", "deep-end theme changes the page background");
   await navigate(appUrl);
   await waitForText("Define first transport contracts");
   await waitForScript("document.documentElement.dataset.theme === 'dark'");
-  await clickText("Use pool-day theme");
+  await clickText("Use day theme");
   await waitForScript("document.documentElement.dataset.theme === 'light'");
 
   await clickText("New project");
@@ -83,7 +83,7 @@ try {
   await clickText("Delete project");
   await waitForScript("document.querySelector('.settings-drawer') === null");
   await waitForTextGone("Browser Onboarding Project");
-  await clickText("Pool");
+  await clickText("Floop");
   await waitForText("Define first transport contracts");
   await assertNoUiErrors();
   await transitionTicket(appUrl, "project_pool", "ticket_project_pool_2", "WORKING");
@@ -108,10 +108,10 @@ try {
   await assertScript("document.querySelectorAll('.toggle-list input[type=\"checkbox\"]').length >= 4", "settings policy checkboxes render");
   await assertScript("document.body.innerText.includes('Enable automatic ceremony triggers')", "settings ceremony trigger controls render");
   await assertScript("getComputedStyle(document.querySelector('.toggle-list label')).borderStyle !== 'none'", "settings checkbox rows are styled");
-  await setFormValue("Save project", "name", "Pool QA Control");
+  await setFormValue("Save project", "name", "Floop QA Control");
   await setFormValue("Save project", "description", "Browser-tested pool operations.");
   await clickText("Save project");
-  await waitForText("Pool QA Control");
+  await waitForText("Floop QA Control");
   await waitForText("Browser-tested pool operations.");
 
   await setFormValue("Add checkout", "name", "QA Repo");
@@ -154,7 +154,7 @@ try {
   await waitForText("Start developer lane");
   await assertScript("document.querySelector('.ticket-detail .read-model') !== null", "ticket plan is read-only by default");
   await waitForText("Danger Zone");
-  await waitForText("Type POOL-3 to confirm");
+  await waitForText("Type FLOOP-3 to confirm");
   await assertScript("document.querySelector('[name=\"restartConfirmation\"]') !== null", "ticket restart confirmation is available");
   await assertScript("Array.from(document.querySelectorAll('button')).some((button) => button.innerText.trim() === 'Restart ticket' && button.disabled)", "restart button is disabled before exact ticket key confirmation");
   await assertScript("document.querySelector('.ticket-detail [name=\"latestSummary\"]') === null", "ticket edit fields are not mounted before edit mode");
@@ -172,7 +172,7 @@ try {
   await clickText("Edit ticket");
   await setFirstSelectOption("Add blocker", "blockingTicketId");
   await clickText("Add blocker");
-  await waitForScript("Array.from(document.querySelectorAll('article')).some((item) => item.innerText.includes('POOL-') && item.innerText.includes('finish_to_start'))");
+  await waitForScript("Array.from(document.querySelectorAll('article')).some((item) => item.innerText.includes('FLOOP-') && item.innerText.includes('finish_to_start'))");
   await clickButtonInArticle("finish_to_start", "Remove");
   await waitForScript("!Array.from(document.querySelectorAll('article')).some((item) => item.innerText.includes('finish_to_start'))");
 
@@ -222,7 +222,7 @@ try {
   await waitForScript("document.querySelector('.ticket-detail') !== null");
   await assertNoUiErrors();
 
-  console.log("Pool React browser UI check");
+  console.log("Floop React browser UI check");
   console.log("===========================");
   console.log("settings, composer, ticket detail, scope, action flow, and mobile drawers: ok");
 } finally {

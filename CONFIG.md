@@ -2,7 +2,7 @@
 
 ## Configuration Philosophy
 
-Pool should be configurable at three levels:
+Floop should be configurable at three levels:
 
 - global
 - project

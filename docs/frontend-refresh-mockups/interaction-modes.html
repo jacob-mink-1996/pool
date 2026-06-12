@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pool Interaction Modes</title>
+  <title>Floop Interaction Modes</title>
   <style>
     :root {
       color-scheme: light;
@@ -642,7 +642,7 @@
   <div class="shell">
     <aside class="rail">
       <div>
-        <h1>Pool</h1>
+        <h1>Floop</h1>
         <p>Hands-off interaction modes</p>
       </div>
       <nav>
@@ -652,7 +652,7 @@
         <a href="#single-run">Focused Execution Log</a>
         <a href="#multi-run">Multi-Agent Runs</a>
         <a href="#governance">Governance Model</a>
-        <a href="pool-inspired.html">Pool-Inspired UI</a>
+        <a href="floop-inspired.html">Floop-Inspired UI</a>
         <a href="index.html">Back to mockups</a>
       </nav>
       <p class="note">Exploration of how hands-off agent flows change the product surface.</p>
@@ -673,7 +673,7 @@
         <div class="section-head">
           <div>
             <h2>Autonomy map</h2>
-            <p class="caption">The mode system should be explicit. Operators need to know when Pool is asking, recommending, executing, or fully auto-progressing tickets.</p>
+            <p class="caption">The mode system should be explicit. Operators need to know when Floop is asking, recommending, executing, or fully auto-progressing tickets.</p>
           </div>
           <span class="eyebrow">Interaction model</span>
         </div>
@@ -681,7 +681,7 @@
           <article>
             <span class="state wait">Ask</span>
             <h3>Confirm every gate</h3>
-            <p>Pool drafts actions and waits before execution, review, validation, and merge.</p>
+            <p>Floop drafts actions and waits before execution, review, validation, and merge.</p>
             <span class="small">UI emphasis: decision queue</span>
           </article>
           <article>
@@ -699,7 +699,7 @@
           <article>
             <span class="state stop">Hold</span>
             <h3>Freeze risky work</h3>
-            <p>Pool stops transitions for protected repos, unclear scope, repeated failures, or policy conflict.</p>
+            <p>Floop stops transitions for protected repos, unclear scope, repeated failures, or policy conflict.</p>
             <span class="small">UI emphasis: intervention</span>
           </article>
         </div>
@@ -716,8 +716,8 @@
         <div class="frame">
           <div class="app control-room">
             <aside>
-              <div class="row"><h3>Pool</h3><span class="state auto">Autopilot</span></div>
-              <p class="muted">Project Pool · 32 tickets · 3 repos</p>
+              <div class="row"><h3>Floop</h3><span class="state auto">Autopilot</span></div>
+              <p class="muted">Project Floop · 32 tickets · 3 repos</p>
               <div class="project-list">
                 <span>Control Room</span>
                 <span>Runs</span>
@@ -740,27 +740,27 @@
               <div class="board">
                 <section class="lane">
                   <div class="row"><h4>Running</h4><span class="count">4</span></div>
-                  <article class="ticket"><span class="state work">Active</span><strong>POOL-14 Workspace bootstrap</strong><p>Developer lane. Last event 48s ago.</p></article>
-                  <article class="ticket"><span class="state work">Active</span><strong>POOL-22 Contract tests</strong><p>Validator lane running browser checks.</p></article>
+                  <article class="ticket"><span class="state work">Active</span><strong>FLOOP-14 Workspace bootstrap</strong><p>Developer lane. Last event 48s ago.</p></article>
+                  <article class="ticket"><span class="state work">Active</span><strong>FLOOP-22 Contract tests</strong><p>Validator lane running browser checks.</p></article>
                 </section>
                 <section class="lane">
                   <div class="row"><h4>Waiting</h4><span class="count">3</span></div>
-                  <article class="ticket"><span class="state wait">Checkpoint</span><strong>POOL-11 Validation output</strong><p>Reviewer finding needs disposition.</p></article>
+                  <article class="ticket"><span class="state wait">Checkpoint</span><strong>FLOOP-11 Validation output</strong><p>Reviewer finding needs disposition.</p></article>
                 </section>
                 <section class="lane">
                   <div class="row"><h4>Exceptions</h4><span class="count">2</span></div>
-                  <article class="ticket"><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><p>Protected branch rule blocks route.</p></article>
+                  <article class="ticket"><span class="state stop">Policy</span><strong>FLOOP-7 Repo mismatch</strong><p>Protected branch rule blocks route.</p></article>
                 </section>
                 <section class="lane">
                   <div class="row"><h4>Merge</h4><span class="count">2</span></div>
-                  <article class="ticket"><span class="state ok">Ready</span><strong>POOL-5 Settings drawer</strong><p>Evidence bundle complete.</p></article>
+                  <article class="ticket"><span class="state ok">Ready</span><strong>FLOOP-5 Settings drawer</strong><p>Evidence bundle complete.</p></article>
                 </section>
               </div>
             </main>
             <section class="inspector">
               <div>
                 <span class="state stop">Operator needed</span>
-                <h3>POOL-7 Repo mismatch</h3>
+                <h3>FLOOP-7 Repo mismatch</h3>
                 <p class="muted">Autopilot stopped before execution because repo target does not match project policy.</p>
               </div>
               <div class="panel">
@@ -782,7 +782,7 @@
         <div class="section-head">
           <div>
             <h2>Exception Queue</h2>
-            <p class="caption">In high-autonomy mode the board recedes. The primary surface becomes a short queue of decisions Pool cannot safely make alone.</p>
+            <p class="caption">In high-autonomy mode the board recedes. The primary surface becomes a short queue of decisions Floop cannot safely make alone.</p>
           </div>
           <span class="eyebrow">Hands-off mode</span>
         </div>
@@ -796,18 +796,18 @@
               <section class="queue">
                 <div class="row"><h3>Decision queue</h3><span class="pill">4 open</span></div>
                 <div class="decision-list">
-                  <article><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><button class="button">Resolve</button></article>
-                  <article><span class="state wait">Review</span><strong>POOL-11 Finding needs disposition</strong><button class="button">Decide</button></article>
-                  <article><span class="state warn">Confidence</span><strong>POOL-18 Criteria ambiguous</strong><button class="button">Refine</button></article>
-                  <article><span class="state stop">Validation</span><strong>POOL-22 Browser check failed</strong><button class="button">Inspect</button></article>
+                  <article><span class="state stop">Policy</span><strong>FLOOP-7 Repo mismatch</strong><button class="button">Resolve</button></article>
+                  <article><span class="state wait">Review</span><strong>FLOOP-11 Finding needs disposition</strong><button class="button">Decide</button></article>
+                  <article><span class="state warn">Confidence</span><strong>FLOOP-18 Criteria ambiguous</strong><button class="button">Refine</button></article>
+                  <article><span class="state stop">Validation</span><strong>FLOOP-22 Browser check failed</strong><button class="button">Inspect</button></article>
                 </div>
               </section>
               <section class="context">
                 <span class="state stop">Policy</span>
-                <h3>POOL-7 Repo mismatch</h3>
-                <p class="muted">Pool cannot start a developer lane because the ticket targets an unapproved checkout.</p>
+                <h3>FLOOP-7 Repo mismatch</h3>
+                <p class="muted">Floop cannot start a developer lane because the ticket targets an unapproved checkout.</p>
                 <article class="panel"><strong>Recommended action</strong><p>Move the ticket back to Planning Desk and attach the primary repo target.</p></article>
-                <article class="panel"><strong>Why Pool stopped</strong><p>Policy requires workspace-local paths for hands-off execution. Current path is external.</p></article>
+                <article class="panel"><strong>Why Floop stopped</strong><p>Policy requires workspace-local paths for hands-off execution. Current path is external.</p></article>
                 <div class="row"><button class="button">Send to planning</button><button class="button">Override once</button></div>
               </section>
             </div>
@@ -826,7 +826,7 @@
         <div class="frame">
           <div class="app log-mode">
             <header>
-              <div><h3>POOL-14 Workspace bootstrap</h3><span class="muted">Developer lane · active worktree · 48 seconds since last event</span></div>
+              <div><h3>FLOOP-14 Workspace bootstrap</h3><span class="muted">Developer lane · active worktree · 48 seconds since last event</span></div>
               <span class="state work">Running</span>
             </header>
             <div class="body">
@@ -849,7 +849,7 @@
         <div class="section-head">
           <div>
             <h2>Multi-Agent Runs</h2>
-            <p class="caption">When Pool has several autonomous runs in flight, Execution Log needs a compact multi-run view with health, last event, and expandable logs.</p>
+            <p class="caption">When Floop has several autonomous runs in flight, Execution Log needs a compact multi-run view with health, last event, and expandable logs.</p>
           </div>
           <span class="eyebrow">Parallel mode</span>
         </div>
@@ -864,13 +864,13 @@
                 <div class="row"><h3>Healthy</h3><span class="pill">3</span></div>
                 <article class="run-row">
                   <span class="state work">Running</span>
-                  <strong>POOL-14 Workspace bootstrap</strong>
+                  <strong>FLOOP-14 Workspace bootstrap</strong>
                   <span class="muted">Last event 48s ago</span>
                   <div class="mini-log"><span>$ npm test</span><span>api passed</span><span>web typecheck passed</span></div>
                 </article>
                 <article class="run-row">
                   <span class="state work">Running</span>
-                  <strong>POOL-22 Contract tests</strong>
+                  <strong>FLOOP-22 Contract tests</strong>
                   <span class="muted">Browser checks active</span>
                 </article>
               </section>
@@ -878,13 +878,13 @@
                 <div class="row"><h3>Checkpoint</h3><span class="pill">2</span></div>
                 <article class="run-row">
                   <span class="state wait">Review</span>
-                  <strong>POOL-11 Persist validation output</strong>
+                  <strong>FLOOP-11 Persist validation output</strong>
                   <span class="muted">Reviewer gate required</span>
                   <button class="button">Record review</button>
                 </article>
                 <article class="run-row">
                   <span class="state warn">Criteria</span>
-                  <strong>POOL-18 Define transport contracts</strong>
+                  <strong>FLOOP-18 Define transport contracts</strong>
                   <span class="muted">Acceptance criteria ambiguous</span>
                 </article>
               </section>
@@ -892,9 +892,9 @@
                 <div class="row"><h3>Stopped</h3><span class="pill">1</span></div>
                 <article class="run-row">
                   <span class="state stop">Policy</span>
-                  <strong>POOL-7 Repo mismatch</strong>
+                  <strong>FLOOP-7 Repo mismatch</strong>
                   <span class="muted">No agent work started</span>
-                  <div class="mini-log"><span>policy: workspaceRoot</span><span>expected: /pool</span><span>actual: external path</span></div>
+                  <div class="mini-log"><span>policy: workspaceRoot</span><span>expected: /floop</span><span>actual: external path</span></div>
                   <button class="button">Resolve</button>
                 </article>
               </section>

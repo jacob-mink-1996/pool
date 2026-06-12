@@ -27,8 +27,8 @@ import type {
 
 const refinementModes: Array<{ value: RefinementMode; label: string; detail: string }> = [
   { value: "autonomous", label: "Autonomous", detail: "Agent-created tickets may leave refinement automatically." },
-  { value: "user_approved", label: "User approved", detail: "Pool proposes refined tickets; a user approves readiness." },
-  { value: "user_participant", label: "User participant", detail: "Pool and the user collaborate before readiness." },
+  { value: "user_approved", label: "User approved", detail: "Floop proposes refined tickets; a user approves readiness." },
+  { value: "user_participant", label: "User participant", detail: "Floop and the user collaborate before readiness." },
   { value: "user_only", label: "User only", detail: "Only user action brings tickets out of refinement." },
 ];
 
@@ -224,7 +224,7 @@ function DeleteProjectSection({
         </div>
       </div>
       <p>
-        Delete this project and all Pool-managed tickets, repos, executions, reviews, validations, merge records, events, and artifacts.
+        Delete this project and all Floop-managed tickets, repos, executions, reviews, validations, merge records, events, and artifacts.
       </p>
       <label>
         <span>Type {project.name} to confirm</span>

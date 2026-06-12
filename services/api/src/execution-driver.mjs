@@ -85,7 +85,7 @@ class ExecutionDriver {
 
   async reconcileOnStart() {
     const recovered = this.store.reconcileActiveExecutions({
-      summaryMd: "Pool recovered after restart before this lane reported a final result.",
+      summaryMd: "Floop recovered after restart before this lane reported a final result.",
       remainingWorkMd: "Retry or continue this lane now that the control plane is back online.",
     });
     if (recovered.length > 0) {
@@ -182,7 +182,7 @@ class ExecutionDriver {
           isRetryableExecutionFailure(completion.failureKind) &&
           attempt === this.maxAttempts
         ) {
-          completion.summaryMd = `${completion.summaryMd}\n\nPool exhausted ${this.maxAttempts} retry attempt(s) before failing this lane.`;
+          completion.summaryMd = `${completion.summaryMd}\n\nFloop exhausted ${this.maxAttempts} retry attempt(s) before failing this lane.`;
           completion.failureKind = "driver_retries_exhausted";
         }
 
@@ -812,7 +812,7 @@ function buildCodexPrompt(project, ticket, execution, adapterRun, runtime) {
   const preamble = adapterRun.promptPreamble ? `${adapterRun.promptPreamble}\n\n` : "";
   const resultContract = buildCodexResultContract(execution.role, runtime.resultPath);
   const refinementPolicy = describeRefinementMode(project.policy?.refinementMode);
-  return `${preamble}You are the ${execution.role} lane for Pool ticket ${ticket.key}.
+  return `${preamble}You are the ${execution.role} lane for Floop ticket ${ticket.key}.
 
 Operate inside the provided worktree and make the required code changes directly.
 

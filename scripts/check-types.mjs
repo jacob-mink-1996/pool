@@ -7,7 +7,7 @@ import {
 import "./check-react-shell.mjs";
 import "./check-react-production.mjs";
 
-console.log("Pool product type check");
+console.log("Floop product type check");
 console.log("=======================");
 console.log(`ticket states: ${ticketStates.length}`);
 console.log(`execution outcomes: ${executionOutcomes.length}`);

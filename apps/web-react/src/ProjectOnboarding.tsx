@@ -23,7 +23,7 @@ export function ProjectEmptyState({ onCreateProject }: { onCreateProject: () => 
     <section className="empty-state project-empty-state">
       <div>
         <h3>No project selected</h3>
-        <p>Create a Pool project to register local repos, write tickets, and run the governed delivery loop.</p>
+        <p>Create a Floop project to register local repos, write tickets, and run the governed delivery loop.</p>
       </div>
       <button className="primary-button" type="button" onClick={onCreateProject}>
         Create project
@@ -71,7 +71,7 @@ export function ProjectOnboardingDialog({
           workspaceRoot,
         );
       }
-      const projectName = projectDetails.name.trim() || repo?.name || pathLeaf(workspaceRoot) || "Pool Project";
+      const projectName = projectDetails.name.trim() || repo?.name || pathLeaf(workspaceRoot) || "Floop Project";
       const projectSlug = projectDetails.slug.trim() || slugify(projectName);
 
       await onSubmit({
@@ -264,7 +264,7 @@ export function ProjectOnboardingDialog({
                 <label className={`mode-pill ${sourceMode === "existing" ? "active" : ""}`}>
                   <input type="radio" name="workspaceSourceMode" value="existing" checked={sourceMode === "existing"} onChange={() => changeSourceMode("existing")} />
                   <strong>Existing folder</strong>
-                  <span>Use a local folder. If it is git, Pool attaches it as primary.</span>
+                  <span>Use a local folder. If it is git, Floop attaches it as primary.</span>
                 </label>
                 <label className={`mode-pill ${sourceMode === "new" ? "active" : ""}`}>
                   <input type="radio" name="workspaceSourceMode" value="new" checked={sourceMode === "new"} onChange={() => changeSourceMode("new")} />
@@ -288,7 +288,7 @@ export function ProjectOnboardingDialog({
                       </button> : null}
                     </span>
                     <small className="field-help">
-                      Pool checks this folder for git metadata. Non-git folders are still valid project workspaces.
+                      Floop checks this folder for git metadata. Non-git folders are still valid project workspaces.
                     </small>
                     <PathSuggestions fieldName="existingPath" />
                   </label>
@@ -301,7 +301,7 @@ export function ProjectOnboardingDialog({
                         Browse
                       </button> : null}
                     </span>
-                    <small className="field-help">Pool creates this folder if it does not already exist.</small>
+                    <small className="field-help">Floop creates this folder if it does not already exist.</small>
                     <PathSuggestions fieldName="newFolderPath" />
                   </label>
                 ) : (

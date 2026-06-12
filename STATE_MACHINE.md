@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Pool needs a richer state machine than a simple Kanban board in order to
+Floop needs a richer state machine than a simple Kanban board in order to
 govern autonomous work safely.
 
 The UI may group states for simplicity, but the engine should preserve the

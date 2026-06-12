@@ -2,7 +2,7 @@
 
 ## Goals
 
-The Pool database needs to support:
+The Floop database needs to support:
 
 - durable project and ticket state
 - multi-repo targeting from the start
@@ -238,7 +238,7 @@ Suggested fields:
 - `updated_at` timestamptz not null
 
 The ceremony participant driver runs pending participants through their role
-profiles in parallel. Once all participants complete, Pool appends an
+profiles in parallel. Once all participants complete, Floop appends an
 agent-consensus note proposal to the ceremony run.
 
 ### `executions`

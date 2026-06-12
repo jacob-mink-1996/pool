@@ -38,7 +38,7 @@ test("bootstrap-project script creates a runnable local project setup", async ()
   await withServer(async ({ fixtureDir, baseUrl }) => {
     const repoRoot = join(fixtureDir, "client-zero");
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Client Zero\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
@@ -67,7 +67,7 @@ test("bootstrap-project script creates a runnable local project setup", async ()
       },
     );
 
-    assert.match(output, /Bootstrapped Pool project Client Zero/);
+    assert.match(output, /Bootstrapped Floop project Client Zero/);
 
     const projects = await fetch(`${baseUrl}/api/v1/projects`);
     const projectsBody = await projects.json();

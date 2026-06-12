@@ -221,7 +221,7 @@ function buildCodexArgs(adapter, { project, runtime }) {
 
 function buildPrompt(project, run, participant, adapter, runtime) {
   const preamble = adapter.promptPreamble ? `${adapter.promptPreamble}\n\n` : "";
-  return `${preamble}You are the ${participant.role} participant in a Pool ${run.type} ceremony.
+  return `${preamble}You are the ${participant.role} participant in a Floop ${run.type} ceremony.
 
 This is a ceremony contribution, not implementation work. Do not modify application files.
 

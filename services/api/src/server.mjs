@@ -33,21 +33,21 @@ ceremonyAutomationDriver.start();
 ceremonyParticipantDriver.start();
 
 server.listen(port, host, () => {
-  console.log(`Pool API listening on http://${host}:${port}`);
-  console.log(`Pool SQLite database: ${process.env.POOL_DB_PATH || "default .pool/pool.sqlite"}`);
+  console.log(`Floop API listening on http://${host}:${port}`);
+  console.log(`Floop SQLite database: ${process.env.POOL_DB_PATH || "default .pool/pool.sqlite"}`);
 });
 
 server.on("close", () => {
   driver.stop().catch((error) => {
-    console.error("Pool execution driver stop failed", error);
+    console.error("Floop execution driver stop failed", error);
   });
   mergeDriver.stop().catch((error) => {
-    console.error("Pool merge driver stop failed", error);
+    console.error("Floop merge driver stop failed", error);
   });
   ceremonyAutomationDriver.stop().catch((error) => {
-    console.error("Pool ceremony automation driver stop failed", error);
+    console.error("Floop ceremony automation driver stop failed", error);
   });
   ceremonyParticipantDriver.stop().catch((error) => {
-    console.error("Pool ceremony participant driver stop failed", error);
+    console.error("Floop ceremony participant driver stop failed", error);
   });
 });

@@ -148,7 +148,7 @@ function initializeCalculatorRepo(targetRepoPath) {
   writeFileSync(join(targetRepoPath, "README.md"), "# CLI Calculator\n\nA small calculator CLI fixture.\n");
   execFileSync("git", ["-C", targetRepoPath, "init", "-b", "main"], { stdio: "ignore" });
   execFileSync("git", ["-C", targetRepoPath, "config", "user.email", "pool@example.invalid"]);
-  execFileSync("git", ["-C", targetRepoPath, "config", "user.name", "Pool Test"]);
+  execFileSync("git", ["-C", targetRepoPath, "config", "user.name", "Floop Test"]);
   execFileSync("git", ["-C", targetRepoPath, "add", "-A"]);
   execFileSync("git", ["-C", targetRepoPath, "commit", "-m", "Seed calculator project"], {
     stdio: "ignore",

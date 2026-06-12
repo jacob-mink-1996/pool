@@ -1,5 +1,5 @@
 {
-  "name": "@pool/product-web-react",
+  "name": "@floop/product-web-react",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@pool/domain": "file:../../packages/domain"
+    "@floop/domain": "file:../../packages/domain"
   },
   "devDependencies": {}
 }

@@ -80,7 +80,7 @@ function handleRoute(route, url, body, store) {
         status: 200,
         body: {
           ok: true,
-          service: "pool-api",
+          service: "floop-api",
           now: new Date().toISOString(),
         },
       };
@@ -88,7 +88,7 @@ function handleRoute(route, url, body, store) {
       return {
         status: 200,
         body: {
-          name: "Pool",
+          name: "Floop",
           version: "0.0.1",
           mode: "mvp",
           product: true,

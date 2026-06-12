@@ -1,5 +1,5 @@
 {
-  "name": "@pool/db",
+  "name": "@floop/db",
   "private": true,
   "version": "0.0.1",
   "type": "module"

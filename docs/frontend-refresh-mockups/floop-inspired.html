@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pool-Inspired UI Directions</title>
+  <title>Floop-Inspired UI Directions</title>
   <style>
     :root {
       color-scheme: light;
@@ -623,18 +623,18 @@
   <div class="shell">
     <aside class="rail">
       <div>
-        <h1>Pool</h1>
+        <h1>Floop</h1>
         <p>Brand-native interface directions</p>
       </div>
       <nav>
         <a href="#metaphors">Metaphors</a>
-        <a href="#lanes">Lane Pool</a>
+        <a href="#lanes">Lane Floop</a>
         <a href="#depth">Depth Map</a>
         <a href="#surface">Surface Monitor</a>
-        <a href="#deck">Pool Deck</a>
+        <a href="#deck">Floop Deck</a>
         <a href="#night">Night Run</a>
         <a href="#implementation">Implementation Notes</a>
-        <a href="pool-component-language.html">Component Language</a>
+        <a href="floop-component-language.html">Component Language</a>
         <a href="index.html">Back to mockups</a>
       </nav>
       <p class="note">The goal is brand memory plus operational clarity. The metaphor should make the product easier to operate.</p>
@@ -642,8 +642,8 @@
 
     <main>
       <section class="intro">
-        <h2>Pool can feel distinctive without becoming themed software.</h2>
-        <p>Use the idea of a pool as structure: lanes for work, depth for inspection, surface for healthy automation, and the deck for decisions. This gives the UI a language that is ownable and useful.</p>
+        <h2>Floop can feel distinctive without becoming themed software.</h2>
+        <p>Use Fleet Loop as structure: lanes for work, loops for handoffs, depth for inspection, and the deck for decisions. This gives the UI a language that is ownable and useful.</p>
       </section>
 
       <section class="section" id="metaphors">
@@ -681,15 +681,15 @@
       <section class="section" id="lanes">
         <div class="section-head">
           <div>
-            <h2>Lane Pool</h2>
-            <p class="caption">A Control Room variant where the board visually becomes a pool of lanes. The metaphor reinforces parallel agent work while keeping ticket cards readable.</p>
+            <h2>Lane Floop</h2>
+            <p class="caption">A Control Room variant where the board visually becomes a loop of coordinated lanes. The metaphor reinforces parallel agent work while keeping ticket cards readable.</p>
           </div>
           <span class="eyebrow">Control Room variant</span>
         </div>
         <div class="frame">
           <div class="app lane-pool">
             <aside>
-              <div class="row"><h3>Pool</h3><span class="state ok">Live</span></div>
+              <div class="row"><h3>Floop</h3><span class="state ok">Live</span></div>
               <p class="muted">Autonomous delivery lanes</p>
               <div class="stack">
                 <span class="pill">Control Room</span>
@@ -700,34 +700,34 @@
             </aside>
             <main>
               <div class="row">
-                <div><h3>Project Pool</h3><span class="muted">4 active lanes · 2 deck decisions · 3 merge candidates</span></div>
+                <div><h3>Project Floop</h3><span class="muted">4 active lanes · 2 deck decisions · 3 merge candidates</span></div>
                 <button class="button">New ticket</button>
               </div>
               <div class="pool-lanes">
                 <section class="swimlane">
                   <div class="row"><div class="lane-marker">1</div><h4>Ready</h4><span class="count">8</span></div>
-                  <article class="ticket"><span class="state ok">Ready</span><strong>POOL-18 Define transport contracts</strong><p>Safe to start developer lane.</p></article>
-                  <article class="ticket"><span class="state wait">Draft</span><strong>POOL-21 Repo onboarding</strong><p>Needs criteria before autopilot.</p></article>
+                  <article class="ticket"><span class="state ok">Ready</span><strong>FLOOP-18 Define transport contracts</strong><p>Safe to start developer lane.</p></article>
+                  <article class="ticket"><span class="state wait">Draft</span><strong>FLOOP-21 Repo onboarding</strong><p>Needs criteria before autopilot.</p></article>
                 </section>
                 <section class="swimlane">
                   <div class="row"><div class="lane-marker">2</div><h4>Running</h4><span class="count">4</span></div>
-                  <article class="ticket"><span class="state work">Active</span><strong>POOL-14 Workspace bootstrap</strong><p>Developer lane. Last event 48s ago.</p></article>
-                  <article class="ticket"><span class="state work">Active</span><strong>POOL-22 Contract tests</strong><p>Validator lane running browser checks.</p></article>
+                  <article class="ticket"><span class="state work">Active</span><strong>FLOOP-14 Workspace bootstrap</strong><p>Developer lane. Last event 48s ago.</p></article>
+                  <article class="ticket"><span class="state work">Active</span><strong>FLOOP-22 Contract tests</strong><p>Validator lane running browser checks.</p></article>
                 </section>
                 <section class="swimlane">
                   <div class="row"><div class="lane-marker">3</div><h4>Inspect</h4><span class="count">3</span></div>
-                  <article class="ticket"><span class="state wait">Review</span><strong>POOL-11 Persist validation output</strong><p>Reviewer gate requires decision.</p></article>
+                  <article class="ticket"><span class="state wait">Review</span><strong>FLOOP-11 Persist validation output</strong><p>Reviewer gate requires decision.</p></article>
                 </section>
                 <section class="swimlane">
                   <div class="row"><div class="lane-marker">4</div><h4>Merge</h4><span class="count">2</span></div>
-                  <article class="ticket"><span class="state ok">Ready</span><strong>POOL-5 Settings drawer</strong><p>Evidence bundle complete.</p></article>
-                  <article class="ticket"><span class="state stop">Deck</span><strong>POOL-7 Repo mismatch</strong><p>Policy decision required.</p></article>
+                  <article class="ticket"><span class="state ok">Ready</span><strong>FLOOP-5 Settings drawer</strong><p>Evidence bundle complete.</p></article>
+                  <article class="ticket"><span class="state stop">Deck</span><strong>FLOOP-7 Repo mismatch</strong><p>Policy decision required.</p></article>
                 </section>
               </div>
             </main>
             <section class="inspector">
               <span class="state stop">On deck</span>
-              <h3>POOL-7 Repo mismatch</h3>
+              <h3>FLOOP-7 Repo mismatch</h3>
               <p class="muted">Removed from the running lanes until the operator resolves a policy conflict.</p>
               <article class="panel"><strong>Recommended call</strong><p>Attach the primary checkout or send the ticket back to planning.</p></article>
               <button class="button">Resolve on deck</button>
@@ -747,7 +747,7 @@
         <div class="frame">
           <div class="app depth-view">
             <section class="depth-main">
-              <div class="row"><div><h3>POOL-14 Workspace bootstrap</h3><span class="muted">Inspection depth controls how much detail is visible.</span></div><button class="button">Go deeper</button></div>
+              <div class="row"><div><h3>FLOOP-14 Workspace bootstrap</h3><span class="muted">Inspection depth controls how much detail is visible.</span></div><button class="button">Go deeper</button></div>
               <div class="depth-map">
                 <section class="depth-band">
                   <div><span class="eyebrow">Surface</span><h4>Status</h4><p class="muted">Healthy work stays summarized.</p></div>
@@ -790,15 +790,15 @@
             <div class="surface-grid">
               <section class="surface-column">
                 <div class="ripple"><span class="muted">Running</span><strong>4</strong><span class="small">healthy lanes</span></div>
-                <article class="ticket"><span class="state work">Active</span><strong>POOL-14 Workspace bootstrap</strong><p>Execution normal. Evidence accumulating.</p></article>
+                <article class="ticket"><span class="state work">Active</span><strong>FLOOP-14 Workspace bootstrap</strong><p>Execution normal. Evidence accumulating.</p></article>
               </section>
               <section class="surface-column">
                 <div class="ripple"><span class="muted">Evidence</span><strong>7</strong><span class="small">new records</span></div>
-                <article class="ticket"><span class="state ok">Captured</span><strong>Browser check summary</strong><p>Attached to POOL-22 validation gate.</p></article>
+                <article class="ticket"><span class="state ok">Captured</span><strong>Browser check summary</strong><p>Attached to FLOOP-22 validation gate.</p></article>
               </section>
               <section class="surface-column">
                 <div class="ripple"><span class="muted">On deck</span><strong>2</strong><span class="small">operator calls</span></div>
-                <article class="ticket"><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><p>Removed from autopilot until resolved.</p></article>
+                <article class="ticket"><span class="state stop">Policy</span><strong>FLOOP-7 Repo mismatch</strong><p>Removed from autopilot until resolved.</p></article>
               </section>
             </div>
           </div>
@@ -808,7 +808,7 @@
       <section class="section" id="deck">
         <div class="section-head">
           <div>
-            <h2>Pool Deck</h2>
+            <h2>Floop Deck</h2>
             <p class="caption">The exception queue becomes the deck: a dry, deliberate decision area. This is where autopilot stops and operator judgment begins.</p>
           </div>
           <span class="eyebrow">Decision surface</span>
@@ -817,17 +817,17 @@
           <div class="app deck-view">
             <aside>
               <h3>Deck</h3>
-              <p class="muted">Tickets leave active lanes when Pool needs a human decision.</p>
+              <p class="muted">Tickets leave active lanes when Floop needs a human decision.</p>
               <article class="panel"><strong>Open decisions</strong><p>2 policy, 1 review, 1 validation failure.</p></article>
               <button class="button">Resolve all safe</button>
             </aside>
             <section class="deck-main">
               <div class="row"><div><h3>Operator calls</h3><span class="muted">Sorted by blocked downstream work.</span></div><button class="button">Filter</button></div>
               <div class="deck-list">
-                <article><span class="state stop">Policy</span><strong>POOL-7 Repo mismatch</strong><span class="muted">3 tickets blocked</span><button class="button">Resolve</button></article>
-                <article><span class="state wait">Review</span><strong>POOL-11 Finding disposition</strong><span class="muted">1 ticket blocked</span><button class="button">Decide</button></article>
-                <article><span class="state stop">Validation</span><strong>POOL-22 Browser check failed</strong><span class="muted">merge blocked</span><button class="button">Inspect</button></article>
-                <article><span class="state wait">Scope</span><strong>POOL-18 Criteria ambiguous</strong><span class="muted">autopilot held</span><button class="button">Refine</button></article>
+                <article><span class="state stop">Policy</span><strong>FLOOP-7 Repo mismatch</strong><span class="muted">3 tickets blocked</span><button class="button">Resolve</button></article>
+                <article><span class="state wait">Review</span><strong>FLOOP-11 Finding disposition</strong><span class="muted">1 ticket blocked</span><button class="button">Decide</button></article>
+                <article><span class="state stop">Validation</span><strong>FLOOP-22 Browser check failed</strong><span class="muted">merge blocked</span><button class="button">Inspect</button></article>
+                <article><span class="state wait">Scope</span><strong>FLOOP-18 Criteria ambiguous</strong><span class="muted">autopilot held</span><button class="button">Refine</button></article>
               </div>
             </section>
           </div>
@@ -846,7 +846,7 @@
           <div class="app night-pool">
             <aside>
               <span class="state work">Running</span>
-              <h3>POOL-14 Workspace bootstrap</h3>
+              <h3>FLOOP-14 Workspace bootstrap</h3>
               <p class="muted">Deep inspection mode for active execution.</p>
               <article class="panel"><strong>Autonomy</strong><p>Supervise. Continue until reviewer checkpoint or command failure.</p></article>
               <article class="panel"><strong>Evidence</strong><p>3 artifacts captured. No operator decision required.</p></article>

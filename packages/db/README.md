@@ -1,6 +1,6 @@
 # Database Package
 
-This package holds the real Pool database artifacts.
+This package holds the real Floop database artifacts.
 
 The current MVP pass includes:
 

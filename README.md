@@ -1,6 +1,6 @@
-# Pool
+# Floop
 
-Pool is a project-scoped work orchestration system for autonomous software delivery.
+Floop, short for Fleet Loop, is a project-scoped work orchestration system for autonomous software delivery.
 
 Its core job is to move tickets through a governed loop:
 
@@ -11,11 +11,11 @@ Its core job is to move tickets through a governed loop:
 5. Merge safely.
 6. Record what happened and decide what is next.
 
-Pool is not a chat app for agents. It is a control plane for agent-driven work.
+Floop is not a chat app for agents. It is a control plane for agent-driven work.
 
 ## Repository Shape
 
-- repository root: the real Pool product
+- repository root: the real Floop product
 - bootstrap harness: moved out to Rook's workspace and used internally
 
 The harness still exists, but it is no longer part of this repository's product
@@ -25,7 +25,7 @@ architecture.
 
 The human should not have to keep saying "looks good, keep going."
 
-Instead, Pool should:
+Instead, Floop should:
 
 - track durable ticket state
 - create and manage isolated worktrees
@@ -38,7 +38,7 @@ Instead, Pool should:
 ## Core Principles
 
 - Tickets are the unit of autonomy.
-- Agents do work; Pool owns coordination.
+- Agents do work; Floop owns coordination.
 - Execution, review, and validation are separate lanes.
 - Every continuation needs an explicit reason.
 - Merge is a controlled action, never an implicit side effect.
@@ -100,14 +100,14 @@ The API health endpoint stays available at:
 http://127.0.0.1:4318/api/v1/health
 ```
 
-Optional environment variables:
+Optional environment variables. These keep the existing `POOL_*` names for compatibility:
 
 - `POOL_DB_PATH` to override the SQLite database file location
 - `POOL_SEED_DEMO=false` to boot without the seeded demo project
 
 ### Bootstrap A Real Local Project
 
-To turn a real local git repo into a ready-to-use Pool project without hand-editing project,
+To turn a real local git repo into a ready-to-use Floop project without hand-editing project,
 repo, policy, and profile settings:
 
 ```bash
@@ -116,7 +116,7 @@ npm run bootstrap:project -- --repo-path /absolute/path/to/repo --project-name "
 
 This command:
 
-- creates or updates the Pool project
+- creates or updates the Floop project
 - points the primary repo at your local checkout
 - enables reviewer and validator gates
 - sets the merge-required validation profile to `ci`

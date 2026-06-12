@@ -2,13 +2,13 @@
 
 ## Goal
 
-Pool is a project management and execution control plane for autonomous
+Floop is a project management and execution control plane for autonomous
 software work. It coordinates tickets, agents, worktrees, validation,
 review, and merge policy across one or more repositories inside a project.
 
 ## System Overview
 
-Pool should have one backend and two UI surfaces:
+Floop should have one backend and two UI surfaces:
 
 - web app
 - electron desktop shell
@@ -284,7 +284,7 @@ Examples:
 - validate behavior
 - surface blockers and follow-up tickets
 
-### Pool
+### Floop
 
 - coordinate the system
 - enforce policy
@@ -301,6 +301,6 @@ Examples:
 
 ## North Star
 
-Pool succeeds when a human can manage autonomous delivery by steering the board,
+Floop succeeds when a human can manage autonomous delivery by steering the board,
 reviewing evidence, and making final approvals without manually carrying the
 agent loop from prompt to prompt.

@@ -1,6 +1,6 @@
 # Product API
 
-This is the real backend service for Pool's MVP control plane.
+This is the real backend service for Floop's MVP control plane.
 
 Current implemented surface:
 
@@ -9,7 +9,7 @@ Current implemented surface:
 - seeded demo project for local development
 - background execution driver for scriptable adapter profiles
 
-Useful environment variables:
+Useful environment variables. These keep the existing `POOL_*` names for compatibility:
 
 - `POOL_DB_PATH` to choose the SQLite file path
 - `POOL_SEED_DEMO=false` to start without demo data
@@ -21,7 +21,7 @@ Execution driver notes:
 - `codex` profiles run through `codex exec` automatically
 - generic scriptable profiles can still run through `config.command`
 - adapter runs receive `POOL_CONTEXT_PATH`, `POOL_RESULT_PATH`, and `POOL_WORKTREE_PATH`
-- if the adapter writes structured JSON to `POOL_RESULT_PATH`, Pool persists that outcome and any returned artifacts
+- if the adapter writes structured JSON to `POOL_RESULT_PATH`, Floop persists that outcome and any returned artifacts
 - Codex runs also persist the final agent message as a durable artifact
 
 Next steps:

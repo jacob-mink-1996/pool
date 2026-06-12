@@ -29,10 +29,10 @@ test("eventDto projects a stable event contract for live consumers", () => {
     repoSlug: "pool",
     repoName: "pool",
     ticketId: "ticket_1",
-    ticketKey: "POOL-1",
+    ticketKey: "FLOOP-1",
     ticketTitle: "Build API",
     type: "execution.completed",
-    summary: "POOL-1 developer iteration 1 completed",
+    summary: "FLOOP-1 developer iteration 1 completed",
     detail: "Execution landed cleanly.",
     reasonCode: "interrupted",
     reasonSource: "execution",
@@ -51,7 +51,7 @@ test("boardDto groups tickets by state", () => {
   const board = boardDto("project_pool", [
     {
       id: "ticket_1",
-      key: "POOL-1",
+      key: "FLOOP-1",
       title: "Build API",
       state: "WORKING",
       priority: "high",
@@ -62,7 +62,7 @@ test("boardDto groups tickets by state", () => {
     },
     {
       id: "ticket_2",
-      key: "POOL-2",
+      key: "FLOOP-2",
       title: "Review API",
       state: "READY",
       priority: "medium",
@@ -76,7 +76,7 @@ test("boardDto groups tickets by state", () => {
   assert.equal(board.totalTickets, 2);
   assert.equal(board.lanes.WORKING.count, 1);
   assert.equal(board.lanes.WORKING.tickets[0].latestReviewVerdict, "passed");
-  assert.equal(board.lanes.READY.tickets[0].key, "POOL-2");
+  assert.equal(board.lanes.READY.tickets[0].key, "FLOOP-2");
 });
 
 test("ticketDto includes projected events", () => {
@@ -85,7 +85,7 @@ test("ticketDto includes projected events", () => {
       id: "ticket_1",
       projectId: "project_pool",
       parentTicketId: "ticket_parent_1",
-      key: "POOL-1",
+      key: "FLOOP-1",
       title: "Build API",
       brief: "Implement something.",
       state: "READY",
@@ -103,7 +103,7 @@ test("ticketDto includes projected events", () => {
           id: "execution_1",
           projectId: "project_pool",
           ticketId: "ticket_1",
-          ticketKey: "POOL-1",
+          ticketKey: "FLOOP-1",
           ticketTitle: "Build API",
           ticketState: "READY",
           agentProfileId: "profile_project_pool_developer",
@@ -123,12 +123,12 @@ test("ticketDto includes projected events", () => {
               id: "artifact_1",
               projectId: "project_pool",
               ticketId: "ticket_1",
-              ticketKey: "POOL-1",
+              ticketKey: "FLOOP-1",
               ticketTitle: "Build API",
               executionId: "execution_1",
               kind: "patch",
               label: "API diff",
-              uri: "file:///workspace/pool/diffs/pool-1.patch",
+              uri: "file:///workspace/pool/diffs/floop-1.patch",
               metadata: { sizeBytes: 1024 },
               createdAt: "2026-06-10T05:10:00.000Z",
             },
@@ -144,8 +144,8 @@ test("ticketDto includes projected events", () => {
               repoName: "pool",
               executionRole: "developer",
               executionIteration: 1,
-              path: "/workspace/pool/.pool/worktrees/pool-1/pool/iter-1",
-              branchName: "pool-1-build-api",
+              path: "/workspace/pool/.pool/worktrees/floop-1/pool/iter-1",
+              branchName: "floop-1-build-api",
               baseRef: "main",
               status: "active",
               isDirty: false,
@@ -162,7 +162,7 @@ test("ticketDto includes projected events", () => {
           projectId: "project_pool",
           blockedTicketId: "ticket_1",
           blockingTicketId: "ticket_2",
-          blockingTicketKey: "POOL-2",
+          blockingTicketKey: "FLOOP-2",
           blockingTicketTitle: "Define contracts",
           blockingTicketState: "WORKING",
           dependencyType: "finish_to_start",
@@ -223,8 +223,8 @@ test("ticketDto includes projected events", () => {
           repoName: "pool",
           executionRole: "developer",
           executionIteration: 1,
-          path: "/workspace/pool/.pool/worktrees/pool-1/pool/iter-1",
-          branchName: "pool-1-build-api",
+          path: "/workspace/pool/.pool/worktrees/floop-1/pool/iter-1",
+          branchName: "floop-1-build-api",
           baseRef: "main",
           status: "active",
           isDirty: false,
@@ -238,12 +238,12 @@ test("ticketDto includes projected events", () => {
           id: "artifact_ticket_1",
           projectId: "project_pool",
           ticketId: "ticket_1",
-          ticketKey: "POOL-1",
+          ticketKey: "FLOOP-1",
           ticketTitle: "Build API",
           executionId: "execution_1",
           kind: "patch",
           label: "API diff",
-          uri: "file:///workspace/pool/diffs/pool-1.patch",
+          uri: "file:///workspace/pool/diffs/floop-1.patch",
           metadata: { sizeBytes: 1024 },
           createdAt: "2026-06-10T05:10:00.000Z",
         },
@@ -251,7 +251,7 @@ test("ticketDto includes projected events", () => {
       mergeStatus: {
         projectId: "project_pool",
         ticketId: "ticket_1",
-        ticketKey: "POOL-1",
+        ticketKey: "FLOOP-1",
         ticketTitle: "Build API",
         ticketState: "READY_TO_MERGE",
         requiresHumanApproval: true,
@@ -292,21 +292,21 @@ test("ticketDto includes projected events", () => {
   assert.equal(ticket.dependencies.length, 1);
   assert.equal(ticket.executions.length, 1);
   assert.equal(ticket.executions[0].outcome, "completed");
-  assert.equal(ticket.executions[0].ticketKey, "POOL-1");
+  assert.equal(ticket.executions[0].ticketKey, "FLOOP-1");
   assert.equal(ticket.executions[0].ticketState, "READY");
   assert.equal(ticket.executions[0].worktrees.length, 1);
   assert.equal(ticket.reviews.length, 1);
   assert.equal(ticket.reviews[0].findings[0].severity, "high");
   assert.equal(ticket.validations.length, 1);
   assert.equal(ticket.validations[0].commands[0], "npm test");
-  assert.equal(ticket.dependencies[0].blockingTicketKey, "POOL-2");
+  assert.equal(ticket.dependencies[0].blockingTicketKey, "FLOOP-2");
   assert.equal(ticket.worktrees.length, 1);
-  assert.equal(ticket.worktrees[0].path, "/workspace/pool/.pool/worktrees/pool-1/pool/iter-1");
+  assert.equal(ticket.worktrees[0].path, "/workspace/pool/.pool/worktrees/floop-1/pool/iter-1");
   assert.equal(ticket.mergeStatus.canMerge, true);
   assert.equal(ticket.mergeStatus.latestRun.strategy, "squash");
   assert.equal(ticket.executions[0].artifacts[0].kind, "patch");
   assert.equal(ticket.artifacts[0].label, "API diff");
-  assert.equal(ticket.artifacts[0].ticketKey, "POOL-1");
+  assert.equal(ticket.artifacts[0].ticketKey, "FLOOP-1");
   assert.equal(ticket.artifacts[0].ticketTitle, "Build API");
   assert.equal(ticket.events.length, 1);
   assert.equal(ticket.events[0].type, "ticket.created");
@@ -318,7 +318,7 @@ test("projectSummaryDto copies board counts", () => {
     {
       id: "project_pool",
       slug: "pool",
-      name: "Pool",
+      name: "Floop",
       description: "desc",
       workspaceRoot: "/tmp/pool",
       defaultBaseBranch: "main",
@@ -339,7 +339,7 @@ test("projectSummaryDto copies board counts", () => {
 
 test("request parsers normalize project and ticket payloads", () => {
   const project = parseUpdateProjectInput({
-    name: " Pool Mission Control ",
+    name: " Floop Mission Control ",
     description: " Tight loop for autonomous delivery. ",
     workspaceRoot: " /workspace/pool ",
   });
@@ -378,7 +378,7 @@ test("request parsers normalize project and ticket payloads", () => {
   });
 
   assert.deepEqual(project, {
-    name: "Pool Mission Control",
+    name: "Floop Mission Control",
     description: "Tight loop for autonomous delivery.",
     workspaceRoot: "/workspace/pool",
   });

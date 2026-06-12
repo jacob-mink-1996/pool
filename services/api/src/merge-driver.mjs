@@ -107,8 +107,8 @@ class MergeDriver {
     const startedRun = this.store.startMergeRun(queueItem.projectId, queueItem.id, {
       strategy: "squash",
       approvedByKind: "system",
-      approvedByRef: "pool-auto",
-      summaryMd: `Pool started auto-merge for ${ticket.key}.`,
+      approvedByRef: "floop-auto",
+      summaryMd: `Floop started auto-merge for ${ticket.key}.`,
       claimToken: this.claimToken,
       leaseMs: this.leaseMs,
     });
@@ -228,7 +228,7 @@ async function mergeTicketRepos(ticket, repos, runtime) {
   return {
     strategy: "squash",
     status: "completed",
-    summaryMd: `Pool auto-merged ${ticket.key} after validation completed.`,
+    summaryMd: `Floop auto-merged ${ticket.key} after validation completed.`,
     artifacts,
   };
 }

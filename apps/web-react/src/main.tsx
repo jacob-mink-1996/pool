@@ -70,7 +70,7 @@ type ThemeMode = "light" | "dark";
 type WorkspaceView = "board" | "ceremonies" | "ops";
 
 function initialThemeMode(): ThemeMode {
-  const storedTheme = window.localStorage.getItem("pool-theme");
+  const storedTheme = window.localStorage.getItem("floop-theme");
   return storedTheme === "dark" || storedTheme === "light" ? storedTheme : "light";
 }
 
@@ -100,7 +100,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
-    window.localStorage.setItem("pool-theme", themeMode);
+    window.localStorage.setItem("floop-theme", themeMode);
   }, [themeMode]);
 
   useEffect(() => {
@@ -425,13 +425,13 @@ function App() {
           <div className="topbar-title">
             <p className="kicker">Mission Control</p>
             <div className="project-title-line">
-              <h1>{project?.name || "Pool"}</h1>
+              <h1>{project?.name || "Floop"}</h1>
               {project?.description ? <p className="project-description">{project.description}</p> : null}
             </div>
           </div>
           <div className="topbar-actions">
             <IconButton
-              label={themeMode === "dark" ? "Use pool-day theme" : "Use deep-end theme"}
+              label={themeMode === "dark" ? "Use day theme" : "Use deep-end theme"}
               pressed={themeMode === "dark"}
               onClick={() => setThemeMode((mode) => (mode === "dark" ? "light" : "dark"))}
             >
@@ -538,7 +538,7 @@ function ProjectRail({
     <aside className={`project-rail ${isOpen ? "is-open" : ""} ${isCollapsed ? "is-collapsed" : ""}`}>
       <div className="rail-heading">
         <div className="rail-title">
-          <p className="kicker">Pool</p>
+          <p className="kicker">Floop</p>
           <h2>Projects</h2>
         </div>
         <IconButton className="rail-collapse" label={isCollapsed ? "Expand project rail" : "Collapse project rail"} onClick={onToggleCollapse}>
@@ -1758,7 +1758,7 @@ function ActionFields({
     return (
       <label>
         <span>{ticket.mergeStatus.requiresHumanApproval ? "Approval reference" : "Merge reference"}</span>
-        <input name="approvedByRef" defaultValue={ticket.mergeStatus.requiresHumanApproval ? "" : "pool-auto"} placeholder="operator, initials, or ticket approval" />
+        <input name="approvedByRef" defaultValue={ticket.mergeStatus.requiresHumanApproval ? "" : "floop-auto"} placeholder="operator, initials, or ticket approval" />
       </label>
     );
   }

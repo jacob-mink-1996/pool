@@ -42,7 +42,7 @@ if (styles.includes(".ticket-detail {\n    display: none")) {
   throw new Error("React ticket detail must remain reachable on mobile");
 }
 
-console.log("Pool React shell check");
+console.log("Floop React shell check");
 console.log("======================");
 console.log("main shell: ok");
 console.log("board view: ok");

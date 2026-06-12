@@ -20,7 +20,7 @@ function findRepoRoot(startDirectory) {
 
     const parent = path.dirname(current);
     if (parent === current) {
-      throw new Error(`Unable to locate Pool repository root from ${startDirectory}`);
+      throw new Error(`Unable to locate Floop repository root from ${startDirectory}`);
     }
     current = parent;
   }
@@ -70,12 +70,12 @@ function waitForHealth({ host, port, timeoutMs = HEALTH_TIMEOUT_MS }) {
             resolve();
             return;
           }
-          retryOrReject(new Error(`Pool API health returned ${response.statusCode}`));
+          retryOrReject(new Error(`Floop API health returned ${response.statusCode}`));
         },
       );
 
       request.on("timeout", () => {
-        request.destroy(new Error("Pool API health request timed out"));
+        request.destroy(new Error("Floop API health request timed out"));
       });
       request.on("error", retryOrReject);
     };

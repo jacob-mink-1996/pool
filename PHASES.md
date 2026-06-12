@@ -25,7 +25,7 @@ Exit criteria:
 
 Goal:
 
-Build the first usable Pool for one project space with one or more repos.
+Build the first usable Floop for one project space with one or more repos.
 
 Deliverables:
 
@@ -61,7 +61,7 @@ Deliverables:
 Exit criteria:
 
 - a developer role can pick up and work a ticket in an isolated worktree
-- Pool can tell whether the run completed, needs continuation, or is blocked
+- Floop can tell whether the run completed, needs continuation, or is blocked
 
 ## Phase 3: Review + Validation Loop
 
@@ -141,7 +141,7 @@ Exit criteria:
 
 Goal:
 
-Make Pool excellent as a daily operator surface.
+Make Floop excellent as a daily operator surface.
 
 Deliverables:
 
@@ -153,7 +153,7 @@ Deliverables:
 
 Exit criteria:
 
-- Pool feels good on desktop and over Tailscale from a phone
+- Floop feels good on desktop and over Tailscale from a phone
 
 ## Phase 8: Advanced Coordination
 
@@ -171,4 +171,4 @@ Deliverables:
 
 Exit criteria:
 
-- Pool scales to many projects and many simultaneous agent lanes without operator chaos
+- Floop scales to many projects and many simultaneous agent lanes without operator chaos

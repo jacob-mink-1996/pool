@@ -2,7 +2,7 @@
 
 ## UI Philosophy
 
-Pool should feel like mission control for autonomous delivery.
+Floop should feel like mission control for autonomous delivery.
 
 The operator is not chatting with a worker agent. The operator is:
 
@@ -90,7 +90,7 @@ Avoid making raw agent output the center of the experience.
 
 ## Mobile / Remote Considerations
 
-Because Pool should work over Tailscale from a phone:
+Because Floop should work over Tailscale from a phone:
 
 - board must remain readable on narrow screens
 - ticket detail should stack vertically

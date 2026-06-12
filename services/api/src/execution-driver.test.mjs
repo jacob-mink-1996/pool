@@ -109,7 +109,7 @@ process.stdin.on("end", () => {
       model: "codex-latest",
       config: {
         executable: fakeCodexPath,
-        promptPreamble: "Focus on the Pool governed loop.",
+        promptPreamble: "Focus on the Floop governed loop.",
       },
     });
 
@@ -295,9 +295,9 @@ test("execution driver materializes a real git worktree when the target repo exi
 
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
-    writeFileSync(join(repoRoot, "README.md"), "# Pool Repo\n", "utf8");
+    writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
@@ -345,14 +345,14 @@ test("execution driver rematerializes stale git worktrees when branch metadata n
 
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Fresh Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
     execFileSync("git", ["init", "-b", "main", staleRepoRoot]);
-    execFileSync("git", ["-C", staleRepoRoot, "config", "user.name", "Pool Test"]);
+    execFileSync("git", ["-C", staleRepoRoot, "config", "user.name", "Floop Test"]);
     execFileSync("git", ["-C", staleRepoRoot, "config", "user.email", "pool@example.com"]);
     writeFileSync(join(staleRepoRoot, "stale.txt"), "stale\n", "utf8");
     execFileSync("git", ["-C", staleRepoRoot, "add", "stale.txt"]);

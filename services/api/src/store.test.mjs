@@ -22,13 +22,13 @@ test("store updates project metadata and records a project event", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
   const updated = store.updateProject("project_pool", {
-    name: "Pool Mission Control",
+    name: "Floop Mission Control",
     description: "Operator surface for governed autonomous delivery.",
     workspaceRoot: "/workspace/pool-real",
     defaultBaseBranch: "trunk",
   });
 
-  assert.equal(updated.name, "Pool Mission Control");
+  assert.equal(updated.name, "Floop Mission Control");
   assert.equal(updated.description, "Operator surface for governed autonomous delivery.");
   assert.equal(updated.workspaceRoot, "/workspace/pool-real");
   assert.equal(updated.defaultBaseBranch, "trunk");
@@ -67,14 +67,14 @@ test("store deletes projects and releases their slug", () => {
 
   const deleted = store.deleteProject("project_pool");
   const recreated = store.createProject({
-    name: "Pool Fresh",
+    name: "Floop Fresh",
     slug: "pool",
     workspaceRoot: "/workspace/pool-fresh",
     defaultBaseBranch: "main",
   });
 
   assert.equal(deleted.id, "project_pool");
-  assert.equal(store.getProjectSummary("project_pool")?.name, "Pool Fresh");
+  assert.equal(store.getProjectSummary("project_pool")?.name, "Floop Fresh");
   assert.equal(store.getProjectBoard("project_missing"), null);
   assert.equal(store.listProjects().length, 1);
   assert.equal(recreated.id, "project_pool");
@@ -143,7 +143,7 @@ test("store updates project policy and role profiles", () => {
   assert.equal(project.policy.agentCreatedTicketDefaultState, "READY");
   assert.equal(project.policy.ceremonyAutomation.triggers.refinement.deciderRole, "product_manager");
   assert.equal(project.roleProfiles.find((profile) => profile.role === "developer").adapter, "codex-cli");
-  assert.equal(store.listEvents("project_pool").at(-1).summary, "Pool developer profile updated");
+  assert.equal(store.listEvents("project_pool").at(-1).summary, "Floop developer profile updated");
 
   store.close();
 });
@@ -276,7 +276,7 @@ test("store can reconcile interrupted active merge runs after restart", () => {
   const started = store.startMergeRun("project_pool", "ticket_project_pool_2", {
     strategy: "squash",
     approvedByKind: "system",
-    approvedByRef: "pool-auto",
+    approvedByRef: "floop-auto",
     claimToken: "merge-worker",
     startedAt: "2026-06-10T13:00:00.000Z",
     leaseMs: 10_000,
@@ -315,7 +315,7 @@ test("store enforces project merge concurrency limits", () => {
   store.startMergeRun("project_pool", "ticket_project_pool_2", {
     strategy: "squash",
     approvedByKind: "system",
-    approvedByRef: "pool-auto",
+    approvedByRef: "floop-auto",
     claimToken: "merge-worker-a",
   });
 
@@ -331,7 +331,7 @@ test("store enforces project merge concurrency limits", () => {
       store.startMergeRun("project_pool", another.id, {
         strategy: "squash",
         approvedByKind: "system",
-        approvedByRef: "pool-auto",
+        approvedByRef: "floop-auto",
         claimToken: "merge-worker-b",
       }),
     /Project merge limit reached for/,
@@ -425,7 +425,7 @@ test("store updates editable ticket fields and records an update event", () => {
     repoTargets: [
       {
         repoId: docsRepo.id,
-        branchName: "pool-2-docs-contracts",
+        branchName: "floop-2-docs-contracts",
         targetScopeMd: "Docs plus API contract notes",
       },
     ],
@@ -439,7 +439,7 @@ test("store updates editable ticket fields and records an update event", () => {
   assert.equal(updated.repoTargets.length, 1);
   assert.equal(updated.repoTargets[0].repoId, docsRepo.id);
   assert.equal(updated.repoTargets[0].baseRef, "trunk");
-  assert.equal(updated.repoTargets[0].branchName, "pool-2-docs-contracts");
+  assert.equal(updated.repoTargets[0].branchName, "floop-2-docs-contracts");
   assert.equal(updated.events.at(-1).type, "ticket.updated");
   assert.match(updated.events.at(-1).detail, /latestSummary/);
   assert.match(updated.events.at(-1).detail, /repoTargets/);
@@ -486,7 +486,7 @@ test("store adds and removes ticket dependencies with projected detail", () => {
   });
 
   assert.equal(added.dependencies.length, 1);
-  assert.equal(added.dependencies[0].blockingTicketKey, "POOL-1");
+  assert.equal(added.dependencies[0].blockingTicketKey, "FLOOP-1");
   assert.equal(added.dependencyCount, 1);
   assert.equal(added.events.at(-1).type, "dependency.added");
 
@@ -547,7 +547,7 @@ test("store persists execution history and routes ticket state from outcomes", (
   assert.equal(started.agentProfileId, "profile_project_pool_developer");
   assert.equal(started.worktrees.length, 1);
   assert.equal(started.worktrees[0].repoSlug, "pool");
-  assert.match(started.worktrees[0].path, /\/\.pool\/worktrees\/pool-2\/pool\/iter-1$/);
+  assert.match(started.worktrees[0].path, /\/\.pool\/worktrees\/floop-2\/pool\/iter-1$/);
   assert.equal(started.worktrees[0].status, "active");
 
   const completed = store.completeExecution("project_pool", started.id, {
@@ -597,7 +597,7 @@ test("store persists execution history and routes ticket state from outcomes", (
   assert.equal(continued.iteration, 2);
   assert.equal(continued.status, "running");
   assert.equal(continued.worktrees[0].status, "active");
-  assert.match(continued.worktrees[0].path, /\/\.pool\/worktrees\/pool-1\/pool\/iter-2$/);
+  assert.match(continued.worktrees[0].path, /\/\.pool\/worktrees\/floop-1\/pool\/iter-2$/);
 
   const priorIteration = store
     .listExecutions("project_pool", "ticket_project_pool_1")
@@ -632,7 +632,7 @@ test("store completes follow-up parent tickets and gates child readiness by refi
 
   const started = store.createExecution("project_pool", "ticket_project_pool_1", {
     role: "architect",
-    reason: "Refine the pool project into follow-up tickets.",
+    reason: "Refine the Floop project into follow-up tickets.",
   });
   store.completeExecution("project_pool", started.id, {
     outcome: "followup_created",
@@ -751,7 +751,7 @@ test("store auto-routes next execution lanes after implementation and review com
 
   const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
     role: "developer",
-    reason: "Finish implementation and let Pool route review.",
+    reason: "Finish implementation and let Floop route review.",
   });
   store.completeExecution("project_pool", implementation.id, {
     outcome: "completed",
@@ -892,7 +892,7 @@ test("store enforces review and validation sequencing", () => {
         repoIds: ["repo_project_pool_pool"],
         verdict: "passed",
       }),
-    /Ticket POOL-2 is not ready for validation/,
+    /Ticket FLOOP-2 is not ready for validation/,
   );
 
   store.createReview("project_pool", "ticket_project_pool_2", {
@@ -906,7 +906,7 @@ test("store enforces review and validation sequencing", () => {
         executionId: execution.id,
         verdict: "passed",
       }),
-    /Ticket POOL-2 is not ready for review/,
+    /Ticket FLOOP-2 is not ready for review/,
   );
 
   store.close();
@@ -962,7 +962,7 @@ test("store persists merge runs and closes merge-ready tickets", () => {
 
   const queue = store.listMergeQueue("project_pool");
   assert.equal(queue.length, 1);
-  assert.equal(queue[0].key, "POOL-2");
+  assert.equal(queue[0].key, "FLOOP-2");
   assert.equal(queue[0].mergeStatus.canMerge, true);
 
   const mergeStatus = store.mergeTicket("project_pool", "ticket_project_pool_2", {
@@ -1040,7 +1040,7 @@ test("store migrates legacy merge runs to allow active claims", () => {
   const started = store.startMergeRun("project_pool", "ticket_project_pool_2", {
     strategy: "squash",
     approvedByKind: "system",
-    approvedByRef: "pool-auto",
+    approvedByRef: "floop-auto",
     claimToken: "merge-worker",
   });
 
@@ -1073,7 +1073,7 @@ test("store enforces merge readiness and approval policy", () => {
       store.mergeTicket("project_pool", "ticket_project_pool_2", {
         strategy: "merge_commit",
       }),
-    /POOL-2 requires human approval before merge/,
+    /FLOOP-2 requires human approval before merge/,
   );
 
   const blocked = store.mergeTicket("project_pool", "ticket_project_pool_2", {
@@ -1091,7 +1091,7 @@ test("store enforces merge readiness and approval policy", () => {
         approvedByKind: "human",
         approvedByRef: "jacob",
       }),
-    /Ticket POOL-1 is not ready for merge/,
+    /Ticket FLOOP-1 is not ready for merge/,
   );
 
   store.close();
@@ -1172,7 +1172,7 @@ test("store enforces project execution concurrency limits", () => {
         role: "reviewer",
         reason: "This second run should be rejected by project policy.",
       }),
-    /Project execution limit reached for POOL-2: 1 active runs allowed/,
+    /Project execution limit reached for FLOOP-2: 1 active runs allowed/,
   );
 
   store.close();
@@ -1231,7 +1231,7 @@ test("store enforces continuation budgets before mutating the active run", () =>
       store.continueExecution("project_pool", continued.id, {
         reason: "Attempt to exceed the continuation limit.",
       }),
-    /POOL-1 reached the continuation limit of 1 iterations/,
+    /FLOOP-1 reached the continuation limit of 1 iterations/,
   );
   assert.equal(store.getExecution("project_pool", continued.id).status, "running");
 

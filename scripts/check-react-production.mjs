@@ -44,7 +44,7 @@ for (const marker of [
   }
 }
 
-console.log("Pool React production check");
+console.log("Floop React production check");
 console.log("===========================");
 console.log(`index: ${scriptPath}`);
 console.log(`styles: ${cssPath}`);

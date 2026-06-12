@@ -1,6 +1,6 @@
-# Pool Desktop
+# Floop Desktop
 
-Pool Desktop is the Electron shell for the Pool operator surface.
+Floop Desktop is the Electron shell for the Floop operator surface.
 
 It runs the same local API service used by the web MVP, serves the built React
 operator UI from that API, and opens the app in a hardened Electron browser
@@ -14,7 +14,7 @@ From the repository root:
 npm run start:electron
 ```
 
-The command builds `apps/web-react`, starts an in-process Pool API on a local
+The command builds `apps/web-react`, starts an in-process Floop API on a local
 loopback port, and opens the bundled UI.
 
 ## Data

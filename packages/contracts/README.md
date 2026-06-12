@@ -1,6 +1,6 @@
 # Contracts Package
 
-This package holds shared API contracts and transport models for Pool.
+This package holds shared API contracts and transport models for Floop.
 
 The first implementation pass lives under `src/` and currently covers:
 

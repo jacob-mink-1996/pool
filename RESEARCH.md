@@ -1,6 +1,6 @@
 # Research
 
-This file captures the early research framing for Pool.
+This file captures the early research framing for Floop.
 
 ## What "Loop Engineering" Means
 
@@ -9,7 +9,7 @@ the human stops being the person who manually prompts the agent turn by turn
 and instead designs the system that discovers work, runs agents, checks
 outcomes, records state, and decides the next action.
 
-That framing maps directly to Pool.
+That framing maps directly to Floop.
 
 ## Sources
 
@@ -26,9 +26,9 @@ Key takeaways:
 - the repo or task system must hold memory outside the single conversation
 - worktree isolation is foundational for parallel agent execution
 
-Why it matters for Pool:
+Why it matters for Floop:
 
-- Pool should be designed as a loop system, not a prompt surface
+- Floop should be designed as a loop system, not a prompt surface
 - project memory and durable ticket state are not optional
 - reviewer/validator agents should be first-class citizens
 
@@ -43,7 +43,7 @@ Key takeaways:
 - uses role definitions, worktree isolation, verification, and auto-merge
 - explicitly separates execution from the merge path
 
-Why it matters for Pool:
+Why it matters for Floop:
 
 - validates the "control plane, not chat app" direction
 - reinforces worktree-per-executor and verification-gated delivery
@@ -51,9 +51,9 @@ Why it matters for Pool:
 
 What to do differently:
 
-- Pool should lead with a cleaner web/electron PM UX
-- Pool should treat tickets and dependencies as the product center of gravity
-- Pool should support richer project policy and multi-repo modeling earlier
+- Floop should lead with a cleaner web/electron PM UX
+- Floop should treat tickets and dependencies as the product center of gravity
+- Floop should support richer project policy and multi-repo modeling earlier
 
 ### agtx
 
@@ -66,11 +66,11 @@ Key takeaways:
 - treats lifecycle phases and plugin-driven workflows as first-class concerns
 - manages autonomous execution around worktree sync and phase gating
 
-Why it matters for Pool:
+Why it matters for Floop:
 
 - role and phase configuration should be data-driven
 - "same project, different agent by phase" should be built in from the start
-- Pool should expose lifecycle phase state clearly instead of hiding it
+- Floop should expose lifecycle phase state clearly instead of hiding it
 
 ### AI Agent Board
 
@@ -84,7 +84,7 @@ Key takeaways:
 - streams normalized events to the UI
 - includes task groups, worktree isolation, and local merge/PR flows
 
-Why it matters for Pool:
+Why it matters for Floop:
 
 - confirms that web-first orchestration can work well
 - validates a provider/adapter abstraction
@@ -92,8 +92,8 @@ Why it matters for Pool:
 
 What to do differently:
 
-- Pool should be stricter about review/validation gates
-- Pool should center the autonomous completion loop, not just run agents from cards
+- Floop should be stricter about review/validation gates
+- Floop should center the autonomous completion loop, not just run agents from cards
 
 ### Upsun, "Git worktrees for parallel AI coding agents"
 
@@ -106,7 +106,7 @@ Key takeaways:
 - they avoid clone sprawl and share repository history efficiently
 - they also introduce cleanup, naming, lifecycle, and coordination complexity
 
-Why it matters for Pool:
+Why it matters for Floop:
 
 - worktree lifecycle must be a first-class subsystem
 - cleanup, pruning, merge safety, and stale worktree recovery need product support
@@ -124,9 +124,9 @@ Key takeaways:
 - merge-readiness and trustworthiness are major bottlenecks
 - human/agent collaboration benefits from structured workbenches and artifacts
 
-Why it matters for Pool:
+Why it matters for Floop:
 
-- Pool should produce durable evidence, not just transcripts
+- Floop should produce durable evidence, not just transcripts
 - review packs, validation artifacts, and approval surfaces should be first-class
 - "merge-ready" should be a machine-supported status with evidence attached
 
@@ -141,9 +141,9 @@ The external landscape strongly supports these design choices:
 - role and phase configuration as data, not special-case code
 - event timelines and evidence packs over raw conversation history
 
-## Implications For Pool
+## Implications For Floop
 
-### 1. Pool should be a control plane
+### 1. Floop should be a control plane
 
 It should coordinate agents, policies, repositories, worktrees, and evidence.
 It should not feel like a glorified terminal multiplexer or a messaging client.
@@ -155,7 +155,7 @@ route work correctly.
 
 ### 3. Multi-repo support should exist in the domain model from the start
 
-Even if v1 usage begins with a primary repo, Pool should not assume that a
+Even if v1 usage begins with a primary repo, Floop should not assume that a
 ticket always maps to one repository or one worktree forever.
 
 ### 4. "Continue" must be structured

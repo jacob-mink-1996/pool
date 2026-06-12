@@ -26,7 +26,7 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
         {
           repoId: "repo_project_pool_pool",
           baseRef: "main",
-          branchName: "pool-3-board-aggregate",
+          branchName: "floop-3-board-aggregate",
           targetScopeMd: "services/api read models",
         },
       ],
@@ -48,7 +48,7 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
         {
           kind: "patch",
           label: "Board aggregate diff",
-          uri: "file:///workspace/pool/.pool/artifacts/pool-3.patch",
+          uri: "file:///workspace/pool/.pool/artifacts/floop-3.patch",
         },
       ],
     });
@@ -70,7 +70,7 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
       search: "board read model",
     });
     assert.equal(filteredTickets.length, 1);
-    assert.equal(filteredTickets[0].key, "POOL-3");
+    assert.equal(filteredTickets[0].key, "FLOOP-3");
     assert.equal(filteredTickets[0].repoCount, 1);
 
     const persistedTicket = reopenedStore.getTicket("project_pool", createdTicket.id);
