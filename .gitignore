@@ -5,3 +5,4 @@ apps/web-react/dist/
 services/api/.floop/
 .floop/*
 .playwright-mcp/*
+demo-recordings/
