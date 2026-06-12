@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, resolve, sep } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { resolve, sep } from "node:path";
 import { defaultCeremonyAutomation, defaultProjectPolicy, defaultRoleProfiles } from "../../config/src/index.mjs";
 import {
   artifactDto,
@@ -21,6 +20,9 @@ import {
   worktreeDto,
 } from "../../contracts/src/index.mjs";
 import { boardStates, isCeremonyType, isRefinementMode, isRoleName, isTicketState } from "../../domain/src/index.mjs";
+import { defaultDatabasePath, openSqliteDatabase, withTransaction } from "./sqlite-runtime.mjs";
+
+export { defaultDatabasePath } from "./sqlite-runtime.mjs";
 
 const SQLITE_SCHEMA = `
 pragma foreign_keys = on;
@@ -326,19 +328,13 @@ create index if not exists idx_ceremony_proposals_run_id on ceremony_proposals(r
 create index if not exists idx_ceremony_participants_status on ceremony_participants(status);
 `;
 
-export function defaultDatabasePath(cwd = process.cwd()) {
-  return resolve(cwd, ".floop", "floop.sqlite");
-}
-
 export function createSqliteStore(options = {}) {
   const filename = options.filename || defaultDatabasePath();
-  if (filename !== ":memory:") {
-    mkdirSync(dirname(filename), { recursive: true });
-  }
-
-  const database = new DatabaseSync(filename);
-  database.exec(SQLITE_SCHEMA);
-  migrateSchema(database);
+  const database = openSqliteDatabase({
+    filename,
+    schema: SQLITE_SCHEMA,
+    migrate: migrateSchema,
+  });
 
   if (options.seedDemo !== false && countProjects(database) === 0) {
     seed(database, options.workspaceRoot || process.cwd());
@@ -5451,16 +5447,4 @@ function migrateArtifactsMergeRunReference(database) {
 
 function touchProjectUpdatedAt(database, projectId, timestamp) {
   database.prepare("update projects set updated_at = ? where id = ?").run(timestamp, projectId);
-}
-
-function withTransaction(database, action) {
-  database.exec("begin");
-  try {
-    const result = action();
-    database.exec("commit");
-    return result;
-  } catch (error) {
-    database.exec("rollback");
-    throw error;
-  }
 }
