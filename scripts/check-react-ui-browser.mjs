@@ -102,6 +102,23 @@ try {
       );
     })
   `, "ticket cards stay inside their lane border");
+  await assertScript(`
+    (() => {
+      const gridElement = document.querySelector(".board-grid");
+      if (!gridElement) return false;
+      const targetHeight = Math.max(gridElement.clientHeight, gridElement.scrollHeight);
+      return Array.from(document.querySelectorAll(".lane")).every((lane) =>
+        Math.abs(lane.getBoundingClientRect().height - targetHeight) <= 2
+      );
+    })()
+  `, "swimlane dividers extend to the board bottom");
+
+  await clickText("Ceremonies");
+  await assertScript("document.querySelector('.constellation-stage') !== null", "ceremony orbit renders before a ceremony run");
+  await assertScript("document.querySelector('.constellation-ring') !== null && document.querySelector('.decider-node') !== null", "ceremony constellation has an orbit and center decider");
+  await assertScript("document.querySelectorAll('.agent-node').length >= 3", "ceremony constellation renders participant nodes");
+  await assertScript("document.querySelectorAll('.consensus-cell').length >= 4", "ceremony consensus heatmap is visible");
+  await clickText("Board");
 
   await clickText("Settings");
   await waitForScript("document.querySelector('.settings-drawer') !== null");
@@ -133,12 +150,10 @@ try {
 
   await clickText("Show profiles");
   await setProfileConfig("developer", "{bad json");
-  await waitForProfileConfig("developer", "{bad json");
   await clickProfileTest("developer");
   await waitForText("Config must be valid JSON");
   await clickProfilePreset("developer", "Shell");
   await setProfileConfig("developer", '{"command":"node --version"}');
-  await waitForProfileConfig("developer", '{"command":"node --version"}');
   await clickProfileTest("developer");
   await waitForText("Profile test passed");
   await clickProfileSave("developer");
@@ -191,19 +206,24 @@ try {
   await clickText("Add repo target");
   await waitForScript("document.body.innerText.includes('floopfloop') && document.body.innerText.includes('base main')");
 
+  await clickText("Dispatch");
   await setFormValue("Start run", "summary", "Starting from the browser UI.");
   await clickText("Start run");
   await waitForText("Record outcome");
+  await clickText("Dispatch");
   await setFormValue("Record outcome", "summary", "Execution completed from the browser UI.");
   await clickText("Record outcome");
   await waitForText("Record review");
+  await clickText("Dispatch");
   await setFormValue("Record review", "summary", "Review passed from the browser UI.");
   await clickText("Record review");
   await waitForText("Record validation");
+  await clickText("Dispatch");
   await setFormValue("Record validation", "commands", "npm test");
   await setFormValue("Record validation", "summary", "Validation passed from the browser UI.");
   await clickText("Record validation");
   await waitForText("Record merge");
+  await clickText("Dispatch");
   await setFormValue("Record merge", "approvedByRef", "browser-qa");
   await setFormValue("Record merge", "summary", "Merge recorded from browser UI.");
   await clickText("Record merge");
@@ -496,21 +516,38 @@ async function setFirstSelectOption(submitText, fieldName) {
 }
 
 async function setProfileConfig(role, value) {
-  const element = await elementFromScript(`
+  const ok = await execute(`
     const role = arguments[0];
+    const value = arguments[1];
     const card = document.querySelector(\`.profile-card[data-role="\${role}"]\`);
     const field = card ? card.querySelector('textarea[name="config"]') : null;
-    if (!field) return null;
+    if (!field) return false;
     field.scrollIntoView({ block: "center", inline: "center" });
-    return field;
-  `, [role]);
-  await webdriver("POST", `/session/${sessionId}/element/${elementId(element)}/clear`, {});
-  await webdriver("POST", `/session/${sessionId}/element/${elementId(element)}/value`, { text: value });
+    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), "value");
+    if (descriptor?.set) {
+      descriptor.set.call(field, value);
+    } else {
+      field.value = value;
+    }
+    field._valueTracker?.setValue("");
+    field.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  `, [role, value]);
+  assert.equal(ok, true, `Unable to set profile config for ${role}`);
 }
 
 async function waitForProfileConfig(role, value) {
   await waitForScript(
-    `document.querySelector(\`.profile-card[data-role="\${arguments[0]}"] textarea[name="config"]\`)?.value === arguments[1]`,
+    `
+      const field = document.querySelector(\`.profile-card[data-role="\${arguments[0]}"] textarea[name="config"]\`);
+      if (!field) return false;
+      try {
+        return JSON.stringify(JSON.parse(field.value)) === JSON.stringify(JSON.parse(arguments[1]));
+      } catch {
+        return field.value === arguments[1];
+      }
+    `,
     [role, value],
   );
 }

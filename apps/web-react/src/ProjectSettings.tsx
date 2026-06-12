@@ -1,6 +1,7 @@
 import React, { FormEvent, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { StateDot, StatusMeter, toneForStatus } from "./OperationalVisuals";
 import {
   createRepo,
   updateProject,
@@ -183,6 +184,9 @@ export function SettingsDrawer({
       <Dialog.Portal>
         <Dialog.Overlay className="drawer-scrim" />
         <Dialog.Content className="settings-drawer" aria-label="Project settings">
+          <Dialog.Description className="sr-only">
+            Configure project metadata, delivery policy, repositories, agent profiles, and project deletion controls.
+          </Dialog.Description>
           <div className="drawer-heading">
             <div>
               <p className="kicker">Project Controls</p>
@@ -650,6 +654,16 @@ function RoleProfiles({
         <h3>Agent Profiles</h3>
         <span>{profiles.length}</span>
       </div>
+      <div className="profile-matrix" aria-label="Agent profile matrix">
+        {profiles.map((profile) => (
+          <article key={profile.role}>
+            <StateDot tone={profile.adapter ? "done" : "attention"} />
+            <strong>{prettyRole(profile.role)}</strong>
+            <span>{profile.adapter || "No adapter"}</span>
+            <small>{profile.model || "No model"}</small>
+          </article>
+        ))}
+      </div>
       <div className="profile-grid">
         {profiles.map((profile) => (
           <RoleProfileForm key={profile.role} profile={profile} busy={busy} onSubmit={onSubmit} />
@@ -727,10 +741,17 @@ function RoleProfileForm({
     <form className="profile-card" data-role={profile.role} onSubmit={handleSubmit}>
       <div className="profile-card-heading">
         <strong>{prettyRole(profile.role)}</strong>
-        <span className="badge">{adapterPresets[draft.adapter].label}</span>
+        <span className="badge"><StateDot tone={testStatus ? toneForStatus("passed") : "neutral"} /> {adapterPresets[draft.adapter].label}</span>
       </div>
       {configError ? <span className="field-error">{configError}</span> : null}
       {testStatus ? <span className="status is-success">{testStatus}</span> : null}
+      <StatusMeter
+        items={[
+          { id: "adapter", label: "Adapter", value: draft.adapter ? 1 : 0, tone: draft.adapter ? "done" : "attention" },
+          { id: "model", label: "Model", value: draft.model.trim() ? 1 : 0, tone: draft.model.trim() ? "done" : "attention" },
+          { id: "config", label: "Config", value: parsedConfig.ok ? 1 : 0, tone: parsedConfig.ok ? "done" : "danger" },
+        ]}
+      />
       <div className="profile-preset-row" aria-label={`${profile.role} profile presets`}>
         {(Object.keys(adapterPresets) as AdapterKind[]).map((adapter) => (
           <button

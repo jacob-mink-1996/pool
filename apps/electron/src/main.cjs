@@ -12,6 +12,8 @@ const {
 let apiServer;
 let executionDriver;
 let mergeDriver;
+let ceremonyAutomationDriver;
+let ceremonyParticipantDriver;
 let mainWindow;
 
 async function startFloopApi(repoRoot) {
@@ -21,11 +23,20 @@ async function startFloopApi(repoRoot) {
   });
   Object.assign(process.env, desktopEnv);
 
-  const [{ createFloopServer }, { createExecutionDriver }, { createMergeDriver }, { createStore }] =
+  const [
+    { createFloopServer },
+    { createExecutionDriver },
+    { createMergeDriver },
+    { createCeremonyAutomationDriver },
+    { createCeremonyParticipantDriver },
+    { createStore },
+  ] =
     await Promise.all([
       import(pathToFileURL(path.join(repoRoot, "services/api/src/app.mjs")).href),
       import(pathToFileURL(path.join(repoRoot, "services/api/src/execution-driver.mjs")).href),
       import(pathToFileURL(path.join(repoRoot, "services/api/src/merge-driver.mjs")).href),
+      import(pathToFileURL(path.join(repoRoot, "services/api/src/ceremony-automation-driver.mjs")).href),
+      import(pathToFileURL(path.join(repoRoot, "services/api/src/ceremony-participant-driver.mjs")).href),
       import(pathToFileURL(path.join(repoRoot, "services/api/src/store.mjs")).href),
     ]);
 
@@ -41,9 +52,20 @@ async function startFloopApi(repoRoot) {
     store,
     pollIntervalMs: Number.parseInt(process.env.FLOOP_MERGE_POLL_MS || "2000", 10),
   });
+  ceremonyAutomationDriver = createCeremonyAutomationDriver({
+    store,
+    pollIntervalMs: Number.parseInt(process.env.FLOOP_CEREMONY_POLL_MS || "30000", 10),
+  });
+  ceremonyParticipantDriver = createCeremonyParticipantDriver({
+    store,
+    pollIntervalMs: Number.parseInt(process.env.FLOOP_CEREMONY_PARTICIPANT_POLL_MS || "2000", 10),
+    maxParallel: Number.parseInt(process.env.FLOOP_CEREMONY_PARTICIPANT_MAX_PARALLEL || "4", 10),
+  });
 
   executionDriver.start();
   mergeDriver.start();
+  ceremonyAutomationDriver.start();
+  ceremonyParticipantDriver.start();
 
   const actualPort = await listenWithFallback(apiServer, {
     host,
@@ -133,6 +155,8 @@ async function stopFloopApi() {
   await Promise.allSettled([
     executionDriver?.stop(),
     mergeDriver?.stop(),
+    ceremonyAutomationDriver?.stop(),
+    ceremonyParticipantDriver?.stop(),
     apiServer
       ? new Promise((resolve) => {
           apiServer.close(resolve);
@@ -142,6 +166,8 @@ async function stopFloopApi() {
   apiServer = undefined;
   executionDriver = undefined;
   mergeDriver = undefined;
+  ceremonyAutomationDriver = undefined;
+  ceremonyParticipantDriver = undefined;
 }
 
 function installMenu() {

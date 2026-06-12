@@ -2,6 +2,7 @@ import React, { ChangeEvent, FormEvent, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { browseDirectories, cloneRepo, createDirectory, detectRepo } from "./api";
+import { StatusMeter } from "./OperationalVisuals";
 import type { ProjectCreateInput, RepoInput } from "./types";
 
 type WorkspaceSourceMode = "existing" | "new" | "clone";
@@ -241,6 +242,9 @@ export function ProjectOnboardingDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="modal-scrim" />
         <Dialog.Content className="onboarding-dialog" aria-label="New project onboarding">
+          <Dialog.Description className="sr-only">
+            Create a Floop project from an existing folder, new folder, or fresh clone.
+          </Dialog.Description>
           <div className="drawer-heading">
             <div>
               <p className="kicker">Project Onboarding</p>
@@ -254,6 +258,15 @@ export function ProjectOnboardingDialog({
           </div>
           {error ? <div className="status is-error">{error}</div> : null}
           <form className="onboarding-form" onSubmit={handleSubmit}>
+            <section className="setup-meter" aria-label="Project setup progress">
+              <StatusMeter
+                items={[
+                  { id: "source", label: "Source", value: sourceMode ? 1 : 0, tone: sourceMode ? "done" : "neutral" },
+                  { id: "details", label: "Details", value: projectDetails.name || projectDetails.slug ? 1 : 0, tone: projectDetails.name || projectDetails.slug ? "active" : "neutral" },
+                  { id: "repo", label: "Repo", value: sourceMode === "new" || projectDetails.defaultBaseBranch ? 1 : 0, tone: sourceMode === "new" || projectDetails.defaultBaseBranch ? "attention" : "neutral" },
+                ]}
+              />
+            </section>
             <section className="settings-card">
               <div className="section-heading">
                 <div>

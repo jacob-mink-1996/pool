@@ -5,7 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragMoveEvent } from "@dnd-kit/core";
-import { Check, ChevronLeft, ChevronRight, Menu, Moon, Pencil, Plus, RefreshCw, SlidersHorizontal, Sparkles, Sun, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, FileText, Menu, Moon, Pencil, Plus, RefreshCw, SlidersHorizontal, Sparkles, Sun, X } from "lucide-react";
 import {
   ApiError,
   applyCeremony,
@@ -65,6 +65,20 @@ import type {
 } from "./types";
 import { ProjectEmptyState, ProjectOnboardingDialog } from "./ProjectOnboarding";
 import { SettingsDrawer } from "./ProjectSettings";
+import {
+  ActionDock,
+  ChecklistRail,
+  EvidenceRail,
+  LogChip,
+  PhaseRail,
+  StateDot,
+  StatusMeter,
+  toneForStatus,
+  type ChecklistItem,
+  type EvidenceItem as VisualEvidenceItem,
+  type PhaseItem,
+  type Tone,
+} from "./OperationalVisuals";
 import "./styles.css";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
@@ -334,9 +348,16 @@ function App() {
       assignedRole: input.assignedRole,
       repoTargets: repo ? [{ repoId: repo.id, baseRef: repo.defaultBranch }] : [],
     });
-    await refresh();
     setSelectedTicketId(created.id);
     setTicket(created);
+    await refreshTicket(created.id);
+    await Promise.all([
+      listMergeQueue(projectId).then(setMergeQueue),
+      listCeremonies(projectId).then(setCeremonies),
+      listEvents(projectId).then(setEvents),
+      listArtifacts(projectId).then(setArtifacts),
+      getRunObservability(projectId).then(setRunObservability),
+    ]);
     setComposerOpen(false);
     setDetailOpen(true);
   };
@@ -520,6 +541,9 @@ function App() {
         <Dialog.Portal>
           <Dialog.Overlay className="modal-scrim" />
           <Dialog.Content className="ticket-detail">
+            <Dialog.Description className="sr-only">
+              Inspect ticket status, evidence, scope, timeline, and dispatch the next operator action.
+            </Dialog.Description>
             <TicketDetailPanel
               projectId={projectId}
               ticket={ticket}
@@ -598,13 +622,26 @@ function ProjectRail({
             onClick={() => onSelect(project.id)}
           >
             <span>{project.name}</span>
-            <small>
-              {project.ticketCount} tickets · {project.repoCount} repos
-            </small>
+            <small>{project.ticketCount} tickets · {project.repoCount} repos</small>
+            <ProjectHealthGlyphs project={project} />
           </button>
         ))}
       </div>
     </aside>
+  );
+}
+
+function ProjectHealthGlyphs({ project }: { project: Project }) {
+  const board = project.board || {};
+  const attention = (board.BLOCKED || 0) + (board.REWORK || 0);
+  const active = (board.WORKING || 0) + (board.REVIEWING || 0) + (board.VALIDATING || 0);
+  const merge = (board.READY_TO_MERGE || 0) + (board.MERGING || 0);
+  return (
+    <span className="project-health" aria-label="Project health">
+      <StateDot tone={active ? "active" : "neutral"} label={`${active} active`} />
+      <StateDot tone={attention ? "attention" : "neutral"} label={`${attention} attention`} />
+      <StateDot tone={merge ? "done" : "neutral"} label={`${merge} merge-ready`} />
+    </span>
   );
 }
 
@@ -649,11 +686,19 @@ function IconButton({
 
 function BoardHeader({ project, board, loadState, label }: { project: Project | null; board: Board | null; loadState: LoadState; label: string }) {
   const summary = project?.board || {};
+  const flowItems = [
+    { id: "backlog", label: "Backlog", value: (summary.PROPOSED || 0) + (summary.READY || 0), tone: "neutral" as Tone },
+    { id: "working", label: "Working", value: (summary.WORKING || 0) + (summary.REWORK || 0), tone: "active" as Tone },
+    { id: "evidence", label: "Evidence", value: (summary.REVIEWING || 0) + (summary.VALIDATING || 0), tone: "attention" as Tone },
+    { id: "merge", label: "Merge", value: (summary.READY_TO_MERGE || 0) + (summary.MERGING || 0), tone: "done" as Tone },
+    { id: "blocked", label: "Blocked", value: summary.BLOCKED || 0, tone: "danger" as Tone },
+  ];
   return (
     <section className="summary-strip">
       <div>
         <p className="kicker">{label}</p>
         <h2>{label === "Ops" ? "Operations" : label === "Ceremonies" ? "Agent ceremonies" : board?.projectName || (loadState === "loading" ? "Loading project..." : "No project selected")}</h2>
+        <StatusMeter items={flowItems} />
       </div>
       <Metric label="Total" value={String(board?.totalTickets || 0)} />
       <Metric label="Working" value={String((summary.WORKING || 0) + (summary.REWORK || 0))} />
@@ -722,56 +767,26 @@ function OpsPanel({
     <section className="ops-panel" aria-label="Operations overview">
       <div className="run-observability">
         <div className="section-heading">
-          <h3>Run Observability</h3>
+          <h3>Run Subway</h3>
           <span>{runObservability ? formatDate(runObservability.generatedAt) : "Loading"}</span>
         </div>
-        <div className="run-metrics">
-          <Metric label="Runs" value={String(runObservability?.summary.total || 0)} />
-          <Metric label="Running" value={String(runObservability?.summary.running || 0)} />
-          <Metric label="Attention" value={String(runObservability?.summary.needsAttention || 0)} />
-          <Metric label="Failed" value={String(runObservability?.summary.failed || 0)} />
-        </div>
-        <div className="run-list">
+        <StatusMeter
+          items={[
+            { id: "running", label: "Running", value: runObservability?.summary.running || 0, tone: "active" },
+            { id: "attention", label: "Attention", value: runObservability?.summary.needsAttention || 0, tone: "attention" },
+            { id: "failed", label: "Failed", value: runObservability?.summary.failed || 0, tone: "danger" },
+            { id: "complete", label: "Recent", value: Math.max(0, (runObservability?.summary.total || 0) - (runObservability?.summary.running || 0) - (runObservability?.summary.failed || 0)), tone: "done" },
+          ]}
+        />
+        <RunSubway runs={runObservability?.runs || []} onSelectTicket={onSelectTicket} />
+        {/* Keep a fallback empty state adjacent to the subway for first-run projects. */}
+        <div className="run-list is-empty-only">
           {!runObservability || runObservability.runs.length === 0 ? <p className="lane-empty">No worker runs recorded yet.</p> : null}
-          {runObservability?.runs.slice(0, 8).map((run) => (
-            <article key={run.id} className={`run-item run-${run.kind} ${run.needsAttention ? "needs-attention" : ""}`}>
-              <div className="run-marker">
-                <span>{run.kind.slice(0, 1).toUpperCase()}</span>
-              </div>
-              <div className="run-copy">
-                <span>{prettyState(run.kind)} · {prettyState(run.status)} · {formatDate(run.finishedAt || run.startedAt)}</span>
-                <strong>{run.label}</strong>
-                <p>{run.summary}</p>
-                <div className="run-meta">
-                  {run.ticketId ? (
-                    <button className="inline-link" type="button" onClick={() => onSelectTicket(run.ticketId)}>
-                      {run.ticketKey || "Open ticket"}
-                    </button>
-                  ) : null}
-                  {run.role ? <span>{prettyRole(run.role as RoleName)}</span> : null}
-                  {run.claimStatus !== "not_applicable" ? <span>{prettyState(run.claimStatus)}</span> : null}
-                  {run.retryAttemptCount > 1 ? <span>{run.retryAttemptCount} attempts</span> : null}
-                  {run.failureKind ? <span>{prettyState(run.failureKind)}</span> : null}
-                  {run.stdoutArtifactUri ? <span>stdout</span> : null}
-                  {run.stderrArtifactUri ? <span>stderr</span> : null}
-                  {run.artifactCount ? <span>{run.artifactCount} artifact(s)</span> : null}
-                  {run.worktreeCount ? <span>{run.worktreeCount} worktree(s)</span> : null}
-                  {run.pendingProposalCount ? <span>{run.pendingProposalCount} proposal(s)</span> : null}
-                </div>
-                {run.worktreePaths.length > 0 ? (
-                  <code>{run.worktreePaths[0]}</code>
-                ) : null}
-                {run.movementReason ? (
-                  <small>{run.movementReason.reasonCode || run.movementReason.summary}</small>
-                ) : null}
-              </div>
-            </article>
-          ))}
         </div>
       </div>
-      <div className="decision-queue">
+      <div className="decision-queue attention-panel">
         <div className="section-heading">
-          <h3>Decision Queue</h3>
+          <h3>Attention</h3>
           <span>{decisions.length}</span>
         </div>
         <div className="decision-list">
@@ -840,6 +855,89 @@ function OpsPanel({
       </div>
     </section>
   );
+}
+
+function RunSubway({
+  runs,
+  onSelectTicket,
+}: {
+  runs: RunObservability["runs"];
+  onSelectTicket: (id: string) => void;
+}) {
+  const sorted = [...runs].sort((a, b) => runPriority(b) - runPriority(a)).slice(0, 10);
+  if (sorted.length === 0) return null;
+  return (
+    <div className="run-subway">
+      {sorted.map((run) => (
+        <RunSubwayItem key={run.id} run={run} onSelectTicket={onSelectTicket} />
+      ))}
+    </div>
+  );
+}
+
+function RunSubwayItem({
+  run,
+  onSelectTicket,
+}: {
+  run: RunObservability["runs"][number];
+  onSelectTicket: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const phases: PhaseItem[] = [
+    { id: "claim", label: "Claim", complete: run.claimStatus === "not_applicable" || run.claimStatus === "claimed", current: run.status === "running", tone: toneForStatus(run.claimStatus) },
+    { id: "output", label: "Output", complete: Boolean(run.stdoutArtifactUri || run.stderrArtifactUri || run.artifactCount), tone: run.stdoutArtifactUri || run.stderrArtifactUri || run.artifactCount ? "done" : "neutral" },
+    { id: "attention", label: "Attention", current: run.needsAttention, tone: run.needsAttention ? "attention" : "neutral" },
+    { id: "finish", label: run.status === "failed" ? "Failed" : "Finish", complete: Boolean(run.finishedAt), tone: run.status === "failed" || run.failureKind ? "danger" : run.finishedAt ? "done" : "active" },
+  ];
+  return (
+    <article className={`run-subway-item run-${run.kind} ${run.needsAttention ? "needs-attention" : ""}`}>
+      <button className="run-subway-main" type="button" onClick={() => setOpen((value) => !value)}>
+        <div className="run-marker">
+          <span>{run.kind.slice(0, 1).toUpperCase()}</span>
+        </div>
+        <div className="run-copy">
+          <span>{prettyState(run.kind)} · {prettyState(run.status)} · {formatDate(run.finishedAt || run.startedAt)}</span>
+          <strong>{run.label}</strong>
+          <PhaseRail items={phases} compact />
+        </div>
+      </button>
+      <div className="run-meta">
+        {run.ticketId ? (
+          <button className="inline-link" type="button" onClick={() => onSelectTicket(run.ticketId)}>
+            {run.ticketKey || "Open ticket"}
+          </button>
+        ) : null}
+        {run.role ? <span>{prettyRole(run.role as RoleName)}</span> : null}
+        {run.retryAttemptCount > 1 ? <span>{run.retryAttemptCount} attempts</span> : null}
+        {run.pendingProposalCount ? <span>{run.pendingProposalCount} proposals</span> : null}
+      </div>
+      {open ? (
+        <div className="log-dock">
+          <p>{run.summary || "No run summary recorded."}</p>
+          <LogChip label="stdout" value={run.stdoutArtifactUri} />
+          <LogChip label="stderr" value={run.stderrArtifactUri} />
+          {run.worktreePaths.map((path) => (
+            <LogChip key={path} label="worktree" value={path} />
+          ))}
+          {run.movementReason ? (
+            <article className="movement-reason">
+              <FileText size={15} />
+              <span>{run.movementReason.reasonCode || run.movementReason.summary}</span>
+              <small>{run.movementReason.detail || run.movementReason.summary}</small>
+            </article>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function runPriority(run: RunObservability["runs"][number]) {
+  if (run.status === "running") return 5;
+  if (run.needsAttention) return 4;
+  if (run.failureKind || run.status === "failed") return 3;
+  if (run.retryAttemptCount > 1) return 2;
+  return 1;
 }
 
 function buildDecisionQueue({
@@ -1003,6 +1101,12 @@ function CeremoniesPanel({
   const [consensusPolicy, setConsensusPolicy] = useState(defaultCeremonyFanOut.refinement.consensusPolicy);
   const latest = ceremonies[0] || null;
   const pending = latest?.proposals.filter((proposal) => proposal.status === "pending") || [];
+  const displayRun = latest || draftCeremonyRun({
+    type: selectedType,
+    participantRoles,
+    deciderRole,
+    consensusPolicy,
+  });
 
   async function runWithBusy(label: string, work: () => Promise<void>) {
     setBusy(label);
@@ -1052,74 +1156,32 @@ function CeremoniesPanel({
 
       <div className="ceremony-review">
         <div className="section-heading">
-          <h3>Latest Run</h3>
+          <h3>Facilitation</h3>
           <span>{latest ? prettyState(latest.status) : "None"}</span>
         </div>
-        {!latest ? (
-          <p className="lane-empty">Run a ceremony to generate reviewable agent proposals.</p>
-        ) : (
-          <>
-            <article className="ceremony-summary">
-              <strong>{prettyCeremony(latest.type)}</strong>
-              <p>{latest.summaryMd}</p>
-              {latest.participantRoles.length > 0 ? (
-                <span>
-                  Participants: {latest.participantRoles.map(prettyRole).join(", ")} · Decider:{" "}
-                  {latest.deciderRole ? prettyRole(latest.deciderRole) : "operator"}
-                </span>
-              ) : null}
-              {latest.riskMd ? <span>{latest.riskMd}</span> : null}
-            </article>
-            <div className="proposal-toolbar">
-              <span>{pending.length} pending proposal(s)</span>
-              <button
-                className="primary-button"
-                type="button"
-                disabled={pending.length === 0 || Boolean(busy)}
-                onClick={() => runWithBusy("Apply proposals", () => onApply(latest.id))}
-              >
-                Apply pending
-              </button>
-            </div>
-            {latest.participants.length > 0 ? (
-              <div className="proposal-list">
-                {latest.participants.map((participant) => (
-                  <article key={participant.id} className={`proposal-item proposal-${participant.status}`}>
-                    <div>
-                      <span>{prettyRole(participant.role)} · {prettyState(participant.status)}</span>
-                      <strong>{participant.summaryMd || "Waiting for participant output"}</strong>
-                      <code>{participant.outcome || "pending"}</code>
-                    </div>
-                    <span className="badge">{prettyState(participant.status)}</span>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-            <div className="proposal-list">
-              {latest.proposals.map((proposal) => (
-                <article key={proposal.id} className={`proposal-item proposal-${proposal.status}`}>
-                  <div>
-                    <span>{prettyState(proposal.kind)} · {proposal.ticketKey || prettyCeremony(latest.type)}</span>
-                    <strong>{proposal.summary}</strong>
-                    <code>{summarizeProposalPayload(proposal.payload)}</code>
-                  </div>
-                  {proposal.status === "pending" ? (
-                    <button
-                      className="quiet-button"
-                      type="button"
-                      disabled={Boolean(busy)}
-                      onClick={() => runWithBusy("Apply proposal", () => onApply(latest.id, [proposal.id]))}
-                    >
-                      Apply
-                    </button>
-                  ) : (
-                    <span className="badge">{prettyState(proposal.status)}</span>
-                  )}
-                </article>
-              ))}
-            </div>
-          </>
-        )}
+        <CeremonyConstellation run={displayRun} />
+        <div className="proposal-toolbar">
+          <StatusMeter
+            items={[
+              { id: "pending", label: "Pending", value: pending.length, tone: "attention" },
+              { id: "applied", label: "Applied", value: displayRun.proposals.filter((proposal) => proposal.status === "applied").length, tone: "done" },
+              { id: "other", label: "Other", value: displayRun.proposals.filter((proposal) => proposal.status !== "pending" && proposal.status !== "applied").length, tone: "neutral" },
+            ]}
+          />
+          <button
+            className="primary-button"
+            type="button"
+            disabled={!latest || pending.length === 0 || Boolean(busy)}
+            onClick={() => latest ? runWithBusy("Apply proposals", () => onApply(latest.id)) : undefined}
+          >
+            Apply pending
+          </button>
+        </div>
+        <CeremonyProposalBuckets
+          run={displayRun}
+          busy={Boolean(busy)}
+          onApply={(proposalId) => latest ? runWithBusy("Apply proposal", () => onApply(latest.id, [proposalId])) : Promise.resolve()}
+        />
       </div>
 
       <div className="ceremony-history">
@@ -1191,8 +1253,211 @@ function CeremoniesPanel({
   );
 }
 
+function CeremonyConstellation({ run }: { run: CeremonyRun }) {
+  const participants = run.participants.length
+    ? run.participants
+    : run.participantRoles.map((role, index) => ({
+        id: `${run.id}:${role}`,
+        role,
+        status: "waiting",
+        outcome: "",
+        summaryMd: "Waiting for participant output",
+        questionsMd: "",
+        riskMd: "",
+        payload: {},
+        projectId: run.projectId,
+        runId: run.id,
+        startedAt: "",
+        finishedAt: "",
+        createdAt: "",
+        updatedAt: "",
+      }));
+  const pendingCount = run.proposals.filter((proposal) => proposal.status === "pending").length;
+  const appliedCount = run.proposals.filter((proposal) => proposal.status === "applied").length;
+  const riskCount = participants.filter((participant) => participant.riskMd || toneForStatus(participant.outcome || participant.status) === "danger").length;
+  return (
+    <article className="ceremony-constellation">
+      <div className="ceremony-orbit-head">
+        <div>
+          <strong>{prettyCeremony(run.type)}</strong>
+          <span>{run.summaryMd || "No ceremony summary yet."}</span>
+        </div>
+        <span className="badge">{run.consensusPolicy || "operator consensus"}</span>
+      </div>
+      <div className="constellation-stage" aria-label="Ceremony participants" style={{ "--agent-count": participants.length } as React.CSSProperties}>
+        <div className="constellation-ring" aria-hidden="true" />
+        <div className="decider-node">
+          <span>Decider</span>
+          <strong>{run.deciderRole ? roleInitials(run.deciderRole) : "OP"}</strong>
+          <small>{run.deciderRole ? prettyRole(run.deciderRole) : "operator"}</small>
+        </div>
+        {participants.map((participant, index) => {
+          const isDeciderParticipant = participant.role === run.deciderRole;
+          const tone = isDeciderParticipant ? "primary" : toneForStatus(participant.outcome || participant.status);
+          const relatedProposals = run.proposals.filter((proposal) => proposal.payload?.role === participant.role);
+          return (
+            <Tooltip.Root key={participant.id}>
+              <Tooltip.Trigger asChild>
+                <button
+                  className={`agent-node tone-${tone}`}
+                  type="button"
+                  aria-label={`${prettyRole(participant.role)} ${isDeciderParticipant ? "decider" : prettyState(participant.status)}`}
+                  style={{
+                    "--agent-angle": `${(360 / Math.max(participants.length, 1)) * index}deg`,
+                    "--agent-angle-inverse": `${(360 / Math.max(participants.length, 1)) * index * -1}deg`,
+                  } as React.CSSProperties}
+                >
+                  <StateDot tone={tone} />
+                  <strong>{roleInitials(participant.role)}</strong>
+                  <span>{isDeciderParticipant ? "Decider" : prettyState(participant.status)}</span>
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content className="agent-heatmap" sideOffset={10}>
+                  <strong>{prettyRole(participant.role)}</strong>
+                  <span>{prettyState(participant.outcome || participant.status)}</span>
+                  <p>{participant.summaryMd || "Waiting for output."}</p>
+                  {participant.questionsMd ? <small>Questions: {participant.questionsMd}</small> : null}
+                  {participant.riskMd ? <small>Risk: {participant.riskMd}</small> : null}
+                  <div className="heatmap-cells">
+                    <span className={`tone-${tone}`}>State</span>
+                    <span className={relatedProposals.length ? "tone-attention" : "tone-neutral"}>{relatedProposals.length || pendingCount} proposals</span>
+                    <span className={participant.riskMd ? "tone-danger" : "tone-done"}>Risk</span>
+                  </div>
+                  <Tooltip.Arrow className="tooltip-arrow" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          );
+        })}
+      </div>
+      <div className="consensus-strip" aria-label="Consensus heatmap">
+        <ConsensusCell label="Complete" value={String(participants.filter((participant) => toneForStatus(participant.outcome || participant.status) === "done").length)} tone="done" />
+        <ConsensusCell label="Risks" value={String(riskCount)} tone={riskCount ? "attention" : "done"} />
+        <ConsensusCell label="Apply" value={String(pendingCount)} tone={pendingCount ? "attention" : "neutral"} />
+        <ConsensusCell label="Applied" value={String(appliedCount)} tone={appliedCount ? "done" : "neutral"} />
+      </div>
+      {run.riskMd ? <p>{run.riskMd}</p> : null}
+    </article>
+  );
+}
+
+function ConsensusCell({ label, value, tone }: { label: string; value: string; tone: Tone }) {
+  return (
+    <div className={`consensus-cell tone-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function roleInitials(role: string) {
+  const words = prettyRole(role).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return role.slice(0, 2).toUpperCase();
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  return words.map((word) => word[0]).join("").slice(0, 3).toUpperCase();
+}
+
+function CeremonyProposalBuckets({
+  run,
+  busy,
+  onApply,
+}: {
+  run: CeremonyRun;
+  busy: boolean;
+  onApply: (proposalId: string) => Promise<void>;
+}) {
+  const buckets = [
+    { id: "pending", label: "Pending", proposals: run.proposals.filter((proposal) => proposal.status === "pending") },
+    { id: "applied", label: "Applied", proposals: run.proposals.filter((proposal) => proposal.status === "applied") },
+    { id: "held", label: "Held / Other", proposals: run.proposals.filter((proposal) => proposal.status !== "pending" && proposal.status !== "applied") },
+  ];
+  return (
+    <div className="proposal-buckets">
+      {buckets.map((bucket) => (
+        <section key={bucket.id} className="proposal-bucket">
+          <div className="section-heading">
+            <h3>{bucket.label}</h3>
+            <span>{bucket.proposals.length}</span>
+          </div>
+          <div className="proposal-list">
+            {bucket.proposals.length === 0 ? <p className="lane-empty">None</p> : null}
+            {bucket.proposals.map((proposal) => (
+              <article key={proposal.id} className={`proposal-item proposal-${proposal.status}`}>
+                <div>
+                  <span>{prettyState(proposal.kind)} · {proposal.ticketKey || prettyCeremony(run.type)}</span>
+                  <strong>{proposal.summary}</strong>
+                  <code>{summarizeProposalPayload(proposal.payload)}</code>
+                </div>
+                {proposal.status === "pending" ? (
+                  <button className="quiet-button" type="button" disabled={busy} onClick={() => onApply(proposal.id)}>
+                    Apply
+                  </button>
+                ) : (
+                  <span className="badge">{prettyState(proposal.status)}</span>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function prettyCeremony(type: string) {
   return type.replace(/_/g, " ");
+}
+
+function draftCeremonyRun({
+  type,
+  participantRoles,
+  deciderRole,
+  consensusPolicy,
+}: {
+  type: CeremonyType;
+  participantRoles: RoleName[];
+  deciderRole: RoleName | "";
+  consensusPolicy: string;
+}): CeremonyRun {
+  const now = new Date().toISOString();
+  return {
+    id: `draft:${type}`,
+    projectId: "",
+    type,
+    status: "draft",
+    scope: {},
+    participantRoles,
+    deciderRole,
+    consensusPolicy,
+    inputSnapshot: {},
+    summaryMd: "Ready to fan out. Select the roles, confirm the decider, then run the ceremony.",
+    questionsMd: "",
+    riskMd: "",
+    createdByKind: "operator",
+    createdByRef: "ui",
+    startedAt: now,
+    finishedAt: "",
+    appliedAt: "",
+    updatedAt: now,
+    proposals: [],
+    participants: participantRoles.map((role) => ({
+      id: `draft:${type}:${role}`,
+      projectId: "",
+      runId: `draft:${type}`,
+      role,
+      status: "waiting",
+      outcome: "",
+      summaryMd: role === deciderRole ? "Decider will synthesize objections." : "Participant is queued for fan-out.",
+      questionsMd: "",
+      riskMd: "",
+      payload: {},
+      startedAt: "",
+      finishedAt: "",
+      createdAt: now,
+      updatedAt: now,
+    })),
+  };
 }
 
 function summarizeProposalPayload(payload: Record<string, unknown>) {
@@ -1345,6 +1610,7 @@ function BoardLane({
 
 function TicketCard({ ticket, selected, onClick }: { ticket: BoardTicket; selected: boolean; onClick: () => void }) {
   const action = nextActionForTicket(ticket);
+  const phases = ticketPhaseItems(ticket);
   const { attributes, isDragging, listeners, setNodeRef, transform } = useDraggable({
     id: ticket.id,
     data: { state: ticket.state },
@@ -1365,15 +1631,17 @@ function TicketCard({ ticket, selected, onClick }: { ticket: BoardTicket; select
         <span className={`badge state-${ticket.state.toLowerCase().replace(/_/g, "-")}`}>{prettyState(ticket.state)}</span>
       </div>
       <strong>{ticket.title}</strong>
+      <PhaseRail items={phases} compact />
       <p>{ticket.latestSummary || ticket.brief}</p>
       <div className="next-action">
         <span>{action.label}</span>
-        <small>{action.detail}</small>
       </div>
       <div className="card-meta">
         <span>{ticket.priority}</span>
         <span>{prettyRole(ticket.assignedRole)}</span>
         <span>{ticket.repoCount} repos</span>
+        {ticket.latestReviewVerdict ? <span>Review {prettyState(ticket.latestReviewVerdict)}</span> : null}
+        {ticket.latestValidationVerdict ? <span>Validation {prettyState(ticket.latestValidationVerdict)}</span> : null}
       </div>
     </button>
   );
@@ -1441,10 +1709,8 @@ function TicketDetailPanel({
       ) : (
         <div className="detail-stack">
           {error ? <div className="status is-error">{error}</div> : null}
-          <section className="next-action-panel">
-            <span className={`badge state-${ticket.state.toLowerCase().replace(/_/g, "-")}`}>{prettyState(ticket.state)}</span>
-            <h3>{action.label}</h3>
-            <p>{action.detail}</p>
+          <section className="ticket-cockpit">
+            <TicketCockpit ticket={ticket} action={action} />
             <TicketActionForm
               projectId={projectId}
               ticket={ticket}
@@ -1478,19 +1744,12 @@ function TicketDetailPanel({
           />
           <section className="detail-section">
             <h3>Evidence</h3>
+            <EvidenceRail items={buildTicketEvidence(ticket)} />
             <EvidenceList ticket={ticket} />
           </section>
           <WorktreeAndArtifactSection
             projectId={projectId}
             ticket={ticket}
-            onRun={runAction}
-            onRefresh={onRefresh}
-            onFullRefresh={onFullRefresh}
-          />
-          <TicketDangerZone
-            projectId={projectId}
-            ticket={ticket}
-            busy={busy}
             onRun={runAction}
             onRefresh={onRefresh}
             onFullRefresh={onFullRefresh}
@@ -1521,9 +1780,64 @@ function TicketDetailPanel({
               ))}
             </div>
           </section>
+          <TicketDangerZone
+            projectId={projectId}
+            ticket={ticket}
+            busy={busy}
+            onRun={runAction}
+            onRefresh={onRefresh}
+            onFullRefresh={onFullRefresh}
+          />
         </div>
       )}
     </>
+  );
+}
+
+function TicketCockpit({ ticket, action }: { ticket: TicketDetail; action: { label: string; detail: string } }) {
+  const activeExecution = ticket.executions.find((execution) => execution.status === "running");
+  const latestExecution = ticket.executions[0];
+  const latestReview = ticket.reviews[0];
+  const latestValidation = ticket.validations[0];
+  return (
+    <div className="ticket-cockpit-grid">
+      <div className="cockpit-main">
+        <span className={`badge state-${ticket.state.toLowerCase().replace(/_/g, "-")}`}>{prettyState(ticket.state)}</span>
+        <h3>{action.label}</h3>
+        <p>{action.detail}</p>
+      </div>
+      <div className="cockpit-now">
+        <div className="section-heading">
+          <h3>Now</h3>
+          <span>{activeExecution ? "Active" : prettyState(ticket.state)}</span>
+        </div>
+        <div className="cockpit-signal-list">
+          <CockpitSignal label="Run" value={activeExecution ? `${prettyRole(activeExecution.role)} iter ${activeExecution.iteration}` : latestExecution?.outcome || "Waiting"} tone={activeExecution ? "active" : toneForStatus(latestExecution?.outcome)} />
+          <CockpitSignal label="Review" value={latestReview?.verdict || "No review"} tone={toneForStatus(latestReview?.verdict)} />
+          <CockpitSignal label="Validation" value={latestValidation?.verdict || "No validation"} tone={toneForStatus(latestValidation?.verdict)} />
+          <CockpitSignal label="Merge" value={ticket.mergeStatus?.statusSummary || (ticket.mergeStatus?.canMerge ? "Ready" : "Not ready")} tone={ticket.mergeStatus?.canMerge ? "done" : ticket.mergeStatus?.blockingReasons?.length ? "attention" : "neutral"} />
+        </div>
+      </div>
+      <div className="cockpit-facts">
+        <Fact label="Priority" value={ticket.priority} />
+        <Fact label="Role" value={prettyRole(ticket.assignedRole)} />
+        <Fact label="Repos" value={String(ticket.repoTargets.length)} />
+        <Fact label="Updated" value={formatDate(ticket.updatedAt)} />
+      </div>
+      <div className="cockpit-flow">
+        <PhaseRail items={ticketPhaseItems(ticket)} />
+      </div>
+    </div>
+  );
+}
+
+function CockpitSignal({ label, value, tone }: { label: string; value: string; tone: Tone }) {
+  return (
+    <article className={`cockpit-signal tone-${tone}`}>
+      <StateDot tone={tone} />
+      <span>{label}</span>
+      <strong>{value || "None"}</strong>
+    </article>
   );
 }
 
@@ -1534,6 +1848,7 @@ function TicketPlanSummary({ ticket }: { ticket: TicketDetail }) {
         <h3>Ticket Plan</h3>
         <span>Locked</span>
       </div>
+      <ChecklistRail items={buildTicketChecklist(ticket)} />
       <div className="read-model">
         <ReadField label="Title" value={ticket.title} />
         <ReadField label="Latest summary" value={ticket.latestSummary || "No summary recorded."} />
@@ -1926,16 +2241,23 @@ function TicketActionForm({
   }
 
   return (
-    <form className="action-form" onSubmit={handleSubmit}>
-      <ActionFields ticket={ticket} activeExecution={activeExecution} latestCompletedExecution={latestCompletedExecution} />
-      <label>
-        <span>Operator note</span>
-        <textarea name="summary" rows={3} placeholder="Record why this action is happening." />
-      </label>
-      <button className="primary-button" type="submit" disabled={Boolean(busy) || !canSubmitPrimaryAction(ticket, activeExecution, latestCompletedExecution)}>
-        {submitLabel}
-      </button>
-    </form>
+    <ActionDock
+      label="Dispatch"
+      detail={`${primaryActionLabel(ticket)} · do it, then record why.`}
+      busy={Boolean(busy)}
+      disabled={!canSubmitPrimaryAction(ticket, activeExecution, latestCompletedExecution)}
+    >
+      <form className="action-form" onSubmit={handleSubmit}>
+        <ActionFields ticket={ticket} activeExecution={activeExecution} latestCompletedExecution={latestCompletedExecution} />
+        <label>
+          <span>Why</span>
+          <textarea name="summary" rows={3} placeholder="Record why this action is happening." required />
+        </label>
+        <button className="primary-button" type="submit" disabled={Boolean(busy) || !canSubmitPrimaryAction(ticket, activeExecution, latestCompletedExecution)}>
+          {submitLabel}
+        </button>
+      </form>
+    </ActionDock>
   );
 }
 
@@ -2085,6 +2407,103 @@ function EvidenceItem({ label, value, meta }: { label: string; value: string; me
       {meta ? <small>{meta}</small> : null}
     </article>
   );
+}
+
+function ticketPhaseItems(ticket: BoardTicket | TicketDetail): PhaseItem[] {
+  const phases: Array<{ id: string; label: string; states: TicketState[] }> = [
+    { id: "plan", label: "Plan", states: ["PROPOSED", "READY"] },
+    { id: "run", label: "Run", states: ["WORKING", "REWORK", "BLOCKED"] },
+    { id: "review", label: "Review", states: ["REVIEWING"] },
+    { id: "validate", label: "Validate", states: ["VALIDATING"] },
+    { id: "merge", label: "Merge", states: ["READY_TO_MERGE", "MERGING"] },
+    { id: "done", label: "Done", states: ["DONE"] },
+  ];
+  const currentIndex = Math.max(0, phases.findIndex((phase) => phase.states.includes(ticket.state)));
+  return phases.map((phase, index) => {
+    const current = index === currentIndex;
+    const complete = ticket.state === "DONE" || index < currentIndex;
+    const attention = ticket.state === "BLOCKED" || ticket.state === "REWORK";
+    return {
+      id: phase.id,
+      label: phase.label,
+      current,
+      complete,
+      tone: complete ? "done" : current ? attention ? "attention" : "active" : "neutral",
+    };
+  });
+}
+
+function buildTicketEvidence(ticket: TicketDetail): VisualEvidenceItem[] {
+  const latestExecution = ticket.executions[0];
+  const latestReview = ticket.reviews[0];
+  const latestValidation = ticket.validations[0];
+  return [
+    {
+      id: "execution",
+      label: "Execution",
+      summary: latestExecution?.summaryMd || "No execution evidence",
+      meta: latestExecution?.outcome || "",
+      tone: latestExecution ? toneForStatus(latestExecution.outcome || latestExecution.status) : ticket.state === "WORKING" ? "active" : "neutral",
+    },
+    {
+      id: "review",
+      label: "Review",
+      summary: latestReview?.summaryMd || "No review evidence",
+      meta: latestReview?.verdict || "",
+      tone: latestReview ? toneForStatus(latestReview.verdict) : ticket.state === "REVIEWING" ? "active" : "neutral",
+    },
+    {
+      id: "validation",
+      label: "Validation",
+      summary: latestValidation?.summaryMd || "No validation evidence",
+      meta: latestValidation?.commandProfile || latestValidation?.verdict || "",
+      tone: latestValidation ? toneForStatus(latestValidation.verdict) : ticket.state === "VALIDATING" ? "active" : "neutral",
+    },
+    {
+      id: "merge",
+      label: "Merge",
+      summary: ticket.mergeStatus?.statusSummary || (ticket.mergeStatus?.canMerge ? "Ready to merge" : "Merge gate waiting"),
+      meta: ticket.mergeStatus?.requiresHumanApproval ? "Human approval" : "",
+      tone: ticket.mergeStatus?.canMerge ? "done" : ticket.mergeStatus?.blockingReasons?.length ? "attention" : "neutral",
+    },
+  ];
+}
+
+function buildTicketChecklist(ticket: TicketDetail): ChecklistItem[] {
+  const parsed = [
+    ...parseChecklistLines(ticket.acceptanceCriteriaMd, "Acceptance"),
+    ...parseChecklistLines(ticket.definitionOfDoneMd, "Done"),
+  ].slice(0, 6);
+  const fallback = [
+    { id: "brief", label: "Brief", detail: ticket.brief || "No brief recorded", complete: Boolean(ticket.brief), tone: "done" as Tone },
+    { id: "acceptance", label: "Acceptance criteria", detail: ticket.acceptanceCriteriaMd || "No criteria recorded", complete: Boolean(ticket.acceptanceCriteriaMd), tone: ticket.acceptanceCriteriaMd ? "done" as Tone : "neutral" as Tone },
+    { id: "definition", label: "Definition of done", detail: ticket.definitionOfDoneMd || "No definition recorded", complete: Boolean(ticket.definitionOfDoneMd), tone: ticket.definitionOfDoneMd ? "done" as Tone : "neutral" as Tone },
+  ];
+  const evidence = [
+    { id: "execution-evidence", label: "Execution evidence", detail: ticket.executions[0]?.summaryMd || "Waiting for run output", complete: ticket.executions.length > 0, tone: ticket.executions.length > 0 ? "done" as Tone : "active" as Tone },
+    { id: "review-evidence", label: "Review evidence", detail: ticket.reviews[0]?.verdict || "Waiting for review", complete: ticket.reviews.length > 0, tone: ticket.reviews.length > 0 ? "done" as Tone : "neutral" as Tone },
+    { id: "validation-evidence", label: "Validation evidence", detail: ticket.validations[0]?.verdict || "Waiting for validation", complete: ticket.validations.length > 0, tone: ticket.validations.length > 0 ? "done" as Tone : "neutral" as Tone },
+    { id: "merge-evidence", label: "Merge readiness", detail: ticket.mergeStatus?.statusSummary || "Waiting for merge gate", complete: Boolean(ticket.mergeStatus?.canMerge), tone: ticket.mergeStatus?.canMerge ? "done" as Tone : "attention" as Tone },
+  ];
+  return [...(parsed.length ? parsed : fallback), ...evidence].slice(0, 8);
+}
+
+function parseChecklistLines(value: string, prefix: string): ChecklistItem[] {
+  return String(value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const checked = /^\s*[-*]?\s*\[[xX]\]/.test(line);
+      const cleaned = line.replace(/^[-*]\s*/, "").replace(/^\[[ xX]\]\s*/, "");
+      return {
+        id: `${prefix.toLowerCase()}-${index}`,
+        label: cleaned,
+        detail: prefix,
+        complete: checked,
+        tone: checked ? "done" : "neutral",
+      };
+    });
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
