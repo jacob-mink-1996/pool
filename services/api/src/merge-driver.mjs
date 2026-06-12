@@ -43,12 +43,12 @@ class MergeDriver {
     }
 
     this.reconcileOnStart().catch((error) => {
-      this.logger.error?.("[pool-merge-driver] startup poll failed", error);
+      this.logger.error?.("[floop-merge-driver] startup poll failed", error);
     });
 
     this.timer = setInterval(() => {
       this.pollOnce().catch((error) => {
-        this.logger.error?.("[pool-merge-driver] poll failed", error);
+        this.logger.error?.("[floop-merge-driver] poll failed", error);
       });
     }, this.pollIntervalMs);
     this.timer.unref?.();
@@ -74,7 +74,7 @@ class MergeDriver {
     const started = queue.map((item) => {
       const promise = this.runMerge(item)
         .catch((error) => {
-          this.logger.error?.("[pool-merge-driver] merge failed", error);
+          this.logger.error?.("[floop-merge-driver] merge failed", error);
         })
         .finally(() => {
           this.inFlight.delete(item.id);
@@ -89,7 +89,7 @@ class MergeDriver {
   async reconcileOnStart() {
     const recovered = this.store.reconcileActiveMergeRuns();
     if (recovered.length > 0) {
-      this.logger.info?.(`[pool-merge-driver] reconciled ${recovered.length} interrupted merge run(s)`);
+      this.logger.info?.(`[floop-merge-driver] reconciled ${recovered.length} interrupted merge run(s)`);
     }
     await this.pollOnce();
   }
@@ -245,7 +245,7 @@ function selectSourceWorktree(ticket, repoId) {
 }
 
 async function prepareMergeRuntime(project, ticket) {
-  const mergeRoot = resolve(project.workspaceRoot || process.cwd(), ".pool", "merges", ticket.key.toLowerCase());
+  const mergeRoot = resolve(project.workspaceRoot || process.cwd(), ".floop", "merges", ticket.key.toLowerCase());
   await mkdir(mergeRoot, { recursive: true });
   return {
     mergeRoot,

@@ -10,7 +10,9 @@ The Floop database needs to support:
 - review and validation evidence
 - resumable orchestration
 
-Postgres is the intended primary database.
+The current MVP uses SQLite through `packages/db`. Postgres is the intended
+primary database once Floop needs multi-user operation, remote deployment, or
+stronger concurrent write behavior.
 
 ## Design Principles
 
@@ -21,6 +23,10 @@ Postgres is the intended primary database.
 - separate current state from historical evidence
 
 ## Core Tables
+
+The field lists below describe the target durable model. The current SQLite
+implementation tracks the same product concepts, with SQLite-compatible types
+and some MVP-oriented naming details.
 
 ### `projects`
 

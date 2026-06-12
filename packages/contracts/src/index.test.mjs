@@ -24,10 +24,10 @@ test("eventDto projects a stable event contract for live consumers", () => {
   const event = eventDto({
     id: "event_1",
     sequence: 17,
-    projectId: "project_pool",
-    repoId: "repo_project_pool_pool",
-    repoSlug: "pool",
-    repoName: "pool",
+    projectId: "project_floop",
+    repoId: "repo_project_floop_floop",
+    repoSlug: "floop",
+    repoName: "floop",
     ticketId: "ticket_1",
     ticketKey: "FLOOP-1",
     ticketTitle: "Build API",
@@ -48,7 +48,7 @@ test("eventDto projects a stable event contract for live consumers", () => {
 });
 
 test("boardDto groups tickets by state", () => {
-  const board = boardDto("project_pool", [
+  const board = boardDto("project_floop", [
     {
       id: "ticket_1",
       key: "FLOOP-1",
@@ -72,7 +72,7 @@ test("boardDto groups tickets by state", () => {
     },
   ]);
 
-  assert.equal(board.projectId, "project_pool");
+  assert.equal(board.projectId, "project_floop");
   assert.equal(board.totalTickets, 2);
   assert.equal(board.lanes.WORKING.count, 1);
   assert.equal(board.lanes.WORKING.tickets[0].latestReviewVerdict, "passed");
@@ -83,7 +83,7 @@ test("ticketDto includes projected events", () => {
   const ticket = ticketDto(
     {
       id: "ticket_1",
-      projectId: "project_pool",
+      projectId: "project_floop",
       parentTicketId: "ticket_parent_1",
       key: "FLOOP-1",
       title: "Build API",
@@ -101,12 +101,12 @@ test("ticketDto includes projected events", () => {
       executions: [
         {
           id: "execution_1",
-          projectId: "project_pool",
+          projectId: "project_floop",
           ticketId: "ticket_1",
           ticketKey: "FLOOP-1",
           ticketTitle: "Build API",
           ticketState: "READY",
-          agentProfileId: "profile_project_pool_developer",
+          agentProfileId: "profile_project_floop_developer",
           role: "developer",
           iteration: 1,
           status: "completed",
@@ -121,14 +121,14 @@ test("ticketDto includes projected events", () => {
           artifacts: [
             {
               id: "artifact_1",
-              projectId: "project_pool",
+              projectId: "project_floop",
               ticketId: "ticket_1",
               ticketKey: "FLOOP-1",
               ticketTitle: "Build API",
               executionId: "execution_1",
               kind: "patch",
               label: "API diff",
-              uri: "file:///workspace/pool/diffs/floop-1.patch",
+              uri: "file:///workspace/floop/diffs/floop-1.patch",
               metadata: { sizeBytes: 1024 },
               createdAt: "2026-06-10T05:10:00.000Z",
             },
@@ -136,15 +136,15 @@ test("ticketDto includes projected events", () => {
           worktrees: [
             {
               id: "worktree_1",
-              projectId: "project_pool",
-              repoId: "repo_project_pool_pool",
+              projectId: "project_floop",
+              repoId: "repo_project_floop_floop",
               ticketId: "ticket_1",
               executionId: "execution_1",
-              repoSlug: "pool",
-              repoName: "pool",
+              repoSlug: "floop",
+              repoName: "floop",
               executionRole: "developer",
               executionIteration: 1,
-              path: "/workspace/pool/.pool/worktrees/floop-1/pool/iter-1",
+              path: "/workspace/floop/.floop/worktrees/floop-1/floop/iter-1",
               branchName: "floop-1-build-api",
               baseRef: "main",
               status: "active",
@@ -159,7 +159,7 @@ test("ticketDto includes projected events", () => {
       dependencies: [
         {
           id: "dependency_1",
-          projectId: "project_pool",
+          projectId: "project_floop",
           blockedTicketId: "ticket_1",
           blockingTicketId: "ticket_2",
           blockingTicketKey: "FLOOP-2",
@@ -172,10 +172,10 @@ test("ticketDto includes projected events", () => {
       reviews: [
         {
           id: "review_1",
-          projectId: "project_pool",
+          projectId: "project_floop",
           ticketId: "ticket_1",
           executionId: "execution_1",
-          reviewerProfileId: "profile_project_pool_reviewer",
+          reviewerProfileId: "profile_project_floop_reviewer",
           verdict: "rework",
           summaryMd: "Found a blocking issue in the update path.",
           findingsCount: 1,
@@ -197,11 +197,11 @@ test("ticketDto includes projected events", () => {
       validations: [
         {
           id: "validation_1",
-          projectId: "project_pool",
+          projectId: "project_floop",
           ticketId: "ticket_1",
-          repoId: "repo_project_pool_pool",
-          repoSlug: "pool",
-          repoName: "pool",
+          repoId: "repo_project_floop_floop",
+          repoSlug: "floop",
+          repoName: "floop",
           executionId: "execution_1",
           status: "completed",
           verdict: "passed",
@@ -215,15 +215,15 @@ test("ticketDto includes projected events", () => {
       worktrees: [
         {
           id: "worktree_1",
-          projectId: "project_pool",
-          repoId: "repo_project_pool_pool",
+          projectId: "project_floop",
+          repoId: "repo_project_floop_floop",
           ticketId: "ticket_1",
           executionId: "execution_1",
-          repoSlug: "pool",
-          repoName: "pool",
+          repoSlug: "floop",
+          repoName: "floop",
           executionRole: "developer",
           executionIteration: 1,
-          path: "/workspace/pool/.pool/worktrees/floop-1/pool/iter-1",
+          path: "/workspace/floop/.floop/worktrees/floop-1/floop/iter-1",
           branchName: "floop-1-build-api",
           baseRef: "main",
           status: "active",
@@ -236,20 +236,20 @@ test("ticketDto includes projected events", () => {
       artifacts: [
         {
           id: "artifact_ticket_1",
-          projectId: "project_pool",
+          projectId: "project_floop",
           ticketId: "ticket_1",
           ticketKey: "FLOOP-1",
           ticketTitle: "Build API",
           executionId: "execution_1",
           kind: "patch",
           label: "API diff",
-          uri: "file:///workspace/pool/diffs/floop-1.patch",
+          uri: "file:///workspace/floop/diffs/floop-1.patch",
           metadata: { sizeBytes: 1024 },
           createdAt: "2026-06-10T05:10:00.000Z",
         },
       ],
       mergeStatus: {
-        projectId: "project_pool",
+        projectId: "project_floop",
         ticketId: "ticket_1",
         ticketKey: "FLOOP-1",
         ticketTitle: "Build API",
@@ -260,7 +260,7 @@ test("ticketDto includes projected events", () => {
         uncleanedWorktreeCount: 1,
         latestRun: {
           id: "merge_1",
-          projectId: "project_pool",
+          projectId: "project_floop",
           ticketId: "ticket_1",
           status: "rework",
           strategy: "squash",
@@ -275,7 +275,7 @@ test("ticketDto includes projected events", () => {
       events: [
         {
           id: "event_1",
-          projectId: "project_pool",
+          projectId: "project_floop",
           repoId: null,
           ticketId: "ticket_1",
           type: "ticket.created",
@@ -301,7 +301,7 @@ test("ticketDto includes projected events", () => {
   assert.equal(ticket.validations[0].commands[0], "npm test");
   assert.equal(ticket.dependencies[0].blockingTicketKey, "FLOOP-2");
   assert.equal(ticket.worktrees.length, 1);
-  assert.equal(ticket.worktrees[0].path, "/workspace/pool/.pool/worktrees/floop-1/pool/iter-1");
+  assert.equal(ticket.worktrees[0].path, "/workspace/floop/.floop/worktrees/floop-1/floop/iter-1");
   assert.equal(ticket.mergeStatus.canMerge, true);
   assert.equal(ticket.mergeStatus.latestRun.strategy, "squash");
   assert.equal(ticket.executions[0].artifacts[0].kind, "patch");
@@ -316,11 +316,11 @@ test("ticketDto includes projected events", () => {
 test("projectSummaryDto copies board counts", () => {
   const project = projectSummaryDto(
     {
-      id: "project_pool",
-      slug: "pool",
+      id: "project_floop",
+      slug: "floop",
       name: "Floop",
       description: "desc",
-      workspaceRoot: "/tmp/pool",
+      workspaceRoot: "/tmp/floop",
       defaultBaseBranch: "main",
       policy: { requireReviewer: true },
       roleProfiles: [{ role: "developer", adapter: "codex", model: "codex-latest" }],
@@ -341,7 +341,7 @@ test("request parsers normalize project and ticket payloads", () => {
   const project = parseUpdateProjectInput({
     name: " Floop Mission Control ",
     description: " Tight loop for autonomous delivery. ",
-    workspaceRoot: " /workspace/pool ",
+    workspaceRoot: " /workspace/floop ",
   });
   const policy = parseUpdateProjectPolicyInput({
     requireReviewer: false,
@@ -374,13 +374,13 @@ test("request parsers normalize project and ticket payloads", () => {
     state: "READY",
     priority: "high",
     assignedRole: "developer",
-    repoTargets: [{ repoId: "repo_project_pool_pool", baseRef: " trunk " }],
+    repoTargets: [{ repoId: "repo_project_floop_floop", baseRef: " trunk " }],
   });
 
   assert.deepEqual(project, {
     name: "Floop Mission Control",
     description: "Tight loop for autonomous delivery.",
-    workspaceRoot: "/workspace/pool",
+    workspaceRoot: "/workspace/floop",
   });
   assert.deepEqual(policy, {
     requireReviewer: false,
@@ -411,16 +411,16 @@ test("request parsers normalize project and ticket payloads", () => {
   assert.equal(ticket.repoTargets[0].baseRef, "trunk");
 
   const ticketPatch = parseUpdateTicketInput({
-    parentTicketId: " ticket_project_pool_1 ",
+    parentTicketId: " ticket_project_floop_1 ",
     latestSummary: " Retargeting for the docs repo ",
-    repoTargets: [{ repoId: "repo_project_pool_docs", baseRef: " release ", targetScopeMd: " docs only " }],
+    repoTargets: [{ repoId: "repo_project_floop_docs", baseRef: " release ", targetScopeMd: " docs only " }],
   });
   assert.deepEqual(ticketPatch, {
-    parentTicketId: "ticket_project_pool_1",
+    parentTicketId: "ticket_project_floop_1",
     latestSummary: "Retargeting for the docs repo",
     repoTargets: [
       {
-        repoId: "repo_project_pool_docs",
+        repoId: "repo_project_floop_docs",
         baseRef: "release",
         branchName: "",
         targetScopeMd: "docs only",
@@ -432,7 +432,7 @@ test("request parsers normalize project and ticket payloads", () => {
 test("execution parsers normalize execution payloads", () => {
   const createExecution = parseCreateExecutionInput({
     role: "developer",
-    agentProfileId: " profile_project_pool_developer ",
+    agentProfileId: " profile_project_floop_developer ",
     iteration: 2,
     reason: " Continue the work loop ",
   });
@@ -443,7 +443,7 @@ test("execution parsers normalize execution payloads", () => {
     outcome: "needs_continue",
     summaryMd: " Implemented the first half ",
     remainingWorkMd: " Finish the follow-up persistence ",
-    artifacts: [{ kind: "log", label: "Run log", uri: "file:///tmp/pool.log" }],
+    artifacts: [{ kind: "log", label: "Run log", uri: "file:///tmp/floop.log" }],
     review: {
       verdict: "rework",
       summaryMd: " Needs another pass ",
@@ -470,7 +470,7 @@ test("execution parsers normalize execution payloads", () => {
         priority: " high ",
         repoTargets: [
           {
-            repoId: " repo_project_pool_pool ",
+            repoId: " repo_project_floop_floop ",
             baseRef: " main ",
             branchName: " calc-division ",
             targetScopeMd: " CLI behavior ",
@@ -497,7 +497,7 @@ test("execution parsers normalize execution payloads", () => {
   });
   const validation = parseCreateValidationInput({
     executionId: " execution_1 ",
-    repoIds: [" repo_project_pool_pool "],
+    repoIds: [" repo_project_floop_floop "],
     commandProfile: " ci ",
     commands: [" npm test ", " npm run lint "],
     verdict: "passed",
@@ -507,7 +507,7 @@ test("execution parsers normalize execution payloads", () => {
 
   assert.deepEqual(createExecution, {
     role: "developer",
-    agentProfileId: "profile_project_pool_developer",
+    agentProfileId: "profile_project_floop_developer",
     iteration: 2,
     reason: "Continue the work loop",
   });
@@ -518,7 +518,7 @@ test("execution parsers normalize execution payloads", () => {
     outcome: "needs_continue",
     summaryMd: "Implemented the first half",
     remainingWorkMd: "Finish the follow-up persistence",
-    artifacts: [{ kind: "log", label: "Run log", uri: "file:///tmp/pool.log" }],
+    artifacts: [{ kind: "log", label: "Run log", uri: "file:///tmp/floop.log" }],
     review: {
       verdict: "rework",
       summaryMd: "Needs another pass",
@@ -545,7 +545,7 @@ test("execution parsers normalize execution payloads", () => {
         assignedRole: "developer",
         repoTargets: [
           {
-            repoId: "repo_project_pool_pool",
+            repoId: "repo_project_floop_floop",
             baseRef: "main",
             branchName: "calc-division",
             targetScopeMd: "CLI behavior",
@@ -572,7 +572,7 @@ test("execution parsers normalize execution payloads", () => {
   });
   assert.deepEqual(validation, {
     executionId: "execution_1",
-    repoIds: ["repo_project_pool_pool"],
+    repoIds: ["repo_project_floop_floop"],
     commandProfile: "ci",
     commands: ["npm test", "npm run lint"],
     verdict: "passed",

@@ -9,13 +9,13 @@ import { createExecutionDriver } from "./execution-driver.mjs";
 import { createStore } from "./store.mjs";
 
 test("bounded real project goal can create runnable calculator tickets", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-calculator-real-project-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-calculator-real-project-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const targetRepoPath = join(fixtureDir, "calculator-cli");
   const goalAgentPath = join(fixtureDir, "goal-agent.cjs");
   const developerAgentPath = join(fixtureDir, "developer-agent.cjs");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: false,
     workspaceRoot,
   });
@@ -147,7 +147,7 @@ function initializeCalculatorRepo(targetRepoPath) {
   );
   writeFileSync(join(targetRepoPath, "README.md"), "# CLI Calculator\n\nA small calculator CLI fixture.\n");
   execFileSync("git", ["-C", targetRepoPath, "init", "-b", "main"], { stdio: "ignore" });
-  execFileSync("git", ["-C", targetRepoPath, "config", "user.email", "pool@example.invalid"]);
+  execFileSync("git", ["-C", targetRepoPath, "config", "user.email", "floop@example.invalid"]);
   execFileSync("git", ["-C", targetRepoPath, "config", "user.name", "Floop Test"]);
   execFileSync("git", ["-C", targetRepoPath, "add", "-A"]);
   execFileSync("git", ["-C", targetRepoPath, "commit", "-m", "Seed calculator project"], {
@@ -159,7 +159,7 @@ function writeGoalAgent(goalAgentPath) {
   writeFileSync(
     goalAgentPath,
     `const fs = require("node:fs");
-const context = JSON.parse(fs.readFileSync(process.env.POOL_CONTEXT_PATH, "utf8"));
+const context = JSON.parse(fs.readFileSync(process.env.FLOOP_CONTEXT_PATH, "utf8"));
 const target = context.ticket.repoTargets[0];
 const followupTickets = [
   {
@@ -184,7 +184,7 @@ const followupTickets = [
     repoTargets: [{ repoId: target.repoId, baseRef: target.baseRef, branchName: "calculator-cli-validation", targetScopeMd: "CLI validation scenarios." }]
   }
 ];
-fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({
+fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({
   outcome: "followup_created",
   summaryMd: "Created a bounded calculator delivery slice from the goal.",
   followupTickets
@@ -199,7 +199,7 @@ function writeDeveloperAgent(developerAgentPath) {
     `const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const worktree = process.env.POOL_WORKTREE_PATH;
+const worktree = process.env.FLOOP_WORKTREE_PATH;
 fs.mkdirSync(path.join(worktree, "bin"), { recursive: true });
 fs.mkdirSync(path.join(worktree, "test"), { recursive: true });
 fs.writeFileSync(path.join(worktree, "bin", "calc.mjs"), \`#!/usr/bin/env node
@@ -246,7 +246,7 @@ assert.equal(calc(["div", "8", "2"]), "4");
 execFileSync("npm", ["test"], { cwd: worktree, stdio: "inherit" });
 execFileSync("git", ["-C", worktree, "add", "-A"]);
 execFileSync("git", ["-C", worktree, "commit", "-m", "Implement calculator CLI"], { stdio: "ignore" });
-fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({
+fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({
   outcome: "completed",
   summaryMd: "Implemented and tested the calculator CLI."
 }));

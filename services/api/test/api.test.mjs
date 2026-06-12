@@ -3,31 +3,31 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { createPoolServer } from "../src/app.mjs";
+import { createFloopServer } from "../src/app.mjs";
 import { createStore } from "../src/store.mjs";
 
 test("API exposes persistent board and filtered ticket read models", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const filename = join(fixtureDir, "floop.sqlite");
   const store = createStore({
     filename,
     seedDemo: true,
-    workspaceRoot: "/workspace/pool",
+    workspaceRoot: "/workspace/floop",
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
 
   try {
     await listen(server);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
-    const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/board`);
+    const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/board`);
     assert.equal(boardResponse.status, 200);
     const boardPayload = await boardResponse.json();
     assert.equal(boardPayload.board.totalTickets, 2);
     assert.equal(findColumn(boardPayload.board.columns, "READY").count, 1);
     assert.equal(findColumn(boardPayload.board.columns, "WORKING").count, 1);
 
-    const createTicketResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets`, {
+    const createTicketResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -36,7 +36,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
         state: "READY",
         priority: "medium",
         assignedRole: "reviewer",
-        repoTargets: [{ repoId: "repo_project_pool_pool" }],
+        repoTargets: [{ repoId: "repo_project_floop_floop" }],
       }),
     });
     assert.equal(createTicketResponse.status, 201);
@@ -44,14 +44,14 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(createdTicketPayload.ticket.assignedRole, "reviewer");
 
     const filteredResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets?state=READY&assignedRole=reviewer&search=reviewer`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets?state=READY&assignedRole=reviewer&search=reviewer`,
     );
     assert.equal(filteredResponse.status, 200);
     const filteredPayload = await filteredResponse.json();
     assert.equal(filteredPayload.tickets.length, 1);
     assert.equal(filteredPayload.tickets[0].key, "FLOOP-3");
 
-    const childResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets`, {
+    const childResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -68,7 +68,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(childPayload.ticket.parentTicketId, createdTicketPayload.ticket.id);
 
     const parentCycleResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/${createdTicketPayload.ticket.id}`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/${createdTicketPayload.ticket.id}`,
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -80,7 +80,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(parentCycleResponse.status, 400);
 
     const parentFilteredResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets?parentTicketId=${createdTicketPayload.ticket.id}`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets?parentTicketId=${createdTicketPayload.ticket.id}`,
     );
     assert.equal(parentFilteredResponse.status, 200);
     const parentFilteredPayload = await parentFilteredResponse.json();
@@ -89,21 +89,21 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(parentFilteredPayload.tickets[0].parentTicketId, createdTicketPayload.ticket.id);
 
     const detailResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/${createdTicketPayload.ticket.id}`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/${createdTicketPayload.ticket.id}`,
     );
     assert.equal(detailResponse.status, 200);
     const detailPayload = await detailResponse.json();
-    assert.equal(detailPayload.ticket.repoTargets[0].repoSlug, "pool");
+    assert.equal(detailPayload.ticket.repoTargets[0].repoSlug, "floop");
     assert.equal(detailPayload.ticket.events.length, 1);
     assert.equal(detailPayload.ticket.dependencies.length, 0);
 
     const dependencyResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/${createdTicketPayload.ticket.id}/dependencies`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/${createdTicketPayload.ticket.id}/dependencies`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          blockingTicketId: "ticket_project_pool_1",
+          blockingTicketId: "ticket_project_floop_1",
           dependencyType: "finish_to_start",
         }),
       },
@@ -114,7 +114,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(dependencyPayload.ticket.dependencies[0].blockingTicketKey, "FLOOP-1");
 
     const dependencyCycleResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/dependencies`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_1/dependencies`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -127,7 +127,7 @@ test("API exposes persistent board and filtered ticket read models", async () =>
     assert.equal(dependencyCycleResponse.status, 400);
 
     const invalidFilterResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets?state=NOT_A_REAL_STATE`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets?state=NOT_A_REAL_STATE`,
     );
     assert.equal(invalidFilterResponse.status, 400);
   } finally {
@@ -139,20 +139,20 @@ test("API exposes persistent board and filtered ticket read models", async () =>
 
 test("API exposes execution start, completion, continuation, and cancellation flows", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const filename = join(fixtureDir, "floop.sqlite");
   const store = createStore({
     filename,
     seedDemo: true,
-    workspaceRoot: "/workspace/pool",
+    workspaceRoot: "/workspace/floop",
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
 
   try {
     await listen(server);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
     const createExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -169,13 +169,13 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(createExecutionBody.execution.ticketKey, "FLOOP-2");
     assert.equal(createExecutionBody.execution.ticketTitle, "Define first transport contracts");
     assert.equal(createExecutionBody.execution.ticketState, "WORKING");
-    assert.equal(createExecutionBody.execution.agentProfileId, "profile_project_pool_developer");
+    assert.equal(createExecutionBody.execution.agentProfileId, "profile_project_floop_developer");
     assert.equal(createExecutionBody.execution.worktrees.length, 1);
-    assert.equal(createExecutionBody.execution.worktrees[0].repoSlug, "pool");
-    assert.match(createExecutionBody.execution.worktrees[0].path, /\/workspace\/pool\/\.pool\/worktrees\/floop-2\/pool\/iter-1$/);
+    assert.equal(createExecutionBody.execution.worktrees[0].repoSlug, "floop");
+    assert.match(createExecutionBody.execution.worktrees[0].path, /\/workspace\/floop\/\.floop\/worktrees\/floop-2\/floop\/iter-1$/);
 
     const executionDetailResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${createExecutionBody.execution.id}`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${createExecutionBody.execution.id}`,
     );
     assert.equal(executionDetailResponse.status, 200);
     const executionDetailBody = await executionDetailResponse.json();
@@ -185,7 +185,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(executionDetailBody.execution.ticketState, "WORKING");
 
     const listExecutionsResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
     );
     assert.equal(listExecutionsResponse.status, 200);
     const listExecutionsBody = await listExecutionsResponse.json();
@@ -193,7 +193,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(listExecutionsBody.executions[0].ticketKey, "FLOOP-2");
 
     const completeExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${createExecutionBody.execution.id}/complete`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${createExecutionBody.execution.id}/complete`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -210,7 +210,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(completeExecutionBody.execution.worktrees[0].status, "ready_for_review");
 
     const ticketAfterCompleteResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`,
     );
     const ticketAfterCompleteBody = await ticketAfterCompleteResponse.json();
     assert.equal(ticketAfterCompleteResponse.status, 200);
@@ -233,7 +233,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     ).id;
 
     const listWorktreesResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/worktrees?ticketId=ticket_project_pool_2&status=ready_for_review`,
+      `${baseUrl}/api/v1/projects/project_floop/worktrees?ticketId=ticket_project_floop_2&status=ready_for_review`,
     );
     assert.equal(listWorktreesResponse.status, 200);
     const listWorktreesBody = await listWorktreesResponse.json();
@@ -241,7 +241,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(listWorktreesBody.worktrees[0].executionId, createExecutionBody.execution.id);
 
     const cleanWorktreeResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/worktrees/${createExecutionBody.execution.worktrees[0].id}/clean`,
+      `${baseUrl}/api/v1/projects/project_floop/worktrees/${createExecutionBody.execution.worktrees[0].id}/clean`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -256,7 +256,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.ok(cleanWorktreeBody.worktree.cleanedAt);
 
     const cancelReviewerResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${reviewerExecutionId}/cancel`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${reviewerExecutionId}/cancel`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -267,7 +267,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     );
     assert.equal(cancelReviewerResponse.status, 200);
 
-    const tightenPolicyResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {
+    const tightenPolicyResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/policy`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -278,7 +278,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(tightenPolicyResponse.status, 200);
 
     const seedContinuationResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_1/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -292,7 +292,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     const seedContinuationBody = await seedContinuationResponse.json();
 
     const concurrencyRejectedResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -307,7 +307,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.match(concurrencyRejectedBody.message, /Project execution limit reached for FLOOP-2/);
 
     const continueExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${seedContinuationBody.execution.id}/continue`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${seedContinuationBody.execution.id}/continue`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -321,10 +321,10 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(continueExecutionBody.execution.iteration, 2);
     assert.equal(continueExecutionBody.execution.status, "running");
     assert.equal(continueExecutionBody.execution.worktrees[0].status, "active");
-    assert.match(continueExecutionBody.execution.worktrees[0].path, /\/workspace\/pool\/\.pool\/worktrees\/floop-1\/pool\/iter-2$/);
+    assert.match(continueExecutionBody.execution.worktrees[0].path, /\/workspace\/floop\/\.floop\/worktrees\/floop-1\/floop\/iter-2$/);
 
     const cleanActiveWorktreeResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/worktrees/${continueExecutionBody.execution.worktrees[0].id}/clean`,
+      `${baseUrl}/api/v1/projects/project_floop/worktrees/${continueExecutionBody.execution.worktrees[0].id}/clean`,
       {
         method: "POST",
       },
@@ -332,7 +332,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(cleanActiveWorktreeResponse.status, 409);
 
     const overContinueResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${continueExecutionBody.execution.id}/continue`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${continueExecutionBody.execution.id}/continue`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -346,7 +346,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.match(overContinueBody.message, /FLOOP-1 reached the continuation limit of 1 iterations/);
 
     const cancelExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${continueExecutionBody.execution.id}/cancel`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${continueExecutionBody.execution.id}/cancel`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -361,7 +361,7 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(cancelExecutionBody.execution.worktrees[0].status, "cancelled");
 
     const invalidExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_1/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -373,13 +373,13 @@ test("API exposes execution start, completion, continuation, and cancellation fl
     assert.equal(invalidExecutionResponse.status, 400);
 
     const mismatchedProfileResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_1/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           role: "developer",
-          agentProfileId: "profile_project_pool_reviewer",
+          agentProfileId: "profile_project_floop_reviewer",
         }),
       },
     );
@@ -393,20 +393,20 @@ test("API exposes execution start, completion, continuation, and cancellation fl
 
 test("API exposes review and validation evidence flows", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const filename = join(fixtureDir, "floop.sqlite");
   const store = createStore({
     filename,
     seedDemo: true,
-    workspaceRoot: "/workspace/pool",
+    workspaceRoot: "/workspace/floop",
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
 
   try {
     await listen(server);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
     const createExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -420,7 +420,7 @@ test("API exposes review and validation evidence flows", async () => {
     assert.equal(createExecutionResponse.status, 201);
 
     const completeExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${createExecutionBody.execution.id}/complete`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${createExecutionBody.execution.id}/complete`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -431,7 +431,7 @@ test("API exposes review and validation evidence flows", async () => {
             {
               kind: "patch",
               label: "Implementation diff",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2.patch",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2.patch",
             },
           ],
         }),
@@ -440,7 +440,7 @@ test("API exposes review and validation evidence flows", async () => {
     assert.equal(completeExecutionResponse.status, 200);
 
     const reviewResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/reviews`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -452,7 +452,7 @@ test("API exposes review and validation evidence flows", async () => {
             {
               kind: "report",
               label: "Reviewer notes",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2-review.md",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2-review.md",
             },
           ],
         }),
@@ -464,20 +464,20 @@ test("API exposes review and validation evidence flows", async () => {
     assert.equal(reviewBody.review.artifacts[0].label, "Reviewer notes");
 
     const reviewListResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/reviews`,
     );
     assert.equal(reviewListResponse.status, 200);
     const reviewListBody = await reviewListResponse.json();
     assert.equal(reviewListBody.reviews.length, 1);
 
     const validationResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/validations`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/validations`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           executionId: createExecutionBody.execution.id,
-          repoIds: ["repo_project_pool_pool"],
+          repoIds: ["repo_project_floop_floop"],
           commandProfile: "ci",
           commands: ["npm test"],
           verdict: "passed",
@@ -486,7 +486,7 @@ test("API exposes review and validation evidence flows", async () => {
             {
               kind: "log",
               label: "Validation output",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2-validation.log",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2-validation.log",
             },
           ],
         }),
@@ -495,11 +495,11 @@ test("API exposes review and validation evidence flows", async () => {
     assert.equal(validationResponse.status, 201);
     const validationBody = await validationResponse.json();
     assert.equal(validationBody.validations.length, 1);
-    assert.equal(validationBody.validations[0].repoSlug, "pool");
+    assert.equal(validationBody.validations[0].repoSlug, "floop");
     assert.equal(validationBody.validations[0].artifacts[0].kind, "log");
 
     const ticketDetailResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`,
     );
     assert.equal(ticketDetailResponse.status, 200);
     const ticketDetailBody = await ticketDetailResponse.json();
@@ -513,11 +513,11 @@ test("API exposes review and validation evidence flows", async () => {
     );
     assert.equal(ticketDetailBody.ticket.artifacts.length, 3);
 
-    const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/board`);
+    const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/board`);
     assert.equal(boardResponse.status, 200);
     const boardBody = await boardResponse.json();
     const mergeReadyCard = findColumn(boardBody.board.columns, "READY_TO_MERGE").tickets.find(
-      (ticket) => ticket.id === "ticket_project_pool_2",
+      (ticket) => ticket.id === "ticket_project_floop_2",
     );
     assert.equal(mergeReadyCard.latestReviewVerdict, "passed");
     assert.equal(mergeReadyCard.latestValidationVerdict, "passed");
@@ -530,19 +530,19 @@ test("API exposes review and validation evidence flows", async () => {
 
 test("API exposes merge readiness and merge completion flows", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const filename = join(fixtureDir, "floop.sqlite");
   const store = createStore({
     filename,
     seedDemo: true,
-    workspaceRoot: "/workspace/pool",
+    workspaceRoot: "/workspace/floop",
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
 
   try {
     await listen(server);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/policy`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -551,7 +551,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
       }),
     });
 
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/transition`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/transition`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -561,14 +561,14 @@ test("API exposes merge readiness and merge completion flows", async () => {
     });
 
     const mergeStatusResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/merge`,
     );
     assert.equal(mergeStatusResponse.status, 200);
     const mergeStatusBody = await mergeStatusResponse.json();
     assert.equal(mergeStatusBody.merge.canMerge, true);
     assert.equal(mergeStatusBody.merge.requiresHumanApproval, true);
 
-    const queueResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/merge-queue`);
+    const queueResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/merge-queue`);
     assert.equal(queueResponse.status, 200);
     const queueBody = await queueResponse.json();
     assert.equal(queueBody.queue.length, 1);
@@ -576,7 +576,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
     assert.equal(queueBody.queue[0].mergeStatus.canMerge, true);
 
     const approvalRejectedResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/merge`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -588,7 +588,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
     assert.equal(approvalRejectedResponse.status, 409);
 
     const mergeResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/merge`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -601,7 +601,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
             {
               kind: "record",
               label: "Merge commit",
-              uri: "https://example.com/pool/commit/123",
+              uri: "https://example.com/floop/commit/123",
             },
           ],
         }),
@@ -615,7 +615,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
     assert.equal(mergeBody.merge.latestRun.artifacts[0].label, "Merge commit");
 
     const ticketDetailResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`,
     );
     assert.equal(ticketDetailResponse.status, 200);
     const ticketDetailBody = await ticketDetailResponse.json();
@@ -625,7 +625,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
     assert.equal(ticketDetailBody.ticket.events.at(-2).type, "merge.started");
     assert.equal(ticketDetailBody.ticket.events.at(-1).type, "merge.completed");
 
-    const queueAfterMergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/merge-queue`);
+    const queueAfterMergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/merge-queue`);
     assert.equal(queueAfterMergeResponse.status, 200);
     const queueAfterMergeBody = await queueAfterMergeResponse.json();
     assert.equal(queueAfterMergeBody.queue.length, 0);
@@ -638,20 +638,20 @@ test("API exposes merge readiness and merge completion flows", async () => {
 
 test("API exposes filtered project activity events with ticket and repo context", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const filename = join(fixtureDir, "floop.sqlite");
   const store = createStore({
     filename,
     seedDemo: true,
-    workspaceRoot: "/workspace/pool",
+    workspaceRoot: "/workspace/floop",
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
 
   try {
     await listen(server);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
     const createExecutionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -664,28 +664,28 @@ test("API exposes filtered project activity events with ticket and repo context"
     assert.equal(createExecutionResponse.status, 201);
 
     const filteredEventsResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/events?ticketId=ticket_project_pool_2&type=worktree.created&limit=1&order=desc`,
+      `${baseUrl}/api/v1/projects/project_floop/events?ticketId=ticket_project_floop_2&type=worktree.created&limit=1&order=desc`,
     );
     assert.equal(filteredEventsResponse.status, 200);
     const filteredEventsBody = await filteredEventsResponse.json();
     assert.equal(filteredEventsBody.events.length, 1);
     assert.equal(filteredEventsBody.events[0].ticketKey, "FLOOP-2");
     assert.equal(filteredEventsBody.events[0].ticketTitle, "Define first transport contracts");
-    assert.equal(filteredEventsBody.events[0].repoSlug, "pool");
-    assert.equal(filteredEventsBody.events[0].repoName, "pool");
+    assert.equal(filteredEventsBody.events[0].repoSlug, "floop");
+    assert.equal(filteredEventsBody.events[0].repoName, "floop");
     assert.equal(filteredEventsBody.events[0].type, "worktree.created");
 
     const recentEventsResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/events?ticketId=ticket_project_pool_2&limit=2&order=desc`,
+      `${baseUrl}/api/v1/projects/project_floop/events?ticketId=ticket_project_floop_2&limit=2&order=desc`,
     );
     assert.equal(recentEventsResponse.status, 200);
     const recentEventsBody = await recentEventsResponse.json();
     assert.equal(recentEventsBody.events.length, 2);
-    assert.equal(recentEventsBody.events.every((event) => event.ticketId === "ticket_project_pool_2"), true);
+    assert.equal(recentEventsBody.events.every((event) => event.ticketId === "ticket_project_floop_2"), true);
     assert.equal(recentEventsBody.events[0].createdAt >= recentEventsBody.events[1].createdAt, true);
 
     const invalidFilterResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/events?order=sideways&limit=0`,
+      `${baseUrl}/api/v1/projects/project_floop/events?order=sideways&limit=0`,
     );
     assert.equal(invalidFilterResponse.status, 400);
   } finally {
@@ -697,20 +697,20 @@ test("API exposes filtered project activity events with ticket and repo context"
 
 test("API exposes project artifact feeds with ticket context and filters", async () => {
   const fixtureDir = mkdtempSync(join(tmpdir(), "floop-api-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const filename = join(fixtureDir, "floop.sqlite");
   const store = createStore({
     filename,
     seedDemo: true,
-    workspaceRoot: "/workspace/pool",
+    workspaceRoot: "/workspace/floop",
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
 
   try {
     await listen(server);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
     const executionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -724,7 +724,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
     const executionBody = await executionResponse.json();
 
     const completeResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${executionBody.execution.id}/complete`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${executionBody.execution.id}/complete`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -735,7 +735,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
             {
               kind: "patch",
               label: "Implementation diff",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2.patch",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2.patch",
             },
           ],
         }),
@@ -744,7 +744,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
     assert.equal(completeResponse.status, 200);
 
     const reviewResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/reviews`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -756,7 +756,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
             {
               kind: "report",
               label: "Reviewer notes",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2-review.md",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2-review.md",
             },
           ],
         }),
@@ -765,13 +765,13 @@ test("API exposes project artifact feeds with ticket context and filters", async
     assert.equal(reviewResponse.status, 201);
 
     const validationResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/validations`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/validations`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           executionId: executionBody.execution.id,
-          repoIds: ["repo_project_pool_pool"],
+          repoIds: ["repo_project_floop_floop"],
           commands: ["npm test"],
           verdict: "passed",
           summaryMd: "Validation recorded its evidence for the artifact feed.",
@@ -779,7 +779,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
             {
               kind: "log",
               label: "Validation output",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2-validation.log",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2-validation.log",
             },
           ],
         }),
@@ -787,7 +787,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
     );
     assert.equal(validationResponse.status, 201);
 
-    const mergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`, {
+    const mergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/merge`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -800,14 +800,14 @@ test("API exposes project artifact feeds with ticket context and filters", async
           {
             kind: "record",
             label: "Merge commit",
-            uri: "https://example.com/pool/commit/123",
+            uri: "https://example.com/floop/commit/123",
           },
         ],
       }),
     });
     assert.equal(mergeResponse.status, 200);
 
-    const artifactsResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/artifacts?limit=2`);
+    const artifactsResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/artifacts?limit=2`);
     assert.equal(artifactsResponse.status, 200);
     const artifactsBody = await artifactsResponse.json();
     assert.equal(artifactsBody.artifacts.length, 2);
@@ -817,7 +817,7 @@ test("API exposes project artifact feeds with ticket context and filters", async
     assert.equal(artifactsBody.artifacts[1].kind, "log");
 
     const filteredArtifactsResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/artifacts?ticketId=ticket_project_pool_2&kind=record&limit=1`,
+      `${baseUrl}/api/v1/projects/project_floop/artifacts?ticketId=ticket_project_floop_2&kind=record&limit=1`,
     );
     assert.equal(filteredArtifactsResponse.status, 200);
     const filteredArtifactsBody = await filteredArtifactsResponse.json();

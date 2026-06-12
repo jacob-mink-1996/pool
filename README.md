@@ -100,10 +100,10 @@ The API health endpoint stays available at:
 http://127.0.0.1:4318/api/v1/health
 ```
 
-Optional environment variables. These keep the existing `POOL_*` names for compatibility:
+Optional environment variables:
 
-- `POOL_DB_PATH` to override the SQLite database file location
-- `POOL_SEED_DEMO=false` to boot without the seeded demo project
+- `FLOOP_DB_PATH` to override the SQLite database file location
+- `FLOOP_SEED_DEMO=false` to boot without the seeded demo project
 
 ### Bootstrap A Real Local Project
 
@@ -150,8 +150,8 @@ This script:
 
 Override the target if needed with:
 
-- `POOL_BASE_URL=http://127.0.0.1:4318`
-- `POOL_DEMO_PROJECT_ID=project_pool`
+- `FLOOP_BASE_URL=http://127.0.0.1:4318`
+- `FLOOP_DEMO_PROJECT_ID=project_floop`
 
 ### Verify The MVP Loop Automatically
 
@@ -164,5 +164,5 @@ npm run verify:mvp
 
 Optional environment variables:
 
-- `POOL_MVP_REPEAT=3` to run the verification flow multiple times in a row
-- `POOL_PORT=4318` to pin the temporary API port
+- `FLOOP_MVP_REPEAT=3` to run the verification flow multiple times in a row
+- `FLOOP_PORT=4318` to pin the temporary API port

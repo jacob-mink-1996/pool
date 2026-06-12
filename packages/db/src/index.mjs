@@ -327,7 +327,7 @@ create index if not exists idx_ceremony_participants_status on ceremony_particip
 `;
 
 export function defaultDatabasePath(cwd = process.cwd()) {
-  return resolve(cwd, ".pool", "pool.sqlite");
+  return resolve(cwd, ".floop", "floop.sqlite");
 }
 
 export function createSqliteStore(options = {}) {
@@ -4621,7 +4621,7 @@ function planExecutionWorktrees(database, projectId, ticket, execution, timestam
     repoName: target.repoName,
     path: resolve(
       project.workspace_root,
-      ".pool",
+      ".floop",
       "worktrees",
       ticket.key.toLowerCase(),
       target.repoSlug,
@@ -4976,8 +4976,8 @@ function insertEvent(database, input) {
 
 function seed(database, workspaceRoot) {
   const timestamp = now();
-  const projectId = "project_pool";
-  const repoId = "repo_project_pool_pool";
+  const projectId = "project_floop";
+  const repoId = "repo_project_floop_floop";
 
   withTransaction(database, () => {
     database
@@ -4988,7 +4988,7 @@ function seed(database, workspaceRoot) {
       )
       .run(
         projectId,
-        "pool",
+        "floop",
         "Floop",
         "Fleet Loop autonomous delivery control plane.",
         workspaceRoot,
@@ -5006,11 +5006,11 @@ function seed(database, workspaceRoot) {
           id, project_id, slug, name, local_path, remote_url, default_branch, is_primary, created_at, updated_at
         ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(repoId, projectId, "pool", "pool", workspaceRoot, "", "main", 1, timestamp, timestamp);
+      .run(repoId, projectId, "floop", "floop", workspaceRoot, "", "main", 1, timestamp, timestamp);
 
     const seededTickets = [
       {
-        id: "ticket_project_pool_1",
+        id: "ticket_project_floop_1",
         key: "FLOOP-1",
         title: "Stand up real API service skeleton",
         brief: "Replace bootstrap-root API with the actual product service.",
@@ -5024,7 +5024,7 @@ function seed(database, workspaceRoot) {
         targetScopeMd: "services/api and shared packages",
       },
       {
-        id: "ticket_project_pool_2",
+        id: "ticket_project_floop_2",
         key: "FLOOP-2",
         title: "Define first transport contracts",
         brief: "Codify project, repo, ticket, and event response shapes.",
@@ -5071,7 +5071,7 @@ function seed(database, workspaceRoot) {
           ) values (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
-          `ticket_target_project_pool_${index + 1}`,
+          `ticket_target_project_floop_${index + 1}`,
           ticket.id,
           repoId,
           "main",
@@ -5091,7 +5091,7 @@ function seed(database, workspaceRoot) {
       projectId,
       repoId,
       type: "repo.created",
-      summary: "Repo pool seeded",
+      summary: "Repo floop seeded",
     });
     for (const ticket of seededTickets) {
       insertEvent(database, {
@@ -5153,7 +5153,7 @@ function deleteWorktreePath(worktreePath) {
 
 function assertDeletableWorktreePath(worktreePath) {
   const resolvedPath = resolve(worktreePath);
-  const marker = `${sep}.pool${sep}worktrees${sep}`;
+  const marker = `${sep}.floop${sep}worktrees${sep}`;
   if (!resolvedPath.includes(marker)) {
     throw new Error(`Refusing to delete non-Floop worktree path: ${worktreePath}`);
   }

@@ -55,7 +55,7 @@ Examples:
 
 ```yaml
 project:
-  name: pool
+  name: floop
   workspaceRoot: /path/to/workspace
   repos:
     - name: app

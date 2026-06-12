@@ -26,12 +26,12 @@ class CeremonyAutomationDriver {
     }
 
     this.pollOnce().catch((error) => {
-      this.logger.error?.("[pool-ceremony-driver] startup poll failed", error);
+      this.logger.error?.("[floop-ceremony-driver] startup poll failed", error);
     });
 
     this.timer = setInterval(() => {
       this.pollOnce().catch((error) => {
-        this.logger.error?.("[pool-ceremony-driver] poll failed", error);
+        this.logger.error?.("[floop-ceremony-driver] poll failed", error);
       });
     }, this.pollIntervalMs);
     this.timer.unref?.();

@@ -6,19 +6,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
 
-import { createPoolServer } from "../services/api/src/app.mjs";
+import { createFloopServer } from "../services/api/src/app.mjs";
 import { createStore } from "../services/api/src/store.mjs";
 
 const elementKey = "element-6066-11e4-a52e-4f735466cecf";
-const fixtureDir = mkdtempSync(join(tmpdir(), "pool-react-ui-"));
+const fixtureDir = mkdtempSync(join(tmpdir(), "floop-react-ui-"));
 mkdirSync(join(fixtureDir, "suggested-workspace"));
 mkdirSync(join(fixtureDir, "suggested-workspace", "nested-child"));
 const store = createStore({
-  filename: join(fixtureDir, "pool.sqlite"),
+  filename: join(fixtureDir, "floop.sqlite"),
   seedDemo: true,
   workspaceRoot: join(fixtureDir, "workspace"),
 });
-const server = createPoolServer({ store });
+const server = createFloopServer({ store });
 let driver;
 let sessionId = "";
 let driverBaseUrl = "";
@@ -86,7 +86,7 @@ try {
   await clickText("Floop");
   await waitForText("Define first transport contracts");
   await assertNoUiErrors();
-  await transitionTicket(appUrl, "project_pool", "ticket_project_pool_2", "WORKING");
+  await transitionTicket(appUrl, "project_floop", "ticket_project_floop_2", "WORKING");
   await clickText("Refresh");
   await waitForScript(`
     Array.from(document.querySelectorAll(".lane")).some((lane) =>
@@ -109,14 +109,14 @@ try {
   await assertScript("document.body.innerText.includes('Enable automatic ceremony triggers')", "settings ceremony trigger controls render");
   await assertScript("getComputedStyle(document.querySelector('.toggle-list label')).borderStyle !== 'none'", "settings checkbox rows are styled");
   await setFormValue("Save project", "name", "Floop QA Control");
-  await setFormValue("Save project", "description", "Browser-tested pool operations.");
+  await setFormValue("Save project", "description", "Browser-tested floop operations.");
   await clickText("Save project");
   await waitForText("Floop QA Control");
-  await waitForText("Browser-tested pool operations.");
+  await waitForText("Browser-tested floop operations.");
 
   await setFormValue("Add checkout", "name", "QA Repo");
   await setFormValue("Add checkout", "slug", "qa-repo");
-  await setFormValue("Add checkout", "localPath", "/tmp/pool-qa-repo");
+  await setFormValue("Add checkout", "localPath", "/tmp/floop-qa-repo");
   await setFormValue("Add checkout", "defaultBranch", "main");
   await clickText("Add checkout");
   await waitForText("QA Repo");
@@ -146,7 +146,7 @@ try {
   await waitForScript("document.querySelector('.ticket-composer') !== null");
   await setFormValue("Create ticket", "title", "Browser QA ticket");
   await setFormValue("Create ticket", "brief", "Exercise the React UI from Chromium.");
-  await setFormValue("Create ticket", "repoId", "repo_project_pool_qa_repo");
+  await setFormValue("Create ticket", "repoId", "repo_project_floop_qa_repo");
   await clickText("Create ticket");
   await waitForText("Browser QA ticket");
 
@@ -176,16 +176,16 @@ try {
   await clickButtonInArticle("finish_to_start", "Remove");
   await waitForScript("!Array.from(document.querySelectorAll('article')).some((item) => item.innerText.includes('finish_to_start'))");
 
-  await setFormValue("Add repo target", "repoId", "repo_project_pool_pool");
+  await setFormValue("Add repo target", "repoId", "repo_project_floop_floop");
   await setFormValue("Add repo target", "baseRef", "main");
   await clickText("Add repo target");
-  await waitForScript("document.body.innerText.includes('poolpool') && document.body.innerText.includes('base main')");
-  await clickButtonInArticle("poolpool", "Remove");
-  await waitForScript("!Array.from(document.querySelectorAll('article')).some((item) => item.innerText.includes('poolpool'))");
-  await setFormValue("Add repo target", "repoId", "repo_project_pool_pool");
+  await waitForScript("document.body.innerText.includes('floopfloop') && document.body.innerText.includes('base main')");
+  await clickButtonInArticle("floopfloop", "Remove");
+  await waitForScript("!Array.from(document.querySelectorAll('article')).some((item) => item.innerText.includes('floopfloop'))");
+  await setFormValue("Add repo target", "repoId", "repo_project_floop_floop");
   await setFormValue("Add repo target", "baseRef", "main");
   await clickText("Add repo target");
-  await waitForScript("document.body.innerText.includes('poolpool') && document.body.innerText.includes('base main')");
+  await waitForScript("document.body.innerText.includes('floopfloop') && document.body.innerText.includes('base main')");
 
   await setFormValue("Start run", "summary", "Starting from the browser UI.");
   await clickText("Start run");

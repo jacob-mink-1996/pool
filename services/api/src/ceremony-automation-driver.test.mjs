@@ -11,7 +11,7 @@ test("ceremony automation driver ignores disabled projects", async () => {
     const created = await driver.pollOnce();
 
     assert.equal(created.length, 0);
-    assert.equal(store.listCeremonyRuns("project_pool").length, 0);
+    assert.equal(store.listCeremonyRuns("project_floop").length, 0);
   } finally {
     store.close();
   }
@@ -20,13 +20,13 @@ test("ceremony automation driver ignores disabled projects", async () => {
 test("ceremony automation driver creates operator-approved runs and respects min interval", async () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
   try {
-    store.createTicket("project_pool", {
+    store.createTicket("project_floop", {
       title: "Automated refinement target",
       brief: "Needs PO refinement.",
       assignedRole: "developer",
       state: "PROPOSED",
     });
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       ceremonyAutomation: {
         enabled: true,
         mode: "operator_approved",
@@ -46,7 +46,7 @@ test("ceremony automation driver creates operator-approved runs and respects min
     const driver = createCeremonyAutomationDriver({ store, logger: silentLogger() });
     const first = await driver.pollOnce();
     const second = await driver.pollOnce();
-    const runs = store.listCeremonyRuns("project_pool");
+    const runs = store.listCeremonyRuns("project_floop");
 
     assert.equal(first.length, 1);
     assert.equal(second.length, 0);
@@ -64,13 +64,13 @@ test("ceremony automation driver creates operator-approved runs and respects min
 test("ceremony automation driver applies proposals in fully automatic mode", async () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
   try {
-    const ticket = store.createTicket("project_pool", {
+    const ticket = store.createTicket("project_floop", {
       title: "Fully automatic refinement target",
       brief: "Needs details.",
       assignedRole: "developer",
       state: "PROPOSED",
     });
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       ceremonyAutomation: {
         enabled: true,
         mode: "fully_automatic",
@@ -89,8 +89,8 @@ test("ceremony automation driver applies proposals in fully automatic mode", asy
 
     const driver = createCeremonyAutomationDriver({ store, logger: silentLogger() });
     const created = await driver.pollOnce();
-    const run = store.getCeremonyRun("project_pool", created[0].id);
-    const updatedTicket = store.getTicket("project_pool", ticket.id);
+    const run = store.getCeremonyRun("project_floop", created[0].id);
+    const updatedTicket = store.getTicket("project_floop", ticket.id);
 
     assert.equal(created.length, 1);
     assert.equal(run.status, "applied");

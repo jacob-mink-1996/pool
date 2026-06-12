@@ -7,15 +7,15 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const fixtureRoot = mkdtempSync(join(tmpdir(), "pool-mvp-verify-"));
-const apiDbPath = join(fixtureRoot, "pool.sqlite");
+const fixtureRoot = mkdtempSync(join(tmpdir(), "floop-mvp-verify-"));
+const apiDbPath = join(fixtureRoot, "floop.sqlite");
 const workspaceRoot = join(fixtureRoot, "workspace");
 const targetRepoPath = join(fixtureRoot, "target-repo");
-const port = Number.parseInt(process.env.POOL_PORT || String(4600 + Math.floor(Math.random() * 1000)), 10);
-const baseUrl = process.env.POOL_BASE_URL || `http://127.0.0.1:${port}`;
-const projectId = process.env.POOL_DEMO_PROJECT_ID || "project_pool";
-const repeat = Math.max(1, Number.parseInt(process.env.POOL_MVP_REPEAT || "1", 10));
-const keepFixture = process.env.POOL_VERIFY_KEEP_FIXTURE === "true";
+const port = Number.parseInt(process.env.FLOOP_PORT || String(4600 + Math.floor(Math.random() * 1000)), 10);
+const baseUrl = process.env.FLOOP_BASE_URL || `http://127.0.0.1:${port}`;
+const projectId = process.env.FLOOP_DEMO_PROJECT_ID || "project_floop";
+const repeat = Math.max(1, Number.parseInt(process.env.FLOOP_MVP_REPEAT || "1", 10));
+const keepFixture = process.env.FLOOP_VERIFY_KEEP_FIXTURE === "true";
 
 let serverProcess = null;
 let failed = false;
@@ -70,11 +70,11 @@ try {
   console.log(`Tickets: ${iterations.map((iteration) => iteration.ticket.key).join(", ")}`);
 } catch (error) {
   failed = true;
-  if (serverProcess?.poolLogs) {
+  if (serverProcess?.floopLogs) {
     console.error("---- Floop API stdout ----");
-    console.error(serverProcess.poolLogs.stdout.trim() || "(empty)");
+    console.error(serverProcess.floopLogs.stdout.trim() || "(empty)");
     console.error("---- Floop API stderr ----");
-    console.error(serverProcess.poolLogs.stderr.trim() || "(empty)");
+    console.error(serverProcess.floopLogs.stderr.trim() || "(empty)");
   }
   console.error(error.stack || error.message || String(error));
   process.exitCode = 1;
@@ -139,7 +139,7 @@ async function configureProject(baseUrl, projectId, targetRepoPath) {
     adapter: "shell",
     model: "fixture",
     config: {
-      command: `"${process.execPath}" -e "const fs=require('node:fs'); const path=require('node:path'); const {execFileSync}=require('node:child_process'); const worktree=process.env.POOL_WORKTREE_PATH; const ticketKey=process.env.POOL_TICKET_KEY.toLowerCase(); const filename=path.join(worktree, ticketKey + '-implementation.txt'); fs.writeFileSync(filename, 'implemented by automated MVP verification\\n'); execFileSync('git', ['-C', worktree, 'add', '-A']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement ' + process.env.POOL_TICKET_KEY]); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Developer lane completed automatically.', artifacts: [{ kind: 'patch', label: 'Developer diff note', uri: 'file:///tmp/' + ticketKey + '-developer.patch' }] }));"`,
+      command: `"${process.execPath}" -e "const fs=require('node:fs'); const path=require('node:path'); const {execFileSync}=require('node:child_process'); const worktree=process.env.FLOOP_WORKTREE_PATH; const ticketKey=process.env.FLOOP_TICKET_KEY.toLowerCase(); const filename=path.join(worktree, ticketKey + '-implementation.txt'); fs.writeFileSync(filename, 'implemented by automated MVP verification\\n'); execFileSync('git', ['-C', worktree, 'add', '-A']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement ' + process.env.FLOOP_TICKET_KEY]); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Developer lane completed automatically.', artifacts: [{ kind: 'patch', label: 'Developer diff note', uri: 'file:///tmp/' + ticketKey + '-developer.patch' }] }));"`,
     },
   });
 
@@ -504,7 +504,7 @@ function initializeTargetRepo(targetRepoPath) {
   execFileSync("mkdir", ["-p", targetRepoPath]);
   execFileSync("git", ["init", "-b", "main", targetRepoPath]);
   execFileSync("git", ["-C", targetRepoPath, "config", "user.name", "Floop MVP Verify"]);
-  execFileSync("git", ["-C", targetRepoPath, "config", "user.email", "pool-mvp@example.com"]);
+  execFileSync("git", ["-C", targetRepoPath, "config", "user.email", "floop-mvp@example.com"]);
   writeFileSync(join(targetRepoPath, "README.md"), "# Floop MVP verification repo\n", "utf8");
   execFileSync("git", ["-C", targetRepoPath, "add", "README.md"]);
   execFileSync("git", ["-C", targetRepoPath, "commit", "-m", "Seed verification repo"]);
@@ -516,10 +516,10 @@ function startServer({ cwd, dbPath, port }) {
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
-      POOL_DB_PATH: dbPath,
-      POOL_PORT: String(port),
-      POOL_EXECUTION_POLL_MS: process.env.POOL_EXECUTION_POLL_MS || "100",
-      POOL_MERGE_POLL_MS: process.env.POOL_MERGE_POLL_MS || "100",
+      FLOOP_DB_PATH: dbPath,
+      FLOOP_PORT: String(port),
+      FLOOP_EXECUTION_POLL_MS: process.env.FLOOP_EXECUTION_POLL_MS || "100",
+      FLOOP_MERGE_POLL_MS: process.env.FLOOP_MERGE_POLL_MS || "100",
     },
   });
 
@@ -537,7 +537,7 @@ function startServer({ cwd, dbPath, port }) {
       console.error(stderr.trim());
     }
   });
-  child.poolLogs = { get stdout() { return stdout; }, get stderr() { return stderr; } };
+  child.floopLogs = { get stdout() { return stdout; }, get stderr() { return stderr; } };
   return child;
 }
 

@@ -8,7 +8,7 @@ test("ceremony participant driver runs participant fan-out and synthesizes conse
   const store = createStore({ filename: ":memory:", seedDemo: true });
   try {
     for (const role of ["product_manager", "developer"]) {
-      store.updateRoleProfile("project_pool", role, {
+      store.updateRoleProfile("project_floop", role, {
         adapter: "mock",
         model: "fixture",
         config: {
@@ -22,7 +22,7 @@ test("ceremony participant driver runs participant fan-out and synthesizes conse
         },
       });
     }
-    const run = store.createCeremonyRun("project_pool", {
+    const run = store.createCeremonyRun("project_floop", {
       type: "refinement",
       participantRoles: ["product_manager", "developer"],
       deciderRole: "product_manager",
@@ -32,7 +32,7 @@ test("ceremony participant driver runs participant fan-out and synthesizes conse
     const driver = createCeremonyParticipantDriver({ store, logger: silentLogger(), maxParallel: 2 });
     await driver.pollOnce();
 
-    const completed = store.getCeremonyRun("project_pool", run.id);
+    const completed = store.getCeremonyRun("project_floop", run.id);
     const synthesis = completed.proposals.find((proposal) => proposal.summary.startsWith("Agent consensus:"));
 
     assert.equal(completed.participants.length, 2);

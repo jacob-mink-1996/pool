@@ -10,11 +10,11 @@ import { createMergeDriver } from "./merge-driver.mjs";
 import { createStore } from "./store.mjs";
 
 test("merge driver auto-merges merge-ready tickets without human approval", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-merge-driver-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const repoRoot = join(fixtureDir, "repo");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -22,33 +22,33 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
-    store.updateRepo("project_pool", "repo_project_pool_pool", {
-      name: "pool",
+    store.updateRepo("project_floop", "repo_project_floop_floop", {
+      name: "floop",
       localPath: repoRoot,
       remoteUrl: "",
       defaultBranch: "main",
       isPrimary: true,
     });
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       requireReviewer: false,
       requireValidator: false,
       requireHumanApprovalBeforeMerge: false,
       maxParallelMerges: 2,
     });
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.FLOOP_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Prepare merge-ready implementation.",
     });
@@ -56,13 +56,13 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
     const executionDriver = createExecutionDriver({ store, logger: silentLogger() });
     await executionDriver.pollOnce();
 
-    const readyTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const readyTicket = store.getTicket("project_floop", "ticket_project_floop_2");
     assert.equal(readyTicket.state, "READY_TO_MERGE");
 
     const mergeDriver = createMergeDriver({ store, logger: silentLogger() });
     await mergeDriver.pollOnce();
 
-    const mergedTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const mergedTicket = store.getTicket("project_floop", "ticket_project_floop_2");
     const mergeArtifact = mergedTicket.mergeStatus.latestRun.artifacts.find((artifact) =>
       artifact.label.includes("merge candidate"),
     );
@@ -73,7 +73,7 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
     assert.ok(mergeArtifact);
 
     const mergeSummary = JSON.parse(readFileSync(new URL(mergeArtifact.uri), "utf8"));
-    assert.equal(mergeSummary.repoSlug, "pool");
+    assert.equal(mergeSummary.repoSlug, "floop");
     assert.equal(mergeSummary.baseRef, "main");
     assert.equal(mergeSummary.sourceBranch, execution.worktrees[0].branchName);
     assert.equal(mergeSummary.publishedRef, "main");
@@ -86,11 +86,11 @@ test("merge driver auto-merges merge-ready tickets without human approval", asyn
 });
 
 test("merge driver blocks when the target repo worktree is dirty", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-dirty-target-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-merge-driver-dirty-target-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const repoRoot = join(fixtureDir, "repo");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -98,33 +98,33 @@ test("merge driver blocks when the target repo worktree is dirty", async () => {
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
-    store.updateRepo("project_pool", "repo_project_pool_pool", {
-      name: "pool",
+    store.updateRepo("project_floop", "repo_project_floop_floop", {
+      name: "floop",
       localPath: repoRoot,
       remoteUrl: "",
       defaultBranch: "main",
       isPrimary: true,
     });
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       requireReviewer: false,
       requireValidator: false,
       requireHumanApprovalBeforeMerge: false,
       maxParallelMerges: 2,
     });
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.FLOOP_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Prepare merge-ready implementation.",
     });
@@ -136,7 +136,7 @@ test("merge driver blocks when the target repo worktree is dirty", async () => {
     const mergeDriver = createMergeDriver({ store, logger: silentLogger() });
     await mergeDriver.pollOnce();
 
-    const blockedTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const blockedTicket = store.getTicket("project_floop", "ticket_project_floop_2");
     const blockedArtifact = blockedTicket.mergeStatus.latestRun.artifacts.find((artifact) =>
       artifact.label.includes("merge blocked"),
     );
@@ -154,11 +154,11 @@ test("merge driver blocks when the target repo worktree is dirty", async () => {
 });
 
 test("merge driver retries blocked runs and records already-applied source branches", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-already-applied-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-merge-driver-already-applied-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const repoRoot = join(fixtureDir, "repo");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -166,53 +166,53 @@ test("merge driver retries blocked runs and records already-applied source branc
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
-    store.updateRepo("project_pool", "repo_project_pool_pool", {
-      name: "pool",
+    store.updateRepo("project_floop", "repo_project_floop_floop", {
+      name: "floop",
       localPath: repoRoot,
       remoteUrl: "",
       defaultBranch: "main",
       isPrimary: true,
     });
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       requireReviewer: false,
       requireValidator: false,
       requireHumanApprovalBeforeMerge: false,
       maxParallelMerges: 2,
     });
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.FLOOP_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Prepare merge-ready implementation.",
     });
     const executionDriver = createExecutionDriver({ store, logger: silentLogger() });
     await executionDriver.pollOnce();
 
-    const interrupted = store.startMergeRun("project_pool", "ticket_project_pool_2", {
+    const interrupted = store.startMergeRun("project_floop", "ticket_project_floop_2", {
       strategy: "squash",
       approvedByKind: "system",
       approvedByRef: "floop-auto",
       claimToken: "merge-worker",
     });
-    store.completeMergeRun("project_pool", interrupted.id, {
+    store.completeMergeRun("project_floop", interrupted.id, {
       status: "blocked",
       summaryMd: "Interrupted after publishing the target ref.",
       failureKind: "interrupted",
     });
     execFileSync("git", ["-C", repoRoot, "merge", "--squash", execution.worktrees[0].branchName]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "FLOOP-2: already published"]);
-    store.transitionTicket("project_pool", "ticket_project_pool_2", {
+    store.transitionTicket("project_floop", "ticket_project_floop_2", {
       targetState: "READY_TO_MERGE",
       reason: "Retry interrupted merge after confirming target ref was published.",
     });
@@ -220,7 +220,7 @@ test("merge driver retries blocked runs and records already-applied source branc
     const mergeDriver = createMergeDriver({ store, logger: silentLogger() });
     await mergeDriver.pollOnce();
 
-    const mergedTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const mergedTicket = store.getTicket("project_floop", "ticket_project_floop_2");
     const mergeArtifact = mergedTicket.mergeStatus.latestRun.artifacts.find((artifact) =>
       artifact.label.includes("merge candidate"),
     );
@@ -238,30 +238,30 @@ test("merge driver retries blocked runs and records already-applied source branc
 });
 
 test("merge driver reconciles interrupted active merge runs on startup", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-reconcile-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-merge-driver-reconcile-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
 
   try {
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       requireReviewer: false,
       requireValidator: false,
       requireHumanApprovalBeforeMerge: false,
       maxParallelMerges: 2,
     });
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Prepare a merge-ready ticket for recovery test.",
     });
-    store.completeExecution("project_pool", execution.id, {
+    store.completeExecution("project_floop", execution.id, {
       outcome: "completed",
       summaryMd: "Implementation completed for merge recovery.",
     });
-    store.startMergeRun("project_pool", "ticket_project_pool_2", {
+    store.startMergeRun("project_floop", "ticket_project_floop_2", {
       strategy: "squash",
       approvedByKind: "system",
       approvedByRef: "floop-auto",
@@ -271,8 +271,8 @@ test("merge driver reconciles interrupted active merge runs on startup", async (
     const driver = createMergeDriver({ store, logger: silentLogger() });
     await driver.reconcileOnStart();
 
-    const mergeStatus = store.getMergeStatus("project_pool", "ticket_project_pool_2");
-    const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const mergeStatus = store.getMergeStatus("project_floop", "ticket_project_floop_2");
+    const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
     assert.equal(mergeStatus.latestRun.status, "blocked");
     assert.equal(ticket.events.at(-1).reasonCode, "interrupted");
   } finally {
@@ -282,14 +282,14 @@ test("merge driver reconciles interrupted active merge runs on startup", async (
 });
 
 test("merge driver retries transient git failures before succeeding", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-retry-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-merge-driver-retry-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const repoRoot = join(fixtureDir, "repo");
   const counterPath = join(fixtureDir, "git-merge-attempts.txt");
   const wrapperDir = join(fixtureDir, "bin");
   const wrapperPath = join(wrapperDir, "git");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -304,8 +304,8 @@ const fs = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 const args = process.argv.slice(2);
-const realGit = process.env.POOL_REAL_GIT;
-const counterPath = process.env.POOL_GIT_RETRY_COUNTER;
+const realGit = process.env.FLOOP_REAL_GIT;
+const counterPath = process.env.FLOOP_GIT_RETRY_COUNTER;
 if (args.includes("merge") && args.includes("--squash")) {
   const attempts = Number(fs.readFileSync(counterPath, "utf8")) + 1;
   fs.writeFileSync(counterPath, String(attempts));
@@ -322,33 +322,33 @@ process.exit(result.status ?? 1);
 
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
-    store.updateRepo("project_pool", "repo_project_pool_pool", {
-      name: "pool",
+    store.updateRepo("project_floop", "repo_project_floop_floop", {
+      name: "floop",
       localPath: repoRoot,
       remoteUrl: "",
       defaultBranch: "main",
       isPrimary: true,
     });
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       requireReviewer: false,
       requireValidator: false,
       requireHumanApprovalBeforeMerge: false,
       maxParallelMerges: 2,
     });
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.FLOOP_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Prepare merge-ready implementation.",
     });
@@ -357,8 +357,8 @@ process.exit(result.status ?? 1);
     await executionDriver.pollOnce();
 
     const originalPath = process.env.PATH || "";
-    process.env.POOL_REAL_GIT = execFileSync("bash", ["-lc", "command -v git"], { encoding: "utf8" }).trim();
-    process.env.POOL_GIT_RETRY_COUNTER = counterPath;
+    process.env.FLOOP_REAL_GIT = execFileSync("bash", ["-lc", "command -v git"], { encoding: "utf8" }).trim();
+    process.env.FLOOP_GIT_RETRY_COUNTER = counterPath;
     process.env.PATH = `${wrapperDir}:${originalPath}`;
 
     try {
@@ -366,11 +366,11 @@ process.exit(result.status ?? 1);
       await mergeDriver.pollOnce();
     } finally {
       process.env.PATH = originalPath;
-      delete process.env.POOL_REAL_GIT;
-      delete process.env.POOL_GIT_RETRY_COUNTER;
+      delete process.env.FLOOP_REAL_GIT;
+      delete process.env.FLOOP_GIT_RETRY_COUNTER;
     }
 
-    const mergedTicket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const mergedTicket = store.getTicket("project_floop", "ticket_project_floop_2");
     assert.equal(mergedTicket.state, "DONE");
     assert.equal(readFileSync(counterPath, "utf8"), "2");
     assert.equal(mergedTicket.mergeStatus.latestRun.status, "completed");
@@ -383,13 +383,13 @@ process.exit(result.status ?? 1);
 });
 
 test("merge driver renews claims while a long-running merge is still active", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-merge-driver-renew-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-merge-driver-renew-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const repoRoot = join(fixtureDir, "repo");
   const wrapperDir = join(fixtureDir, "bin");
   const wrapperPath = join(wrapperDir, "git");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -401,7 +401,7 @@ test("merge driver renews claims while a long-running merge is still active", as
       `#!/usr/bin/env node
 const { spawnSync } = require("node:child_process");
 const args = process.argv.slice(2);
-const realGit = process.env.POOL_REAL_GIT;
+const realGit = process.env.FLOOP_REAL_GIT;
 if (args.includes("merge") && args.includes("--squash")) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 120);
 }
@@ -413,33 +413,33 @@ process.exit(result.status ?? 1);
 
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
-    store.updateRepo("project_pool", "repo_project_pool_pool", {
-      name: "pool",
+    store.updateRepo("project_floop", "repo_project_floop_floop", {
+      name: "floop",
       localPath: repoRoot,
       remoteUrl: "",
       defaultBranch: "main",
       isPrimary: true,
     });
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       requireReviewer: false,
       requireValidator: false,
       requireHumanApprovalBeforeMerge: false,
       maxParallelMerges: 2,
     });
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.POOL_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const {execFileSync}=require('node:child_process'); const path=require('node:path'); const worktree=process.env.FLOOP_WORKTREE_PATH; const filename=path.join(worktree, 'feature.txt'); fs.writeFileSync(filename, 'merge me\\n'); execFileSync('git', ['-C', worktree, 'add', 'feature.txt']); execFileSync('git', ['-C', worktree, 'commit', '-m', 'Implement feature']); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Implementation completed and committed.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Prepare merge-ready implementation.",
     });
@@ -447,7 +447,7 @@ process.exit(result.status ?? 1);
     await executionDriver.pollOnce();
 
     const originalPath = process.env.PATH || "";
-    process.env.POOL_REAL_GIT = execFileSync("bash", ["-lc", "command -v git"], { encoding: "utf8" }).trim();
+    process.env.FLOOP_REAL_GIT = execFileSync("bash", ["-lc", "command -v git"], { encoding: "utf8" }).trim();
     process.env.PATH = `${wrapperDir}:${originalPath}`;
 
     try {
@@ -455,7 +455,7 @@ process.exit(result.status ?? 1);
       const pollPromise = mergeDriver.pollOnce();
       await new Promise((resolve) => setTimeout(resolve, 70));
 
-      const competingStart = store.startMergeRun("project_pool", "ticket_project_pool_2", {
+      const competingStart = store.startMergeRun("project_floop", "ticket_project_floop_2", {
         strategy: "squash",
         approvedByKind: "system",
         approvedByRef: "floop-auto",
@@ -465,11 +465,11 @@ process.exit(result.status ?? 1);
       await pollPromise;
 
       assert.equal(competingStart, null);
-      assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").state, "DONE");
+      assert.equal(store.getTicket("project_floop", "ticket_project_floop_2").state, "DONE");
       assert.equal(execution.worktrees[0].branchName.includes("floop-2"), true);
     } finally {
       process.env.PATH = originalPath;
-      delete process.env.POOL_REAL_GIT;
+      delete process.env.FLOOP_REAL_GIT;
     }
   } finally {
     store.close();

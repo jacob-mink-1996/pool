@@ -10,7 +10,7 @@ type ProjectDetails = Record<ProjectDetailField, string>;
 
 declare global {
   interface Window {
-    poolDesktop?: {
+    floopDesktop?: {
       desktop?: boolean;
       platform?: string;
       pickDirectory?: () => Promise<string>;
@@ -48,7 +48,7 @@ export function ProjectOnboardingDialog({
   const [projectDetails, setProjectDetails] = useState<ProjectDetails>({ name: "", slug: "", defaultBaseBranch: "" });
   const touchedDetailsRef = useRef<Record<ProjectDetailField, boolean>>({ name: false, slug: false, defaultBaseBranch: false });
   const sourceDetectionRun = useRef(0);
-  const canPickDirectory = typeof window.poolDesktop?.pickDirectory === "function";
+  const canPickDirectory = typeof window.floopDesktop?.pickDirectory === "function";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -94,7 +94,7 @@ export function ProjectOnboardingDialog({
   }
 
   async function pickDirectory(targetName: string) {
-    const directory = await window.poolDesktop?.pickDirectory?.();
+    const directory = await window.floopDesktop?.pickDirectory?.();
     if (!directory) return;
     setPathInput(targetName, directory);
     void deriveDetailsFromPathInput(targetName, directory);

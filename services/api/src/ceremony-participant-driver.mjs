@@ -35,12 +35,12 @@ class CeremonyParticipantDriver {
     }
 
     this.pollOnce().catch((error) => {
-      this.logger.error?.("[pool-ceremony-participants] startup poll failed", error);
+      this.logger.error?.("[floop-ceremony-participants] startup poll failed", error);
     });
 
     this.timer = setInterval(() => {
       this.pollOnce().catch((error) => {
-        this.logger.error?.("[pool-ceremony-participants] poll failed", error);
+        this.logger.error?.("[floop-ceremony-participants] poll failed", error);
       });
     }, this.pollIntervalMs);
     this.timer.unref?.();
@@ -69,7 +69,7 @@ class CeremonyParticipantDriver {
     const started = pending.map((participant) => {
       const promise = this.runParticipant(participant)
         .catch((error) => {
-          this.logger.error?.("[pool-ceremony-participants] participant failed", error);
+          this.logger.error?.("[floop-ceremony-participants] participant failed", error);
         })
         .finally(() => {
           this.inFlight.delete(participant.id);
@@ -154,7 +154,7 @@ function selectAdapter(profile) {
 }
 
 async function prepareRuntime(project, run, participant) {
-  const root = resolve(project.workspaceRoot, ".pool", "ceremonies", run.id, participant.role);
+  const root = resolve(project.workspaceRoot, ".floop", "ceremonies", run.id, participant.role);
   const contextPath = join(root, "context.json");
   const resultPath = join(root, "result.json");
   const promptPath = join(root, "prompt.md");
@@ -188,12 +188,12 @@ async function runAdapter(adapter, options) {
 function buildEnv({ project, run, participant, runtime }) {
   return {
     ...process.env,
-    POOL_PROJECT_ID: project.id,
-    POOL_CEREMONY_ID: run.id,
-    POOL_CEREMONY_TYPE: run.type,
-    POOL_CEREMONY_ROLE: participant.role,
-    POOL_CONTEXT_PATH: runtime.contextPath,
-    POOL_RESULT_PATH: runtime.resultPath,
+    FLOOP_PROJECT_ID: project.id,
+    FLOOP_CEREMONY_ID: run.id,
+    FLOOP_CEREMONY_TYPE: run.type,
+    FLOOP_CEREMONY_ROLE: participant.role,
+    FLOOP_CONTEXT_PATH: runtime.contextPath,
+    FLOOP_RESULT_PATH: runtime.resultPath,
   };
 }
 

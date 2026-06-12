@@ -28,7 +28,7 @@ import { createStore } from "./store.mjs";
 
 const webAssets = loadWebAssets();
 
-export function createPoolServer(options = {}) {
+export function createFloopServer(options = {}) {
   const store = options.store || createStore();
 
   return http.createServer(async (request, response) => {

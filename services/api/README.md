@@ -9,19 +9,22 @@ Current implemented surface:
 - seeded demo project for local development
 - background execution driver for scriptable adapter profiles
 
-Useful environment variables. These keep the existing `POOL_*` names for compatibility:
+Useful environment variables:
 
-- `POOL_DB_PATH` to choose the SQLite file path
-- `POOL_SEED_DEMO=false` to start without demo data
-- `POOL_EXECUTION_POLL_MS` to tune background execution polling
+- `FLOOP_DB_PATH` to choose the SQLite file path
+- `FLOOP_SEED_DEMO=false` to start without demo data
+- `FLOOP_EXECUTION_POLL_MS` to tune background execution polling
+- `FLOOP_MERGE_POLL_MS` to tune background merge polling
+- `FLOOP_CEREMONY_POLL_MS` to tune ceremony automation polling
+- `FLOOP_CEREMONY_PARTICIPANT_POLL_MS` to tune ceremony participant polling
 
 Execution driver notes:
 
 - the API process includes a background execution driver
 - `codex` profiles run through `codex exec` automatically
 - generic scriptable profiles can still run through `config.command`
-- adapter runs receive `POOL_CONTEXT_PATH`, `POOL_RESULT_PATH`, and `POOL_WORKTREE_PATH`
-- if the adapter writes structured JSON to `POOL_RESULT_PATH`, Floop persists that outcome and any returned artifacts
+- adapter runs receive `FLOOP_CONTEXT_PATH`, `FLOOP_RESULT_PATH`, and `FLOOP_WORKTREE_PATH`
+- if the adapter writes structured JSON to `FLOOP_RESULT_PATH`, Floop persists that outcome and any returned artifacts
 - Codex runs also persist the final agent message as a durable artifact
 
 Next steps:

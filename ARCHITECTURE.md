@@ -8,13 +8,42 @@ review, and merge policy across one or more repositories inside a project.
 
 ## System Overview
 
-Floop should have one backend and two UI surfaces:
+Floop has one backend and two UI surfaces:
 
 - web app
 - electron desktop shell
 
 The backend owns all orchestration logic. The electron app is primarily a
 desktop wrapper around the web surface with desktop affordances.
+
+## Current MVP Architecture
+
+The current implementation is intentionally local-first:
+
+- Node.js ESM API service in `services/api`
+- SQLite persistence in `packages/db`
+- shared domain constants in `packages/domain`
+- shared request parsing and DTO projection in `packages/contracts`
+- React operator UI in `apps/web-react`
+- Electron shell in `apps/electron`
+- Server-Sent Events for live project event observation
+- background execution, merge, ceremony automation, and ceremony participant drivers
+
+SQLite is the product database for the MVP. Postgres remains the target database
+when Floop needs multi-user operation, stronger concurrent writers, remote
+deployment, or centralized scheduling.
+
+## Target Architecture
+
+The target system keeps the same boundaries but hardens them:
+
+- TypeScript across backend and shared packages
+- Postgres as the primary durable store
+- explicit migration files instead of only inline schema evolution
+- a command layer that separates route handling from workflow policy
+- stateless workers that can run in separate processes
+- durable artifact storage with local-file and remote-store adapters
+- authentication and local-trust controls before exposing beyond loopback
 
 ## Architectural Layers
 
@@ -33,7 +62,14 @@ Responsibilities:
 - event log
 - real-time updates to the UI
 
-Suggested stack:
+Current stack:
+
+- JavaScript ESM
+- Node.js
+- SQLite
+- Server-Sent Events for live updates
+
+Target stack:
 
 - TypeScript
 - Node.js
@@ -126,6 +162,11 @@ The UI should expose complex states when they add value. It does not need to
 oversimplify the true workflow into three fake columns.
 
 ## Core Domain Model
+
+The current SQLite schema already implements these core entities plus ceremonies,
+merge runs, artifacts, and worktree records. The model below is the stable
+product model, not a promise that every field name matches the current SQLite
+column names exactly.
 
 ### Project
 
@@ -298,6 +339,23 @@ Examples:
 - cross-project optimization
 - autonomous release management
 - full PR hosting/replacement
+
+## Known Architecture Debt
+
+The MVP has deliberately favored one-place implementation speed. The next
+architecture pass should address these issues before adding much more product
+surface:
+
+- split `packages/db/src/index.mjs` into bounded store modules while keeping one
+  connection and transaction helper
+- move workflow decisions out of raw persistence functions into a command/policy
+  layer
+- make manual ticket transitions go through an explicit transition policy with
+  operator override reasons
+- promote schema changes to versioned migrations
+- decide the artifact durability contract for local files, copied files, and
+  future remote stores
+- add a local trust and authentication model before non-loopback deployments
 
 ## North Star
 

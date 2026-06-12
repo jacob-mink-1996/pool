@@ -1,5 +1,5 @@
-const baseUrl = process.env.POOL_BASE_URL || "http://127.0.0.1:4318";
-const projectId = process.env.POOL_DEMO_PROJECT_ID || "project_pool";
+const baseUrl = process.env.FLOOP_BASE_URL || "http://127.0.0.1:4318";
+const projectId = process.env.FLOOP_DEMO_PROJECT_ID || "project_floop";
 
 async function main() {
   const projects = await fetchJson(`${baseUrl}/api/v1/projects`);
@@ -139,7 +139,7 @@ async function main() {
         {
           kind: "record",
           label: "Demo merge record",
-          uri: `https://example.invalid/pool/${ticket.key.toLowerCase()}/merge`,
+          uri: `https://example.invalid/floop/${ticket.key.toLowerCase()}/merge`,
         },
       ],
     }),

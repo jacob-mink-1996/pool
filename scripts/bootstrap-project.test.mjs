@@ -6,19 +6,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { createPoolServer } from "../services/api/src/app.mjs";
+import { createFloopServer } from "../services/api/src/app.mjs";
 import { createStore } from "../services/api/src/store.mjs";
 
 const execFileAsync = promisify(execFile);
 
 async function withServer(run, options = {}) {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-bootstrap-script-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-bootstrap-script-"));
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: options.seedDemo ?? false,
     workspaceRoot: options.workspaceRoot || join(fixtureDir, "workspace"),
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
 
@@ -39,7 +39,7 @@ test("bootstrap-project script creates a runnable local project setup", async ()
     const repoRoot = join(fixtureDir, "client-zero");
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Client Zero\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
@@ -95,7 +95,7 @@ test("bootstrap-project script creates a runnable local project setup", async ()
     const validator = profilesBody.profiles.find((profile) => profile.role === "validator");
     assert.equal(reviewer.adapter, "codex");
     assert.equal(validator.adapter, "shell");
-    assert.match(validator.config.command, /POOL_CONTEXT_PATH/);
+    assert.match(validator.config.command, /FLOOP_CONTEXT_PATH/);
     assert.match(validator.config.command, /npm test/);
   });
 });

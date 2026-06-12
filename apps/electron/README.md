@@ -20,8 +20,8 @@ loopback port, and opens the bundled UI.
 ## Data
 
 By default, the desktop app stores its SQLite database in Electron's user-data
-directory as `pool.sqlite`.
+directory as `floop.sqlite`.
 
-Set `POOL_DB_PATH` to force a specific database path. The desktop app tries
-`POOL_PORT` when it is set; otherwise it starts on `4318` and falls back to a
+Set `FLOOP_DB_PATH` to force a specific database path. The desktop app tries
+`FLOOP_PORT` when it is set; otherwise it starts on `4318` and falls back to a
 free loopback port if that port is already occupied.

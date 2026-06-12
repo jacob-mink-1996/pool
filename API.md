@@ -250,6 +250,9 @@ Expected fields:
 - `reason`
 
 This is useful for human/operator actions and policy-driven transitions.
+Current MVP behavior accepts any canonical ticket state. The next control-plane
+hardening pass should route this endpoint through transition policy so normal
+workflow moves are validated and operator overrides carry explicit reason codes.
 
 ### `POST /api/v1/projects/:projectId/tickets/:ticketId/restart`
 
@@ -259,7 +262,7 @@ Effects:
 
 - cancels active executions for the ticket
 - marks recorded ticket worktrees as cleaned
-- deletes recorded worktree directories under `.pool/worktrees`
+- deletes recorded worktree directories under `.floop/worktrees`
 - moves the ticket back to `READY`
 
 Expected fields:

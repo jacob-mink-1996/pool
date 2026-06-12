@@ -26,18 +26,18 @@ function findRepoRoot(startDirectory) {
   }
 }
 
-function resolveHost(value = process.env.POOL_HOST) {
+function resolveHost(value = process.env.FLOOP_HOST) {
   return value || DEFAULT_HOST;
 }
 
-function resolvePort(value = process.env.POOL_PORT) {
+function resolvePort(value = process.env.FLOOP_PORT) {
   if (!value) {
     return DEFAULT_PORT;
   }
 
   const port = Number.parseInt(value, 10);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`Invalid POOL_PORT value: ${value}`);
+    throw new Error(`Invalid FLOOP_PORT value: ${value}`);
   }
   return port;
 }
@@ -45,10 +45,10 @@ function resolvePort(value = process.env.POOL_PORT) {
 function createDesktopEnvironment({ userDataPath, env = process.env }) {
   return {
     ...env,
-    POOL_HOST: resolveHost(env.POOL_HOST),
-    POOL_PORT: String(resolvePort(env.POOL_PORT)),
-    POOL_DB_PATH: env.POOL_DB_PATH || path.join(userDataPath, "pool.sqlite"),
-    POOL_DESKTOP: "true",
+    FLOOP_HOST: resolveHost(env.FLOOP_HOST),
+    FLOOP_PORT: String(resolvePort(env.FLOOP_PORT)),
+    FLOOP_DB_PATH: env.FLOOP_DB_PATH || path.join(userDataPath, "floop.sqlite"),
+    FLOOP_DESKTOP: "true",
   };
 }
 

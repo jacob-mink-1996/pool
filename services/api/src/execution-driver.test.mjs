@@ -9,24 +9,24 @@ import { createExecutionDriver } from "./execution-driver.mjs";
 import { createStore } from "./store.mjs";
 
 test("execution driver runs configured adapter commands and persists completion evidence", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-driver-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
 
   try {
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Driver landed the ticket.' })); console.log('driver stdout ok')"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Driver landed the ticket.' })); console.log('driver stdout ok')"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Run through the background driver.",
     });
@@ -34,8 +34,8 @@ test("execution driver runs configured adapter commands and persists completion 
 
     await driver.pollOnce();
 
-    const completed = store.getExecution("project_pool", execution.id);
-    const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const completed = store.getExecution("project_floop", execution.id);
+    const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
     const stdoutArtifact = completed.artifacts.find((artifact) => artifact.label === "Adapter stdout");
 
     assert.equal(completed.outcome, "completed");
@@ -51,11 +51,11 @@ test("execution driver runs configured adapter commands and persists completion 
 });
 
 test("execution driver can launch the codex adapter path and persist the final agent message", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-codex-driver-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-codex-driver-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const fakeCodexPath = join(fixtureDir, "fake-codex.js");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -86,10 +86,10 @@ process.stdin.on("data", (chunk) => {
 });
 process.stdin.on("end", () => {
   fs.writeFileSync(
-    process.env.POOL_RESULT_PATH,
+    process.env.FLOOP_RESULT_PATH,
     JSON.stringify({
       outcome: "completed",
-      summaryMd: prompt.includes(process.env.POOL_TICKET_KEY)
+      summaryMd: prompt.includes(process.env.FLOOP_TICKET_KEY)
         ? "Codex adapter completed the ticket."
         : "Prompt missing ticket key.",
     }),
@@ -104,7 +104,7 @@ process.stdin.on("end", () => {
   );
 
   try {
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "codex",
       model: "codex-latest",
       config: {
@@ -113,7 +113,7 @@ process.stdin.on("end", () => {
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Run through the codex adapter path.",
     });
@@ -121,11 +121,11 @@ process.stdin.on("end", () => {
 
     await driver.pollOnce();
 
-    const completed = store.getExecution("project_pool", execution.id);
-    const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+    const completed = store.getExecution("project_floop", execution.id);
+    const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
     const finalMessageArtifact = completed.artifacts.find((artifact) => artifact.label === "Agent final message");
     const stdoutArtifact = completed.artifacts.find((artifact) => artifact.label === "Adapter stdout");
-    const promptPath = join(workspaceRoot, ".pool", "executions", execution.id, "prompt.md");
+    const promptPath = join(workspaceRoot, ".floop", "executions", execution.id, "prompt.md");
 
     assert.equal(completed.outcome, "completed");
     assert.equal(completed.summaryMd, "Codex adapter completed the ticket.");
@@ -143,11 +143,11 @@ process.stdin.on("end", () => {
 });
 
 test("execution driver can persist embedded review evidence from the codex reviewer lane", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-reviewer-codex-driver-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-reviewer-codex-driver-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const fakeCodexPath = join(fixtureDir, "fake-reviewer-codex.js");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -165,7 +165,7 @@ process.stdin.on("data", (chunk) => {
 });
 process.stdin.on("end", () => {
   fs.writeFileSync(
-    process.env.POOL_RESULT_PATH,
+    process.env.FLOOP_RESULT_PATH,
     JSON.stringify({
       outcome: "completed",
       summaryMd: "Reviewer execution completed.",
@@ -187,7 +187,7 @@ process.stdin.on("end", () => {
   );
 
   try {
-    store.updateRoleProfile("project_pool", "reviewer", {
+    store.updateRoleProfile("project_floop", "reviewer", {
       adapter: "codex",
       model: "codex-latest",
       config: {
@@ -195,27 +195,27 @@ process.stdin.on("end", () => {
       },
     });
 
-    const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const implementation = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Finish implementation before reviewer lane.",
     });
-    store.completeExecution("project_pool", implementation.id, {
+    store.completeExecution("project_floop", implementation.id, {
       outcome: "completed",
       summaryMd: "Implementation completed for reviewer test.",
     });
 
     const reviewerExecution = store
-      .getTicket("project_pool", "ticket_project_pool_2")
+      .getTicket("project_floop", "ticket_project_floop_2")
       .executions.find((execution) => execution.role === "reviewer");
     assert.ok(reviewerExecution);
 
     const driver = createExecutionDriver({ store, logger: silentLogger() });
     await driver.pollOnce();
 
-    const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
-    const completed = store.getExecution("project_pool", reviewerExecution.id);
+    const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
+    const completed = store.getExecution("project_floop", reviewerExecution.id);
     const stdoutArtifact = completed.artifacts.find((artifact) => artifact.label === "Adapter stdout");
-    const promptPath = join(workspaceRoot, ".pool", "executions", reviewerExecution.id, "prompt.md");
+    const promptPath = join(workspaceRoot, ".floop", "executions", reviewerExecution.id, "prompt.md");
 
     assert.equal(completed.outcome, "completed");
     assert.equal(ticket.reviews.length, 1);
@@ -230,46 +230,46 @@ process.stdin.on("end", () => {
 });
 
 test("execution driver can persist embedded validation evidence from the validator lane", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-validator-driver-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-validator-driver-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
 
   try {
-    store.updateProjectPolicy("project_pool", {
+    store.updateProjectPolicy("project_floop", {
       requireReviewer: false,
       requireValidator: true,
     });
-    store.updateRoleProfile("project_pool", "validator", {
+    store.updateRoleProfile("project_floop", "validator", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Validator execution completed.', validation: { verdict: 'passed', summaryMd: 'Validation checks passed.', commandProfile: 'ci', commands: ['npm test'], repoIds: ['repo_project_pool_pool'], artifacts: [{ kind: 'log', label: 'Validation output', uri: 'file:///tmp/validation-output.log' }] } }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Validator execution completed.', validation: { verdict: 'passed', summaryMd: 'Validation checks passed.', commandProfile: 'ci', commands: ['npm test'], repoIds: ['repo_project_floop_floop'], artifacts: [{ kind: 'log', label: 'Validation output', uri: 'file:///tmp/validation-output.log' }] } }));"`,
       },
     });
 
-    const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const implementation = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Finish implementation before validator lane.",
     });
-    store.completeExecution("project_pool", implementation.id, {
+    store.completeExecution("project_floop", implementation.id, {
       outcome: "completed",
       summaryMd: "Implementation completed for validator test.",
     });
 
     const validatorExecution = store
-      .getTicket("project_pool", "ticket_project_pool_2")
+      .getTicket("project_floop", "ticket_project_floop_2")
       .executions.find((execution) => execution.role === "validator");
     assert.ok(validatorExecution);
 
     const driver = createExecutionDriver({ store, logger: silentLogger() });
     await driver.pollOnce();
 
-    const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
-    const completed = store.getExecution("project_pool", validatorExecution.id);
+    const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
+    const completed = store.getExecution("project_floop", validatorExecution.id);
 
     assert.equal(completed.outcome, "completed");
     assert.equal(ticket.validations.length, 1);
@@ -284,11 +284,11 @@ test("execution driver can persist embedded validation evidence from the validat
 });
 
 test("execution driver materializes a real git worktree when the target repo exists", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-worktree-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-git-worktree-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const repoRoot = join(fixtureDir, "repo");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -296,27 +296,27 @@ test("execution driver materializes a real git worktree when the target repo exi
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Floop Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
-    store.updateRepo("project_pool", "repo_project_pool_pool", {
-      name: "pool",
+    store.updateRepo("project_floop", "repo_project_floop_floop", {
+      name: "floop",
       localPath: repoRoot,
       remoteUrl: "",
       defaultBranch: "main",
       isPrimary: true,
     });
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Git-backed worktree executed.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Git-backed worktree executed.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Verify git-backed worktree materialization.",
     });
@@ -333,12 +333,12 @@ test("execution driver materializes a real git worktree when the target repo exi
 });
 
 test("execution driver rematerializes stale git worktrees when branch metadata no longer matches", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-worktree-refresh-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-git-worktree-refresh-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const repoRoot = join(fixtureDir, "repo");
   const staleRepoRoot = join(fixtureDir, "stale-repo");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
@@ -346,47 +346,47 @@ test("execution driver rematerializes stale git worktrees when branch metadata n
   try {
     execFileSync("git", ["init", "-b", "main", repoRoot]);
     execFileSync("git", ["-C", repoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", repoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", repoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(repoRoot, "README.md"), "# Fresh Repo\n", "utf8");
     execFileSync("git", ["-C", repoRoot, "add", "README.md"]);
     execFileSync("git", ["-C", repoRoot, "commit", "-m", "seed repo"]);
 
     execFileSync("git", ["init", "-b", "main", staleRepoRoot]);
     execFileSync("git", ["-C", staleRepoRoot, "config", "user.name", "Floop Test"]);
-    execFileSync("git", ["-C", staleRepoRoot, "config", "user.email", "pool@example.com"]);
+    execFileSync("git", ["-C", staleRepoRoot, "config", "user.email", "floop@example.com"]);
     writeFileSync(join(staleRepoRoot, "stale.txt"), "stale\n", "utf8");
     execFileSync("git", ["-C", staleRepoRoot, "add", "stale.txt"]);
     execFileSync("git", ["-C", staleRepoRoot, "commit", "-m", "seed stale repo"]);
 
-    store.updateRepo("project_pool", "repo_project_pool_pool", {
-      name: "pool",
+    store.updateRepo("project_floop", "repo_project_floop_floop", {
+      name: "floop",
       localPath: repoRoot,
       remoteUrl: "",
       defaultBranch: "main",
       isPrimary: true,
     });
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Git-backed worktree refreshed.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Git-backed worktree refreshed.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Verify stale worktree rematerialization.",
     });
     const staleWorktreePath = execution.worktrees[0].path;
     execFileSync("git", ["-C", staleRepoRoot, "worktree", "add", "-B", "stale-branch", staleWorktreePath, "main"]);
     writeFileSync(
-      join(staleWorktreePath, ".pool-worktree.json"),
+      join(staleWorktreePath, ".floop-worktree.json"),
       JSON.stringify({
-        projectId: "project_pool",
-        ticketId: "ticket_project_pool_2",
+        projectId: "project_floop",
+        ticketId: "ticket_project_floop_2",
         executionId: execution.id,
-        repoId: "repo_project_pool_pool",
-        repoSlug: "pool",
+        repoId: "repo_project_floop_floop",
+        repoSlug: "floop",
         repoLocalPath: staleRepoRoot,
         baseRef: "main",
         branchName: "stale-branch",
@@ -397,7 +397,7 @@ test("execution driver rematerializes stale git worktrees when branch metadata n
     const driver = createExecutionDriver({ store, logger: silentLogger() });
     await driver.pollOnce();
 
-    const worktreeMetadata = JSON.parse(readFileSync(join(staleWorktreePath, ".pool-worktree.json"), "utf8"));
+    const worktreeMetadata = JSON.parse(readFileSync(join(staleWorktreePath, ".floop-worktree.json"), "utf8"));
     const currentBranch = execFileSync("git", ["-C", staleWorktreePath, "branch", "--show-current"], {
       encoding: "utf8",
     }).trim();
@@ -414,16 +414,16 @@ test("execution driver rematerializes stale git worktrees when branch metadata n
 });
 
 test("execution driver reconciles interrupted active executions on startup", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-reconcile-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-driver-reconcile-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
 
   try {
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Run before a simulated restart.",
     });
@@ -431,7 +431,7 @@ test("execution driver reconciles interrupted active executions on startup", asy
 
     await driver.reconcileOnStart();
 
-    const recovered = store.getExecution("project_pool", execution.id);
+    const recovered = store.getExecution("project_floop", execution.id);
     assert.equal(recovered.outcome, "failed");
     assert.equal(recovered.failureKind, "interrupted");
     assert.match(recovered.summaryMd, /recovered after restart/i);
@@ -442,26 +442,26 @@ test("execution driver reconciles interrupted active executions on startup", asy
 });
 
 test("execution driver claim discipline prevents duplicate worker execution", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-claims-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-driver-claims-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const claimCounterPath = join(fixtureDir, "claim-counter.txt");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
 
   try {
     writeFileSync(claimCounterPath, "0", "utf8");
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const count=Number(fs.readFileSync('${claimCounterPath}','utf8')); fs.writeFileSync('${claimCounterPath}', String(count + 1)); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Claim-safe completion.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const count=Number(fs.readFileSync('${claimCounterPath}','utf8')); fs.writeFileSync('${claimCounterPath}', String(count + 1)); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Claim-safe completion.' }));"`,
       },
     });
 
-    store.createExecution("project_pool", "ticket_project_pool_2", {
+    store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Prove duplicate workers cannot both run.",
     });
@@ -479,26 +479,26 @@ test("execution driver claim discipline prevents duplicate worker execution", as
 });
 
 test("execution driver retries transient adapter failures before succeeding", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-retry-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-driver-retry-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const attemptPath = join(fixtureDir, "attempts.txt");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
 
   try {
     writeFileSync(attemptPath, "0", "utf8");
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const attemptsPath='${attemptPath}'; const attempts=Number(fs.readFileSync(attemptsPath,'utf8')) + 1; fs.writeFileSync(attemptsPath, String(attempts)); if (attempts < 2) { fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'failed', summaryMd: 'Temporary adapter failure.', failureKind: 'transient' })); process.exit(1); } fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Succeeded after retry.' }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const attemptsPath='${attemptPath}'; const attempts=Number(fs.readFileSync(attemptsPath,'utf8')) + 1; fs.writeFileSync(attemptsPath, String(attempts)); if (attempts < 2) { fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'failed', summaryMd: 'Temporary adapter failure.', failureKind: 'transient' })); process.exit(1); } fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Succeeded after retry.' }));"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Retry a transient adapter failure.",
     });
@@ -506,7 +506,7 @@ test("execution driver retries transient adapter failures before succeeding", as
 
     await driver.pollOnce();
 
-    const completed = store.getExecution("project_pool", execution.id);
+    const completed = store.getExecution("project_floop", execution.id);
     assert.equal(completed.outcome, "completed");
     assert.equal(completed.summaryMd, "Succeeded after retry.");
     assert.equal(readFileSync(attemptPath, "utf8"), "2");
@@ -517,24 +517,24 @@ test("execution driver retries transient adapter failures before succeeding", as
 });
 
 test("execution driver renews claims while a long-running execution is still active", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-driver-renew-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-driver-renew-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: true,
     workspaceRoot,
   });
 
   try {
-    store.updateRoleProfile("project_pool", "developer", {
+    store.updateRoleProfile("project_floop", "developer", {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "setTimeout(() => { const fs=require('node:fs'); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Long-running execution completed.' })); }, 120)"`,
+        command: `"${process.execPath}" -e "setTimeout(() => { const fs=require('node:fs'); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Long-running execution completed.' })); }, 120)"`,
       },
     });
 
-    const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+    const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
       role: "developer",
       reason: "Keep renewing this lease while work is in flight.",
     });
@@ -543,7 +543,7 @@ test("execution driver renews claims while a long-running execution is still act
     const pollPromise = driver.pollOnce();
     await new Promise((resolve) => setTimeout(resolve, 70));
 
-    const competingClaim = store.claimExecution("project_pool", execution.id, {
+    const competingClaim = store.claimExecution("project_floop", execution.id, {
       claimToken: "worker-b",
       leaseMs: 40,
     });
@@ -551,7 +551,7 @@ test("execution driver renews claims while a long-running execution is still act
     await pollPromise;
 
     assert.equal(competingClaim, null);
-    assert.equal(store.getExecution("project_pool", execution.id).outcome, "completed");
+    assert.equal(store.getExecution("project_floop", execution.id).outcome, "completed");
   } finally {
     store.close();
     rmSync(fixtureDir, { recursive: true, force: true });

@@ -6,17 +6,17 @@ import test from "node:test";
 import { createStore } from "../src/store.mjs";
 
 test("SQLite store persists ticket state and board aggregates across reopen", () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-store-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-store-"));
+  const filename = join(fixtureDir, "floop.sqlite");
 
   try {
     const store = createStore({
       filename,
       seedDemo: true,
-      workspaceRoot: "/workspace/pool",
+      workspaceRoot: "/workspace/floop",
     });
 
-    const createdTicket = store.createTicket("project_pool", {
+    const createdTicket = store.createTicket("project_floop", {
       title: "Implement board read model",
       brief: "Add grouped project board aggregates for the operator UI.",
       state: "PROPOSED",
@@ -24,7 +24,7 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
       assignedRole: "developer",
       repoTargets: [
         {
-          repoId: "repo_project_pool_pool",
+          repoId: "repo_project_floop_floop",
           baseRef: "main",
           branchName: "floop-3-board-aggregate",
           targetScopeMd: "services/api read models",
@@ -32,28 +32,28 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
       ],
     });
 
-    store.transitionTicket("project_pool", createdTicket.id, {
+    store.transitionTicket("project_floop", createdTicket.id, {
       targetState: "WORKING",
       reason: "Picked up for the next MVP implementation pass.",
     });
 
-    const execution = store.createExecution("project_pool", createdTicket.id, {
+    const execution = store.createExecution("project_floop", createdTicket.id, {
       role: "developer",
       reason: "Capture durable evidence for the board read model pass.",
     });
-    store.completeExecution("project_pool", execution.id, {
+    store.completeExecution("project_floop", execution.id, {
       outcome: "completed",
       summaryMd: "Board aggregate implementation finished.",
       artifacts: [
         {
           kind: "patch",
           label: "Board aggregate diff",
-          uri: "file:///workspace/pool/.pool/artifacts/floop-3.patch",
+          uri: "file:///workspace/floop/.floop/artifacts/floop-3.patch",
         },
       ],
     });
 
-    const boardBeforeClose = store.getProjectBoard("project_pool");
+    const boardBeforeClose = store.getProjectBoard("project_floop");
     const reviewingColumnBeforeClose = boardBeforeClose.columns.find((column) => column.state === "REVIEWING");
     assert.equal(reviewingColumnBeforeClose.count, 1);
 
@@ -62,10 +62,10 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
     const reopenedStore = createStore({
       filename,
       seedDemo: false,
-      workspaceRoot: "/workspace/pool",
+      workspaceRoot: "/workspace/floop",
     });
 
-    const filteredTickets = reopenedStore.listTickets("project_pool", {
+    const filteredTickets = reopenedStore.listTickets("project_floop", {
       states: ["REVIEWING"],
       search: "board read model",
     });
@@ -73,10 +73,10 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
     assert.equal(filteredTickets[0].key, "FLOOP-3");
     assert.equal(filteredTickets[0].repoCount, 1);
 
-    const persistedTicket = reopenedStore.getTicket("project_pool", createdTicket.id);
+    const persistedTicket = reopenedStore.getTicket("project_floop", createdTicket.id);
     assert.equal(persistedTicket.state, "REVIEWING");
     assert.equal(persistedTicket.events.length, 7);
-    assert.equal(persistedTicket.repoTargets[0].repoName, "pool");
+    assert.equal(persistedTicket.repoTargets[0].repoName, "floop");
     assert.equal(persistedTicket.executions.length, 2);
     assert.equal(
       persistedTicket.executions.find((persistedExecution) => persistedExecution.id === execution.id).artifacts[0].label,

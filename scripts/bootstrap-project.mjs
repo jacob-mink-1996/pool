@@ -18,10 +18,10 @@ async function main() {
     return;
   }
 
-  const baseUrl = args.baseUrl || process.env.POOL_BASE_URL || "http://127.0.0.1:4318";
+  const baseUrl = args.baseUrl || process.env.FLOOP_BASE_URL || "http://127.0.0.1:4318";
   const workspaceRoot = args.workspaceRoot ? resolve(args.workspaceRoot) : process.cwd();
   const repoPath = args.repoPath ? resolve(args.repoPath) : workspaceRoot;
-  const repoSlug = args.repoSlug || slugify(basename(repoPath)) || "pool-project";
+  const repoSlug = args.repoSlug || slugify(basename(repoPath)) || "floop-project";
   const projectName = args.projectName || humanizeSlug(repoSlug);
   const projectSlug = args.projectSlug || slugify(projectName) || repoSlug;
   const defaultBranch = args.defaultBranch || "main";
@@ -198,7 +198,7 @@ async function patchRoleProfiles({ baseUrl, projectId, ciCommand }) {
       adapter: "shell",
       model: "fixture",
       config: {
-        command: `"${process.execPath}" -e "const fs=require('node:fs'); const context=JSON.parse(fs.readFileSync(process.env.POOL_CONTEXT_PATH,'utf8')); const repoIds=(context.execution?.worktrees||[]).map((worktree)=>worktree.repoId).filter(Boolean); fs.writeFileSync(process.env.POOL_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Validator execution completed.', validation: { verdict: 'passed', summaryMd: 'Validation checks passed.', commandProfile: 'ci', commands: ['${escapeSingleQuoted(ciCommand)}'], repoIds, artifacts: [{ kind: 'log', label: 'Validation output', uri: 'file:///tmp/pool-validation.log' }] } }));"`,
+        command: `"${process.execPath}" -e "const fs=require('node:fs'); const context=JSON.parse(fs.readFileSync(process.env.FLOOP_CONTEXT_PATH,'utf8')); const repoIds=(context.execution?.worktrees||[]).map((worktree)=>worktree.repoId).filter(Boolean); fs.writeFileSync(process.env.FLOOP_RESULT_PATH, JSON.stringify({ outcome: 'completed', summaryMd: 'Validator execution completed.', validation: { verdict: 'passed', summaryMd: 'Validation checks passed.', commandProfile: 'ci', commands: ['${escapeSingleQuoted(ciCommand)}'], repoIds, artifacts: [{ kind: 'log', label: 'Validation output', uri: 'file:///tmp/floop-validation.log' }] } }));"`,
       },
     }),
   });

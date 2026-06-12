@@ -43,12 +43,12 @@ class ExecutionDriver {
     }
 
     this.reconcileOnStart().catch((error) => {
-      this.logger.error?.("[pool-driver] startup reconciliation failed", error);
+      this.logger.error?.("[floop-driver] startup reconciliation failed", error);
     });
 
     this.timer = setInterval(() => {
       this.pollOnce().catch((error) => {
-        this.logger.error?.("[pool-driver] poll failed", error);
+        this.logger.error?.("[floop-driver] poll failed", error);
       });
     }, this.pollIntervalMs);
     this.timer.unref?.();
@@ -71,7 +71,7 @@ class ExecutionDriver {
     const started = runnable.map((execution) => {
       const promise = this.runExecution(execution)
         .catch((error) => {
-          this.logger.error?.("[pool-driver] execution failed", error);
+          this.logger.error?.("[floop-driver] execution failed", error);
         })
         .finally(() => {
           this.inFlight.delete(execution.id);
@@ -89,7 +89,7 @@ class ExecutionDriver {
       remainingWorkMd: "Retry or continue this lane now that the control plane is back online.",
     });
     if (recovered.length > 0) {
-      this.logger.info?.(`[pool-driver] reconciled ${recovered.length} interrupted execution(s)`);
+      this.logger.info?.(`[floop-driver] reconciled ${recovered.length} interrupted execution(s)`);
     }
     await this.pollOnce();
   }
@@ -290,7 +290,7 @@ async function materializeWorktrees(ticket, execution) {
 
     await ensureWorktreeMaterialized(target, worktree);
     await writeFile(
-      join(worktree.path, ".pool-worktree.json"),
+      join(worktree.path, ".floop-worktree.json"),
       JSON.stringify(
         {
           projectId: execution.projectId,
@@ -355,7 +355,7 @@ async function canReuseMaterializedWorktree(target, worktree) {
     return false;
   }
 
-  const metadataPath = join(worktree.path, ".pool-worktree.json");
+  const metadataPath = join(worktree.path, ".floop-worktree.json");
   let metadata = null;
   try {
     metadata = JSON.parse(await readFile(metadataPath, "utf8"));
@@ -373,8 +373,8 @@ async function canReuseMaterializedWorktree(target, worktree) {
 }
 
 async function prepareRuntimeArtifacts(project, ticket, execution) {
-  const executionRoot = resolve(project.workspaceRoot, ".pool", "executions", execution.id);
-  const artifactRoot = resolve(project.workspaceRoot, ".pool", "artifacts", "executions", execution.id);
+  const executionRoot = resolve(project.workspaceRoot, ".floop", "executions", execution.id);
+  const artifactRoot = resolve(project.workspaceRoot, ".floop", "artifacts", "executions", execution.id);
   const contextPath = join(executionRoot, "context.json");
   const resultPath = join(executionRoot, "result.json");
   const promptPath = join(executionRoot, "prompt.md");
@@ -411,18 +411,18 @@ async function prepareRuntimeArtifacts(project, ticket, execution) {
 function buildExecutionEnv(project, ticket, execution, runtime) {
   return {
     ...process.env,
-    POOL_PROJECT_ID: project.id,
-    POOL_PROJECT_SLUG: project.slug,
-    POOL_PROJECT_ROOT: project.workspaceRoot,
-    POOL_TICKET_ID: ticket.id,
-    POOL_TICKET_KEY: ticket.key,
-    POOL_TICKET_TITLE: ticket.title,
-    POOL_EXECUTION_ID: execution.id,
-    POOL_EXECUTION_ROLE: execution.role,
-    POOL_EXECUTION_ITERATION: String(execution.iteration),
-    POOL_WORKTREE_PATH: execution.worktrees[0]?.path || "",
-    POOL_CONTEXT_PATH: runtime.contextPath,
-    POOL_RESULT_PATH: runtime.resultPath,
+    FLOOP_PROJECT_ID: project.id,
+    FLOOP_PROJECT_SLUG: project.slug,
+    FLOOP_PROJECT_ROOT: project.workspaceRoot,
+    FLOOP_TICKET_ID: ticket.id,
+    FLOOP_TICKET_KEY: ticket.key,
+    FLOOP_TICKET_TITLE: ticket.title,
+    FLOOP_EXECUTION_ID: execution.id,
+    FLOOP_EXECUTION_ROLE: execution.role,
+    FLOOP_EXECUTION_ITERATION: String(execution.iteration),
+    FLOOP_WORKTREE_PATH: execution.worktrees[0]?.path || "",
+    FLOOP_CONTEXT_PATH: runtime.contextPath,
+    FLOOP_RESULT_PATH: runtime.resultPath,
   };
 }
 

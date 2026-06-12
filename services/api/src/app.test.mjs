@@ -5,17 +5,17 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createPoolServer } from "./app.mjs";
+import { createFloopServer } from "./app.mjs";
 import { createStore } from "./store.mjs";
 
 async function withServer(run, options = {}) {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-app-test-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-app-test-"));
   const store = createStore({
-    filename: join(fixtureDir, "pool.sqlite"),
+    filename: join(fixtureDir, "floop.sqlite"),
     seedDemo: options.seedDemo ?? true,
-    workspaceRoot: options.workspaceRoot || "/workspace/pool",
+    workspaceRoot: options.workspaceRoot || "/workspace/floop",
   });
-  const server = createPoolServer({ store });
+  const server = createFloopServer({ store });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
 
@@ -53,7 +53,7 @@ test("meta endpoint exposes runtime defaults for the web app", async () => {
 });
 
 test("directory browser returns local child directories", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-directory-browser-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-directory-browser-"));
   try {
     mkdirSync(join(fixtureDir, "alpha"));
     mkdirSync(join(fixtureDir, ".hidden"));
@@ -77,7 +77,7 @@ test("directory browser returns local child directories", async () => {
 });
 
 test("directory creation creates missing local folders", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-directory-create-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-directory-create-"));
   const workspaceDir = join(fixtureDir, "new-workspace");
   try {
     await withServer(async (baseUrl) => {
@@ -98,7 +98,7 @@ test("directory creation creates missing local folders", async () => {
 });
 
 test("git inspect derives repository metadata from an existing clone", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-inspect-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-git-inspect-"));
   const repoDir = join(fixtureDir, "workspace-app");
   try {
     mkdirSync(repoDir);
@@ -127,7 +127,7 @@ test("git inspect derives repository metadata from an existing clone", async () 
 });
 
 test("git detect returns null for folders that are not git checkouts", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-detect-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-git-detect-"));
   try {
     await withServer(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/v1/git/detect`, {
@@ -146,7 +146,7 @@ test("git detect returns null for folders that are not git checkouts", async () 
 });
 
 test("git clone creates a local checkout and returns derived metadata", async () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-git-clone-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-git-clone-"));
   const remoteDir = join(fixtureDir, "remote.git");
   const cloneDir = join(fixtureDir, "workspace-clone");
   try {
@@ -277,28 +277,28 @@ test("project creation bootstraps a blank Floop workspace", async () => {
       assert.equal(ticketBody.ticket.key, "FLOOP-1");
       assert.equal(ticketBody.ticket.repoTargets[0].repoId, repoBody.repo.id);
     },
-    { seedDemo: false, workspaceRoot: "/workspace/blank-pool" },
+    { seedDemo: false, workspaceRoot: "/workspace/blank-floop" },
   );
 });
 
 test("project deletion removes the project from API listings", async () => {
   await withServer(async (baseUrl) => {
-    const deleteResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool`, {
+    const deleteResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop`, {
       method: "DELETE",
     });
     const deleteBody = await deleteResponse.json();
     assert.equal(deleteResponse.status, 200);
-    assert.equal(deleteBody.project.id, "project_pool");
+    assert.equal(deleteBody.project.id, "project_floop");
 
     const projectsResponse = await fetch(`${baseUrl}/api/v1/projects`);
     const projectsBody = await projectsResponse.json();
     assert.equal(projectsResponse.status, 200);
     assert.deepEqual(projectsBody.projects, []);
 
-    const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/board`);
+    const boardResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/board`);
     assert.equal(boardResponse.status, 404);
 
-    const secondDeleteResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool`, {
+    const secondDeleteResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop`, {
       method: "DELETE",
     });
     assert.equal(secondDeleteResponse.status, 404);
@@ -307,11 +307,11 @@ test("project deletion removes the project from API listings", async () => {
 
 test("board endpoint returns grouped lanes", async () => {
   await withServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/v1/projects/project_pool/board`);
+    const response = await fetch(`${baseUrl}/api/v1/projects/project_floop/board`);
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.equal(body.board.projectId, "project_pool");
+    assert.equal(body.board.projectId, "project_floop");
     assert.equal(findColumn(body.board.columns, "WORKING").count, 1);
     assert.equal(findColumn(body.board.columns, "READY").count, 1);
   });
@@ -319,13 +319,13 @@ test("board endpoint returns grouped lanes", async () => {
 
 test("project metadata can be patched through the API", async () => {
   await withServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/v1/projects/project_pool`, {
+    const response = await fetch(`${baseUrl}/api/v1/projects/project_floop`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: "Floop Mission Control",
         description: "Operational cockpit for governed delivery.",
-        workspaceRoot: "/workspace/pool-prod",
+        workspaceRoot: "/workspace/floop-prod",
         defaultBaseBranch: "trunk",
       }),
     });
@@ -334,14 +334,14 @@ test("project metadata can be patched through the API", async () => {
     assert.equal(response.status, 200);
     assert.equal(body.project.name, "Floop Mission Control");
     assert.equal(body.project.description, "Operational cockpit for governed delivery.");
-    assert.equal(body.project.workspaceRoot, "/workspace/pool-prod");
+    assert.equal(body.project.workspaceRoot, "/workspace/floop-prod");
     assert.equal(body.project.defaultBaseBranch, "trunk");
   });
 });
 
 test("project policy and role profiles can be patched through the API", async () => {
   await withServer(async (baseUrl) => {
-    const updatePolicyResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {
+    const updatePolicyResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/policy`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -370,7 +370,7 @@ test("project policy and role profiles can be patched through the API", async ()
     const updatePolicyBody = await updatePolicyResponse.json();
 
     const updateProfileResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/agent-profiles/developer`,
+      `${baseUrl}/api/v1/projects/project_floop/agent-profiles/developer`,
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -383,10 +383,10 @@ test("project policy and role profiles can be patched through the API", async ()
     );
     const updateProfileBody = await updateProfileResponse.json();
 
-    const profilesResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/agent-profiles`);
+    const profilesResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/agent-profiles`);
     const profilesBody = await profilesResponse.json();
 
-    const projectResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool`);
+    const projectResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop`);
     const projectBody = await projectResponse.json();
 
     assert.equal(updatePolicyResponse.status, 200);
@@ -415,7 +415,7 @@ test("project policy and role profiles can be patched through the API", async ()
 
 test("ceremony endpoints create proposal runs and apply approved proposals", async () => {
   await withServer(async (baseUrl) => {
-    const createTicketResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets`, {
+    const createTicketResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -428,7 +428,7 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
     });
     const createTicketBody = await createTicketResponse.json();
 
-    const runResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/ceremonies`, {
+    const runResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/ceremonies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -443,11 +443,11 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
       (item) => item.ticketId === createTicketBody.ticket.id && item.kind === "ticket_patch",
     );
 
-    const listResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/ceremonies`);
+    const listResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/ceremonies`);
     const listBody = await listResponse.json();
 
     const applyResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/ceremonies/${runBody.ceremony.id}/apply`,
+      `${baseUrl}/api/v1/projects/project_floop/ceremonies/${runBody.ceremony.id}/apply`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -456,7 +456,7 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
     );
     const applyBody = await applyResponse.json();
 
-    const ticketResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/${createTicketBody.ticket.id}`);
+    const ticketResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/${createTicketBody.ticket.id}`);
     const ticketBody = await ticketResponse.json();
 
     assert.equal(createTicketResponse.status, 201);
@@ -476,7 +476,7 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
 
 test("API surfaces merge-policy blocks when validation profile does not satisfy policy", async () => {
   await withServer(async (baseUrl) => {
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/policy`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/policy`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -487,7 +487,7 @@ test("API surfaces merge-policy blocks when validation profile does not satisfy 
       }),
     });
 
-    const executionResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`, {
+    const executionResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -497,7 +497,7 @@ test("API surfaces merge-policy blocks when validation profile does not satisfy 
     });
     const executionBody = await executionResponse.json();
 
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/executions/${executionBody.execution.id}/complete`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/executions/${executionBody.execution.id}/complete`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -506,13 +506,13 @@ test("API surfaces merge-policy blocks when validation profile does not satisfy 
       }),
     });
 
-    const ticketAfterImplementation = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`);
+    const ticketAfterImplementation = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`);
     const ticketAfterImplementationBody = await ticketAfterImplementation.json();
     const validatorExecution = ticketAfterImplementationBody.ticket.executions.find(
       (item) => item.role === "validator",
     );
 
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/executions/${validatorExecution.id}/complete`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/executions/${validatorExecution.id}/complete`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -522,13 +522,13 @@ test("API surfaces merge-policy blocks when validation profile does not satisfy 
           verdict: "passed",
           commandProfile: "smoke",
           commands: ["npm test"],
-          repoIds: ["repo_project_pool_pool"],
+          repoIds: ["repo_project_floop_floop"],
           summaryMd: "Validation passed but under the wrong profile.",
         },
       }),
     });
 
-    const mergeStatusResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`);
+    const mergeStatusResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/merge`);
     const mergeStatusBody = await mergeStatusResponse.json();
     assert.equal(mergeStatusResponse.status, 200);
     assert.equal(mergeStatusBody.merge.canMerge, false);
@@ -536,7 +536,7 @@ test("API surfaces merge-policy blocks when validation profile does not satisfy 
     assert.equal(mergeStatusBody.merge.blockingReasons[0].code, "validation_profile_required");
     assert.match(mergeStatusBody.merge.statusSummary, /Latest validation must use ci profile before merge/);
 
-    const mergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/merge`, {
+    const mergeResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/merge`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -554,7 +554,7 @@ test("API surfaces merge-policy blocks when validation profile does not satisfy 
 test("review and validation endpoints persist evidence and advance ticket state", async () => {
   await withServer(async (baseUrl) => {
     const executionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -568,7 +568,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
     assert.equal(executionResponse.status, 201);
 
     const completeResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/executions/${executionBody.execution.id}/complete`,
+      `${baseUrl}/api/v1/projects/project_floop/executions/${executionBody.execution.id}/complete`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -579,7 +579,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
             {
               kind: "patch",
               label: "Implementation diff",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2.patch",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2.patch",
             },
           ],
         }),
@@ -588,7 +588,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
     assert.equal(completeResponse.status, 200);
 
     const reviewResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/reviews`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -600,7 +600,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
             {
               kind: "report",
               label: "Reviewer notes",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2-review.md",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2-review.md",
             },
           ],
           findings: [
@@ -623,20 +623,20 @@ test("review and validation endpoints persist evidence and advance ticket state"
     assert.equal(reviewBody.review.artifacts[0].label, "Reviewer notes");
 
     const reviewListResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/reviews`,
     );
     const reviewListBody = await reviewListResponse.json();
     assert.equal(reviewListResponse.status, 200);
     assert.equal(reviewListBody.reviews.length, 1);
 
     const ticketAfterReviewResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`,
     );
     const ticketAfterReviewBody = await ticketAfterReviewResponse.json();
     assert.equal(ticketAfterReviewBody.ticket.state, "REWORK");
     assert.equal(ticketAfterReviewBody.ticket.reviews.length, 1);
 
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/transition`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/transition`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -646,13 +646,13 @@ test("review and validation endpoints persist evidence and advance ticket state"
     });
 
     const validationResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/validations`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/validations`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           executionId: executionBody.execution.id,
-          repoIds: ["repo_project_pool_pool"],
+          repoIds: ["repo_project_floop_floop"],
           commandProfile: "ci",
           commands: ["npm test"],
           verdict: "passed",
@@ -661,7 +661,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
             {
               kind: "log",
               label: "Validation output",
-              uri: "file:///workspace/pool/.pool/artifacts/floop-2-validation.log",
+              uri: "file:///workspace/floop/.floop/artifacts/floop-2-validation.log",
             },
           ],
         }),
@@ -674,14 +674,14 @@ test("review and validation endpoints persist evidence and advance ticket state"
     assert.equal(validationBody.validations[0].artifacts[0].kind, "log");
 
     const validationListResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/validations`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/validations`,
     );
     const validationListBody = await validationListResponse.json();
     assert.equal(validationListResponse.status, 200);
     assert.equal(validationListBody.validations.length, 1);
 
     const ticketAfterValidationResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`,
     );
     const ticketAfterValidationBody = await ticketAfterValidationResponse.json();
     assert.equal(ticketAfterValidationBody.ticket.state, "READY_TO_MERGE");
@@ -698,7 +698,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
 test("review and validation endpoints reject out-of-order evidence", async () => {
   await withServer(async (baseUrl) => {
     const executionResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/executions`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -712,7 +712,7 @@ test("review and validation endpoints reject out-of-order evidence", async () =>
     assert.equal(executionResponse.status, 201);
 
     const earlyReviewResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/reviews`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/reviews`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -727,7 +727,7 @@ test("review and validation endpoints reject out-of-order evidence", async () =>
     assert.equal(earlyReviewBody.reasonCode, "review_execution_not_finished");
     assert.match(earlyReviewBody.message, /must be finished before review/);
 
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/executions/${executionBody.execution.id}/complete`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/executions/${executionBody.execution.id}/complete`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -737,13 +737,13 @@ test("review and validation endpoints reject out-of-order evidence", async () =>
     });
 
     const earlyValidationResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/validations`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/validations`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           executionId: executionBody.execution.id,
-          repoIds: ["repo_project_pool_pool"],
+          repoIds: ["repo_project_floop_floop"],
           verdict: "passed",
         }),
       },
@@ -757,27 +757,27 @@ test("review and validation endpoints reject out-of-order evidence", async () =>
 
 test("repo metadata can be patched through the API", async () => {
   await withServer(async (baseUrl) => {
-    const createResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/repos`, {
+    const createResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/repos`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        name: "pool-docs",
-        slug: "pool-docs",
-        localPath: "/workspace/pool/docs",
+        name: "floop-docs",
+        slug: "floop-docs",
+        localPath: "/workspace/floop/docs",
         defaultBranch: "main",
       }),
     });
     const created = await createResponse.json();
 
     const response = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/repos/${created.repo.id}`,
+      `${baseUrl}/api/v1/projects/project_floop/repos/${created.repo.id}`,
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          name: "pool-docs-site",
-          localPath: "/workspace/pool/site",
-          remoteUrl: "https://example.com/pool-docs.git",
+          name: "floop-docs-site",
+          localPath: "/workspace/floop/site",
+          remoteUrl: "https://example.com/floop-docs.git",
           defaultBranch: "develop",
           isPrimary: true,
         }),
@@ -787,17 +787,17 @@ test("repo metadata can be patched through the API", async () => {
 
     assert.equal(createResponse.status, 201);
     assert.equal(response.status, 200);
-    assert.equal(body.repo.name, "pool-docs-site");
-    assert.equal(body.repo.localPath, "/workspace/pool/site");
-    assert.equal(body.repo.remoteUrl, "https://example.com/pool-docs.git");
+    assert.equal(body.repo.name, "floop-docs-site");
+    assert.equal(body.repo.localPath, "/workspace/floop/site");
+    assert.equal(body.repo.remoteUrl, "https://example.com/floop-docs.git");
     assert.equal(body.repo.defaultBranch, "develop");
     assert.equal(body.repo.isPrimary, true);
 
-    const reposResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/repos`);
+    const reposResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/repos`);
     const reposBody = await reposResponse.json();
     assert.equal(reposBody.repos.filter((repo) => repo.isPrimary).length, 1);
     assert.equal(
-      reposBody.repos.find((repo) => repo.id === "repo_project_pool_pool").isPrimary,
+      reposBody.repos.find((repo) => repo.id === "repo_project_floop_floop").isPrimary,
       false,
     );
   });
@@ -805,20 +805,20 @@ test("repo metadata can be patched through the API", async () => {
 
 test("contract-backed payload validation returns client errors", async () => {
   await withServer(async (baseUrl) => {
-    const invalidRepoResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/repos`, {
+    const invalidRepoResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/repos`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        name: "pool-docs",
-        slug: "pool-docs",
-        localPath: "/workspace/pool/docs",
+        name: "floop-docs",
+        slug: "floop-docs",
+        localPath: "/workspace/floop/docs",
         isPrimary: "yes",
       }),
     });
     const invalidRepoBody = await invalidRepoResponse.json();
 
     const invalidTicketResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`,
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -836,7 +836,7 @@ test("contract-backed payload validation returns client errors", async () => {
 
 test("ticket creation and transition flow works end-to-end", async () => {
   await withServer(async (baseUrl) => {
-    const createdResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets`, {
+    const createdResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -844,13 +844,13 @@ test("ticket creation and transition flow works end-to-end", async () => {
         brief: "Create API integration coverage.",
         state: "READY",
         assignedRole: "developer",
-        repoTargets: [{ repoId: "repo_project_pool_pool", baseRef: "main" }],
+        repoTargets: [{ repoId: "repo_project_floop_floop", baseRef: "main" }],
       }),
     });
     const createdBody = await createdResponse.json();
 
     const transitionedResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/${createdBody.ticket.id}/transition`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/${createdBody.ticket.id}/transition`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -871,24 +871,24 @@ test("ticket creation and transition flow works end-to-end", async () => {
 
 test("ticket detail can be patched through the API", async () => {
   await withServer(async (baseUrl) => {
-    const repoResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/repos`, {
+    const repoResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/repos`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        name: "pool-docs",
-        slug: "pool-docs",
-        localPath: "/workspace/pool/docs",
+        name: "floop-docs",
+        slug: "floop-docs",
+        localPath: "/workspace/floop/docs",
         defaultBranch: "trunk",
       }),
     });
     const repoBody = await repoResponse.json();
 
-    const response = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`, {
+    const response = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         title: "Define operator transport contracts",
-        parentTicketId: "ticket_project_pool_1",
+        parentTicketId: "ticket_project_floop_1",
         latestSummary: "Updated from mission control",
         acceptanceCriteriaMd: "- edit ticket detail\n- persist changes",
         repoTargets: [
@@ -904,7 +904,7 @@ test("ticket detail can be patched through the API", async () => {
     assert.equal(repoResponse.status, 201);
     assert.equal(response.status, 200);
     assert.equal(body.ticket.title, "Define operator transport contracts");
-    assert.equal(body.ticket.parentTicketId, "ticket_project_pool_1");
+    assert.equal(body.ticket.parentTicketId, "ticket_project_floop_1");
     assert.equal(body.ticket.latestSummary, "Updated from mission control");
     assert.match(body.ticket.acceptanceCriteriaMd, /persist changes/);
     assert.equal(body.ticket.repoTargets.length, 1);
@@ -916,11 +916,11 @@ test("ticket detail can be patched through the API", async () => {
 });
 
 test("ticket restart cancels active execution and deletes worktree through the API", async () => {
-  const workspaceRoot = mkdtempSync(join(tmpdir(), "pool-app-restart-workspace-"));
+  const workspaceRoot = mkdtempSync(join(tmpdir(), "floop-app-restart-workspace-"));
   try {
     await withServer(async (baseUrl) => {
       const executionResponse = await fetch(
-        `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/executions`,
+        `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_1/executions`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -935,7 +935,7 @@ test("ticket restart cancels active execution and deletes worktree through the A
       mkdirSync(worktreePath, { recursive: true });
 
       const restartResponse = await fetch(
-        `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_1/restart`,
+        `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_1/restart`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -958,7 +958,7 @@ test("ticket restart cancels active execution and deletes worktree through the A
 
 test("ticket patch rejects repo targets outside the project", async () => {
   await withServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`, {
+    const response = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -974,11 +974,11 @@ test("ticket patch rejects repo targets outside the project", async () => {
 
 test("ticket patch rejects invalid parent ticket changes", async () => {
   await withServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2`, {
+    const response = await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        parentTicketId: "ticket_project_pool_2",
+        parentTicketId: "ticket_project_floop_2",
       }),
     });
     const body = await response.json();
@@ -991,12 +991,12 @@ test("ticket patch rejects invalid parent ticket changes", async () => {
 test("dependency endpoints project ticket blockers and removal", async () => {
   await withServer(async (baseUrl) => {
     const addedResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/dependencies`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/dependencies`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          blockingTicketId: "ticket_project_pool_1",
+          blockingTicketId: "ticket_project_floop_1",
           dependencyType: "finish_to_start",
         }),
       },
@@ -1008,7 +1008,7 @@ test("dependency endpoints project ticket blockers and removal", async () => {
     assert.equal(addedBody.ticket.dependencies[0].blockingTicketTitle, "Stand up real API service skeleton");
 
     const removedResponse = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/dependencies/${addedBody.ticket.dependencies[0].id}`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/dependencies/${addedBody.ticket.dependencies[0].id}`,
       {
         method: "DELETE",
       },
@@ -1024,7 +1024,7 @@ test("dependency endpoints project ticket blockers and removal", async () => {
 test("dependency endpoint rejects missing blocker tickets with not found", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(
-      `${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/dependencies`,
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/dependencies`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -1044,7 +1044,7 @@ test("dependency endpoint rejects missing blocker tickets with not found", async
 test("API exposes a live SSE event stream for project activity", async () => {
   await withServer(async (baseUrl) => {
     const abortController = new AbortController();
-    const response = await fetch(`${baseUrl}/api/v1/projects/project_pool/events/stream?limit=10`, {
+    const response = await fetch(`${baseUrl}/api/v1/projects/project_floop/events/stream?limit=10`, {
       signal: abortController.signal,
     });
 
@@ -1060,7 +1060,7 @@ test("API exposes a live SSE event stream for project activity", async () => {
     assert.match(initialSnapshot.events[0].cursor, /:/);
     assert.equal(typeof initialSnapshot.events[0].reasonCode, "string");
 
-    await fetch(`${baseUrl}/api/v1/projects/project_pool/tickets/ticket_project_pool_2/transition`, {
+    await fetch(`${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/transition`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

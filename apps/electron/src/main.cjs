@@ -14,14 +14,14 @@ let executionDriver;
 let mergeDriver;
 let mainWindow;
 
-async function startPoolApi(repoRoot) {
-  const hasExplicitPort = Boolean(process.env.POOL_PORT);
+async function startFloopApi(repoRoot) {
+  const hasExplicitPort = Boolean(process.env.FLOOP_PORT);
   const desktopEnv = createDesktopEnvironment({
     userDataPath: app.getPath("userData"),
   });
   Object.assign(process.env, desktopEnv);
 
-  const [{ createPoolServer }, { createExecutionDriver }, { createMergeDriver }, { createStore }] =
+  const [{ createFloopServer }, { createExecutionDriver }, { createMergeDriver }, { createStore }] =
     await Promise.all([
       import(pathToFileURL(path.join(repoRoot, "services/api/src/app.mjs")).href),
       import(pathToFileURL(path.join(repoRoot, "services/api/src/execution-driver.mjs")).href),
@@ -29,17 +29,17 @@ async function startPoolApi(repoRoot) {
       import(pathToFileURL(path.join(repoRoot, "services/api/src/store.mjs")).href),
     ]);
 
-  const host = resolveHost(desktopEnv.POOL_HOST);
-  const port = resolvePort(desktopEnv.POOL_PORT);
+  const host = resolveHost(desktopEnv.FLOOP_HOST);
+  const port = resolvePort(desktopEnv.FLOOP_PORT);
   const store = createStore();
-  apiServer = createPoolServer({ store, host, port });
+  apiServer = createFloopServer({ store, host, port });
   executionDriver = createExecutionDriver({
     store,
-    pollIntervalMs: Number.parseInt(process.env.POOL_EXECUTION_POLL_MS || "2000", 10),
+    pollIntervalMs: Number.parseInt(process.env.FLOOP_EXECUTION_POLL_MS || "2000", 10),
   });
   mergeDriver = createMergeDriver({
     store,
-    pollIntervalMs: Number.parseInt(process.env.POOL_MERGE_POLL_MS || "2000", 10),
+    pollIntervalMs: Number.parseInt(process.env.FLOOP_MERGE_POLL_MS || "2000", 10),
   });
 
   executionDriver.start();
@@ -50,7 +50,7 @@ async function startPoolApi(repoRoot) {
     port,
     allowFallback: !hasExplicitPort,
   });
-  process.env.POOL_PORT = String(actualPort);
+  process.env.FLOOP_PORT = String(actualPort);
   await waitForHealth({ host, port: actualPort });
   console.log(`Floop desktop API listening on http://${host}:${actualPort}`);
 
@@ -129,7 +129,7 @@ function createMainWindow({ host, port }) {
   mainWindow.loadURL(`http://${host}:${port}/`);
 }
 
-async function stopPoolApi() {
+async function stopFloopApi() {
   await Promise.allSettled([
     executionDriver?.stop(),
     mergeDriver?.stop(),
@@ -185,7 +185,7 @@ function installMenu() {
 }
 
 function installIpcHandlers() {
-  ipcMain.handle("pool:pick-directory", async () => {
+  ipcMain.handle("floop:pick-directory", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ["openDirectory", "createDirectory"],
     });
@@ -198,7 +198,7 @@ app.whenReady()
     installMenu();
     installIpcHandlers();
     const repoRoot = findRepoRoot(__dirname);
-    const api = await startPoolApi(repoRoot);
+    const api = await startFloopApi(repoRoot);
     createMainWindow(api);
 
     app.on("activate", () => {
@@ -221,7 +221,7 @@ app.on("before-quit", (event) => {
     return;
   }
   event.preventDefault();
-  stopPoolApi()
+  stopFloopApi()
     .catch((error) => {
       console.error("Failed to stop Floop API cleanly", error);
     })

@@ -1,5 +1,101 @@
 # Phases
 
+## Current Status
+
+Floop has passed the original MVP boundary for phases 1 through 7 in a local-first
+form:
+
+- project, repo, ticket, dependency, event, and board state persist in SQLite
+- execution, review, validation, worktree, artifact, and merge records are durable
+- execution and merge drivers claim work with leases and recover interrupted runs
+- ceremony runs, participant fan-out, and proposal application are implemented
+- React and Electron operator surfaces exist
+
+The next phase is not more feature sprawl. It is hardening the architecture so
+the current MVP can keep growing without turning the store, router, and UI shell
+into bottlenecks.
+
+## Phase 9: Rebrand Consolidation
+
+Goal:
+
+Finish the greenfield Floop identity with no legacy naming surface.
+
+Deliverables:
+
+- `FLOOP_*` environment variables only
+- `.floop/floop.sqlite` default data path
+- Floop seed IDs, ticket keys, repo slugs, UI copy, docs, and tests
+- no package, script, fixture, IPC, or artifact paths using old product names
+
+Exit criteria:
+
+- repository-wide search has no legacy product-name matches outside external
+  dependency contents
+- full test suite passes
+
+Status:
+
+- complete in current working tree
+
+## Phase 10: Control Plane Boundaries
+
+Goal:
+
+Split MVP implementation boundaries without changing product behavior.
+
+Deliverables:
+
+- store modules for project, repo, ticket, execution, evidence, merge, ceremony,
+  event, artifact, and read-model operations
+- shared database connection, transaction, and migration helpers
+- route handlers grouped by resource area
+- no behavior changes except where tests expose hidden coupling
+
+Exit criteria:
+
+- the store no longer has one module owning schema, commands, read models,
+  workflow policy, seed data, and cleanup safety
+- tests still cover the current MVP loop end to end
+
+## Phase 11: Transition Policy
+
+Goal:
+
+Make ticket state movement explicit and auditable.
+
+Deliverables:
+
+- transition graph for normal workflow movement
+- separate operator override path with required reason
+- reason codes for policy, operator, execution, review, validation, merge, and
+  ceremony transitions
+- tests proving invalid automatic transitions are rejected
+
+Exit criteria:
+
+- normal commands cannot silently bypass the state machine
+- manual overrides remain possible but are visible in the event stream
+
+## Phase 12: Operational Hardening
+
+Goal:
+
+Prepare Floop for real daily use on local workspaces.
+
+Deliverables:
+
+- versioned migrations
+- artifact durability contract
+- local trust/auth model for loopback, LAN, and Tailscale use
+- decision queue surface for approvals, blocked work, failed validations, stale
+  active runs, and pending ceremony proposals
+
+Exit criteria:
+
+- startup, upgrade, restart, and recovery behavior are boring and inspectable
+- the operator can see the next decision without scanning the whole board
+
 ## Phase 0: Spec Pack
 
 Goal:

@@ -285,14 +285,14 @@
       line-height: 1.4;
     }
 
-    .lane-pool {
+    .lane-floop {
       display: grid;
       grid-template-columns: 220px minmax(0, 1fr) 330px;
       background: #f5f8f5;
     }
 
-    .lane-pool aside,
-    .lane-pool .inspector {
+    .lane-floop aside,
+    .lane-floop .inspector {
       display: grid;
       align-content: start;
       gap: 18px;
@@ -300,22 +300,22 @@
       background: #fbfcf8;
     }
 
-    .lane-pool aside {
+    .lane-floop aside {
       border-right: 1px solid var(--line);
     }
 
-    .lane-pool .inspector {
+    .lane-floop .inspector {
       border-left: 1px solid var(--line);
     }
 
-    .lane-pool main {
+    .lane-floop main {
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       gap: 16px;
       padding: 18px;
     }
 
-    .pool-lanes {
+    .floop-lanes {
       display: grid;
       grid-template-columns: repeat(4, minmax(155px, 1fr));
       gap: 0;
@@ -505,15 +505,15 @@
       background: #fff;
     }
 
-    .night-pool {
+    .night-floop {
       display: grid;
       grid-template-columns: 320px minmax(0, 1fr);
       background: #06171b;
       color: #ecf8f4;
     }
 
-    .night-pool aside,
-    .night-pool .run {
+    .night-floop aside,
+    .night-floop .run {
       display: grid;
       align-content: start;
       gap: 16px;
@@ -521,27 +521,27 @@
       background: #06171b;
     }
 
-    .night-pool aside {
+    .night-floop aside {
       border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .night-pool .run {
+    .night-floop .run {
       background:
         linear-gradient(180deg, rgba(105, 208, 198, 0.09), rgba(6, 23, 27, 0)),
         #06171b;
     }
 
-    .night-pool .ticket,
-    .night-pool .panel {
+    .night-floop .ticket,
+    .night-floop .panel {
       border-color: rgba(255, 255, 255, 0.12);
       background: rgba(255, 255, 255, 0.05);
       color: #ecf8f4;
     }
 
-    .night-pool .muted,
-    .night-pool .small,
-    .night-pool .ticket p,
-    .night-pool .panel p {
+    .night-floop .muted,
+    .night-floop .small,
+    .night-floop .ticket p,
+    .night-floop .panel p {
       color: #9bbab7;
     }
 
@@ -687,7 +687,7 @@
           <span class="eyebrow">Control Room variant</span>
         </div>
         <div class="frame">
-          <div class="app lane-pool">
+          <div class="app lane-floop">
             <aside>
               <div class="row"><h3>Floop</h3><span class="state ok">Live</span></div>
               <p class="muted">Autonomous delivery lanes</p>
@@ -703,7 +703,7 @@
                 <div><h3>Project Floop</h3><span class="muted">4 active lanes · 2 deck decisions · 3 merge candidates</span></div>
                 <button class="button">New ticket</button>
               </div>
-              <div class="pool-lanes">
+              <div class="floop-lanes">
                 <section class="swimlane">
                   <div class="row"><div class="lane-marker">1</div><h4>Ready</h4><span class="count">8</span></div>
                   <article class="ticket"><span class="state ok">Ready</span><strong>FLOOP-18 Define transport contracts</strong><p>Safe to start developer lane.</p></article>
@@ -843,7 +843,7 @@
           <span class="eyebrow">Execution Log variant</span>
         </div>
         <div class="frame">
-          <div class="app night-pool">
+          <div class="app night-floop">
             <aside>
               <span class="state work">Running</span>
               <h3>FLOOP-14 Workspace bootstrap</h3>

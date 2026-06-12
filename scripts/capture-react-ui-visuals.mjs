@@ -5,20 +5,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
 
-import { createPoolServer } from "../services/api/src/app.mjs";
+import { createFloopServer } from "../services/api/src/app.mjs";
 import { createStore } from "../services/api/src/store.mjs";
 
 const elementKey = "element-6066-11e4-a52e-4f735466cecf";
-const fixtureDir = mkdtempSync(join(tmpdir(), "pool-visual-fixture-"));
-const outputDir = "/tmp/pool-visuals";
+const fixtureDir = mkdtempSync(join(tmpdir(), "floop-visual-fixture-"));
+const outputDir = "/tmp/floop-visuals";
 mkdirSync(outputDir, { recursive: true });
 
 const store = createStore({
-  filename: join(fixtureDir, "pool.sqlite"),
+  filename: join(fixtureDir, "floop.sqlite"),
   seedDemo: true,
   workspaceRoot: join(fixtureDir, "workspace"),
 });
-const server = createPoolServer({ store });
+const server = createFloopServer({ store });
 let driver;
 let sessionId = "";
 let driverBaseUrl = "";

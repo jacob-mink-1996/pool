@@ -13,7 +13,7 @@ test("store exposes seeded project summary", () => {
   const projects = store.listProjects();
 
   assert.equal(projects.length, 1);
-  assert.equal(projects[0].slug, "pool");
+  assert.equal(projects[0].slug, "floop");
   assert.equal(projects[0].board.WORKING, 1);
   store.close();
 });
@@ -21,18 +21,18 @@ test("store exposes seeded project summary", () => {
 test("store updates project metadata and records a project event", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const updated = store.updateProject("project_pool", {
+  const updated = store.updateProject("project_floop", {
     name: "Floop Mission Control",
     description: "Operator surface for governed autonomous delivery.",
-    workspaceRoot: "/workspace/pool-real",
+    workspaceRoot: "/workspace/floop-real",
     defaultBaseBranch: "trunk",
   });
 
   assert.equal(updated.name, "Floop Mission Control");
   assert.equal(updated.description, "Operator surface for governed autonomous delivery.");
-  assert.equal(updated.workspaceRoot, "/workspace/pool-real");
+  assert.equal(updated.workspaceRoot, "/workspace/floop-real");
   assert.equal(updated.defaultBaseBranch, "trunk");
-  assert.equal(store.listEvents("project_pool").at(-1).type, "project.updated");
+  assert.equal(store.listEvents("project_floop").at(-1).type, "project.updated");
   store.close();
 });
 
@@ -41,43 +41,43 @@ test("store expands home-relative project and repo paths before persistence", ()
   const project = store.createProject({
     name: "Home Paths",
     slug: "home-paths",
-    workspaceRoot: "~/src/pool",
+    workspaceRoot: "~/src/floop",
   });
   const repo = store.createRepo(project.id, {
     name: "Home Repo",
     slug: "home-repo",
-    localPath: "~/src/pool",
+    localPath: "~/src/floop",
   });
   const updatedProject = store.updateProject(project.id, {
-    workspaceRoot: "~/src/pool-updated",
+    workspaceRoot: "~/src/floop-updated",
   });
   const updatedRepo = store.updateRepo(project.id, repo.id, {
-    localPath: "~/src/pool-updated",
+    localPath: "~/src/floop-updated",
   });
 
-  assert.equal(project.workspaceRoot, join(homedir(), "src/pool"));
-  assert.equal(repo.localPath, join(homedir(), "src/pool"));
-  assert.equal(updatedProject.workspaceRoot, join(homedir(), "src/pool-updated"));
-  assert.equal(updatedRepo.localPath, join(homedir(), "src/pool-updated"));
+  assert.equal(project.workspaceRoot, join(homedir(), "src/floop"));
+  assert.equal(repo.localPath, join(homedir(), "src/floop"));
+  assert.equal(updatedProject.workspaceRoot, join(homedir(), "src/floop-updated"));
+  assert.equal(updatedRepo.localPath, join(homedir(), "src/floop-updated"));
   store.close();
 });
 
 test("store deletes projects and releases their slug", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const deleted = store.deleteProject("project_pool");
+  const deleted = store.deleteProject("project_floop");
   const recreated = store.createProject({
     name: "Floop Fresh",
-    slug: "pool",
-    workspaceRoot: "/workspace/pool-fresh",
+    slug: "floop",
+    workspaceRoot: "/workspace/floop-fresh",
     defaultBaseBranch: "main",
   });
 
-  assert.equal(deleted.id, "project_pool");
-  assert.equal(store.getProjectSummary("project_pool")?.name, "Floop Fresh");
+  assert.equal(deleted.id, "project_floop");
+  assert.equal(store.getProjectSummary("project_floop")?.name, "Floop Fresh");
   assert.equal(store.getProjectBoard("project_missing"), null);
   assert.equal(store.listProjects().length, 1);
-  assert.equal(recreated.id, "project_pool");
+  assert.equal(recreated.id, "project_floop");
   assert.equal(recreated.ticketCount, 0);
   assert.equal(recreated.repoCount, 0);
   store.close();
@@ -86,7 +86,7 @@ test("store deletes projects and releases their slug", () => {
 test("store updates project policy and role profiles", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const updatedPolicy = store.updateProjectPolicy("project_pool", {
+  const updatedPolicy = store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: false,
     requireHumanApprovalBeforeMerge: false,
@@ -109,7 +109,7 @@ test("store updates project policy and role profiles", () => {
       },
     },
   });
-  const updatedRoleProfile = store.updateRoleProfile("project_pool", "developer", {
+  const updatedRoleProfile = store.updateRoleProfile("project_floop", "developer", {
     adapter: "codex-cli",
     model: "codex-max",
     config: { reasoning: "high", sandbox: "workspace-write" },
@@ -136,28 +136,28 @@ test("store updates project policy and role profiles", () => {
     sandbox: "workspace-write",
   });
 
-  const project = store.getProjectSummary("project_pool");
+  const project = store.getProjectSummary("project_floop");
   assert.equal(project.policy.maxParallelExecutions, 5);
   assert.equal(project.policy.maxParallelMerges, 2);
   assert.equal(project.policy.refinementMode, "user_participant");
   assert.equal(project.policy.agentCreatedTicketDefaultState, "READY");
   assert.equal(project.policy.ceremonyAutomation.triggers.refinement.deciderRole, "product_manager");
   assert.equal(project.roleProfiles.find((profile) => profile.role === "developer").adapter, "codex-cli");
-  assert.equal(store.listEvents("project_pool").at(-1).summary, "Floop developer profile updated");
+  assert.equal(store.listEvents("project_floop").at(-1).summary, "Floop developer profile updated");
 
   store.close();
 });
 
 test("store transitions tickets and records events", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  const created = store.createTicket("project_pool", {
+  const created = store.createTicket("project_floop", {
     title: "Build board aggregates",
     brief: "Add richer board read models.",
     assignedRole: "developer",
     state: "READY",
   });
 
-  const transitioned = store.transitionTicket("project_pool", created.id, {
+  const transitioned = store.transitionTicket("project_floop", created.id, {
     targetState: "WORKING",
     reason: "Developer picked it up.",
   });
@@ -173,14 +173,14 @@ test("store transitions tickets and records events", () => {
 
 test("store creates ceremony proposals and applies approved ticket patches", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  const draft = store.createTicket("project_pool", {
+  const draft = store.createTicket("project_floop", {
     title: "Thin refinement candidate",
     brief: "Needs details.",
     assignedRole: "developer",
     state: "PROPOSED",
   });
 
-  const run = store.createCeremonyRun("project_pool", {
+  const run = store.createCeremonyRun("project_floop", {
     type: "refinement",
     createdByKind: "human",
     createdByRef: "test",
@@ -196,27 +196,27 @@ test("store creates ceremony proposals and applies approved ticket patches", () 
   assert.equal(run.participants.every((participant) => participant.status === "pending"), true);
   assert.equal(proposal.status, "pending");
 
-  const applied = store.applyCeremonyRun("project_pool", run.id, {
+  const applied = store.applyCeremonyRun("project_floop", run.id, {
     proposalIds: [proposal.id],
   });
-  const updated = store.getTicket("project_pool", draft.id);
+  const updated = store.getTicket("project_floop", draft.id);
 
   assert.equal(applied.proposals.find((item) => item.id === proposal.id).status, "applied");
   assert.match(updated.acceptanceCriteriaMd, /Scope is explicit/);
-  assert.equal(store.listEvents("project_pool").at(-1).type, "ceremony.applied");
+  assert.equal(store.listEvents("project_floop").at(-1).type, "ceremony.applied");
   store.close();
 });
 
 test("store can reconcile interrupted active executions after restart", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Start work before a restart.",
   });
 
   const recovered = store.reconcileActiveExecutions();
-  const recoveredExecution = store.getExecution("project_pool", execution.id);
-  const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+  const recoveredExecution = store.getExecution("project_floop", execution.id);
+  const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
 
   assert.equal(recovered.length, 1);
   assert.equal(recoveredExecution.outcome, "failed");
@@ -231,22 +231,22 @@ test("store can reconcile interrupted active executions after restart", () => {
 
 test("store execution claims prevent duplicate workers until the lease expires", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Claim this execution.",
   });
 
-  const firstClaim = store.claimExecution("project_pool", execution.id, {
+  const firstClaim = store.claimExecution("project_floop", execution.id, {
     claimToken: "worker-a",
     claimedAt: "2026-06-10T13:00:00.000Z",
     leaseMs: 10_000,
   });
-  const secondClaim = store.claimExecution("project_pool", execution.id, {
+  const secondClaim = store.claimExecution("project_floop", execution.id, {
     claimToken: "worker-b",
     claimedAt: "2026-06-10T13:00:05.000Z",
     leaseMs: 10_000,
   });
-  const expiredClaim = store.claimExecution("project_pool", execution.id, {
+  const expiredClaim = store.claimExecution("project_floop", execution.id, {
     claimToken: "worker-b",
     claimedAt: "2026-06-10T13:00:11.000Z",
     leaseMs: 10_000,
@@ -260,20 +260,20 @@ test("store execution claims prevent duplicate workers until the lease expires",
 
 test("store can reconcile interrupted active merge runs after restart", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: false,
     requireHumanApprovalBeforeMerge: false,
   });
-  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Get a merge-ready ticket before restart recovery.",
   });
-  store.completeExecution("project_pool", execution.id, {
+  store.completeExecution("project_floop", execution.id, {
     outcome: "completed",
     summaryMd: "Merge-ready implementation completed.",
   });
-  const started = store.startMergeRun("project_pool", "ticket_project_pool_2", {
+  const started = store.startMergeRun("project_floop", "ticket_project_floop_2", {
     strategy: "squash",
     approvedByKind: "system",
     approvedByRef: "floop-auto",
@@ -283,8 +283,8 @@ test("store can reconcile interrupted active merge runs after restart", () => {
   });
 
   const recovered = store.reconcileActiveMergeRuns();
-  const mergeStatus = store.getMergeStatus("project_pool", "ticket_project_pool_2");
-  const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+  const mergeStatus = store.getMergeStatus("project_floop", "ticket_project_floop_2");
+  const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
 
   assert.ok(started);
   assert.equal(recovered.length, 1);
@@ -296,30 +296,30 @@ test("store can reconcile interrupted active merge runs after restart", () => {
 
 test("store enforces project merge concurrency limits", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: false,
     requireHumanApprovalBeforeMerge: false,
     maxParallelMerges: 1,
   });
 
-  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Prepare merge-ready implementation.",
   });
-  store.completeExecution("project_pool", execution.id, {
+  store.completeExecution("project_floop", execution.id, {
     outcome: "completed",
     summaryMd: "Merge-ready implementation completed.",
   });
 
-  store.startMergeRun("project_pool", "ticket_project_pool_2", {
+  store.startMergeRun("project_floop", "ticket_project_floop_2", {
     strategy: "squash",
     approvedByKind: "system",
     approvedByRef: "floop-auto",
     claimToken: "merge-worker-a",
   });
 
-  const another = store.createTicket("project_pool", {
+  const another = store.createTicket("project_floop", {
     title: "Second merge-ready ticket",
     brief: "Exercise merge concurrency guardrails.",
     assignedRole: "developer",
@@ -328,7 +328,7 @@ test("store enforces project merge concurrency limits", () => {
 
   assert.throws(
     () =>
-      store.startMergeRun("project_pool", another.id, {
+      store.startMergeRun("project_floop", another.id, {
         strategy: "squash",
         approvedByKind: "system",
         approvedByRef: "floop-auto",
@@ -342,14 +342,14 @@ test("store enforces project merge concurrency limits", () => {
 
 test("store filters tickets by parent ticket id", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  const parent = store.createTicket("project_pool", {
+  const parent = store.createTicket("project_floop", {
     title: "Split board work",
     brief: "Create child tasks for board slices.",
     assignedRole: "architect",
     state: "READY",
   });
 
-  store.createTicket("project_pool", {
+  store.createTicket("project_floop", {
     title: "Build ticket filters",
     brief: "Add parent-linked child ticket.",
     assignedRole: "developer",
@@ -357,7 +357,7 @@ test("store filters tickets by parent ticket id", () => {
     parentTicketId: parent.id,
   });
 
-  const children = store.listTickets("project_pool", { parentTicketId: parent.id });
+  const children = store.listTickets("project_floop", { parentTicketId: parent.id });
   assert.equal(children.length, 1);
   assert.equal(children[0].parentTicketId, parent.id);
   store.close();
@@ -365,13 +365,13 @@ test("store filters tickets by parent ticket id", () => {
 
 test("store rejects cyclic parent and dependency graphs", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  const parent = store.createTicket("project_pool", {
+  const parent = store.createTicket("project_floop", {
     title: "Planning parent",
     brief: "Top-level planning ticket.",
     assignedRole: "architect",
     state: "READY",
   });
-  const child = store.createTicket("project_pool", {
+  const child = store.createTicket("project_floop", {
     title: "Planning child",
     brief: "Child planning ticket.",
     assignedRole: "developer",
@@ -381,19 +381,19 @@ test("store rejects cyclic parent and dependency graphs", () => {
 
   assert.throws(
     () =>
-      store.updateTicket("project_pool", parent.id, {
+      store.updateTicket("project_floop", parent.id, {
         parentTicketId: child.id,
       }),
     new RegExp(`Parent cycle detected for ticket ${parent.id}`),
   );
 
-  store.addDependency("project_pool", child.id, {
+  store.addDependency("project_floop", child.id, {
     blockingTicketId: parent.id,
     dependencyType: "finish_to_start",
   });
   assert.throws(
     () =>
-      store.addDependency("project_pool", parent.id, {
+      store.addDependency("project_floop", parent.id, {
         blockingTicketId: child.id,
         dependencyType: "finish_to_start",
       }),
@@ -405,18 +405,18 @@ test("store rejects cyclic parent and dependency graphs", () => {
 
 test("store updates editable ticket fields and records an update event", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  const docsRepo = store.createRepo("project_pool", {
-    slug: "pool-docs",
-    name: "pool-docs",
-    localPath: "/workspace/pool/docs",
+  const docsRepo = store.createRepo("project_floop", {
+    slug: "floop-docs",
+    name: "floop-docs",
+    localPath: "/workspace/floop/docs",
     defaultBranch: "trunk",
     isPrimary: false,
   });
 
-  const updated = store.updateTicket("project_pool", "ticket_project_pool_2", {
+  const updated = store.updateTicket("project_floop", "ticket_project_floop_2", {
     title: "Define operator-facing transport contracts",
     brief: "Codify real project, repo, ticket, and event DTOs.",
-    parentTicketId: "ticket_project_pool_1",
+    parentTicketId: "ticket_project_floop_1",
     priority: "urgent",
     assignedRole: "developer",
     latestSummary: "Contracts expanded for the board UI",
@@ -432,7 +432,7 @@ test("store updates editable ticket fields and records an update event", () => {
   });
 
   assert.equal(updated.title, "Define operator-facing transport contracts");
-  assert.equal(updated.parentTicketId, "ticket_project_pool_1");
+  assert.equal(updated.parentTicketId, "ticket_project_floop_1");
   assert.equal(updated.priority, "urgent");
   assert.equal(updated.assignedRole, "developer");
   assert.match(updated.acceptanceCriteriaMd, /event recorded/);
@@ -451,10 +451,10 @@ test("store rejects duplicate or unknown repo targets during ticket updates", ()
 
   assert.throws(
     () =>
-      store.updateTicket("project_pool", "ticket_project_pool_2", {
+      store.updateTicket("project_floop", "ticket_project_floop_2", {
         repoTargets: [
-          { repoId: "repo_project_pool_pool" },
-          { repoId: "repo_project_pool_pool", branchName: "duplicate-target" },
+          { repoId: "repo_project_floop_floop" },
+          { repoId: "repo_project_floop_floop", branchName: "duplicate-target" },
         ],
       }),
     /Duplicate repo target/,
@@ -462,15 +462,15 @@ test("store rejects duplicate or unknown repo targets during ticket updates", ()
 
   assert.throws(
     () =>
-      store.updateTicket("project_pool", "ticket_project_pool_2", {
+      store.updateTicket("project_floop", "ticket_project_floop_2", {
         repoTargets: [{ repoId: "repo_missing" }],
       }),
     /Unknown repo target/,
   );
   assert.throws(
     () =>
-      store.updateTicket("project_pool", "ticket_project_pool_2", {
-        parentTicketId: "ticket_project_pool_2",
+      store.updateTicket("project_floop", "ticket_project_floop_2", {
+        parentTicketId: "ticket_project_floop_2",
       }),
     /A ticket cannot parent itself/,
   );
@@ -480,8 +480,8 @@ test("store rejects duplicate or unknown repo targets during ticket updates", ()
 test("store adds and removes ticket dependencies with projected detail", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const added = store.addDependency("project_pool", "ticket_project_pool_2", {
-    blockingTicketId: "ticket_project_pool_1",
+  const added = store.addDependency("project_floop", "ticket_project_floop_2", {
+    blockingTicketId: "ticket_project_floop_1",
     dependencyType: "finish_to_start",
   });
 
@@ -491,8 +491,8 @@ test("store adds and removes ticket dependencies with projected detail", () => {
   assert.equal(added.events.at(-1).type, "dependency.added");
 
   const removed = store.removeDependency(
-    "project_pool",
-    "ticket_project_pool_2",
+    "project_floop",
+    "ticket_project_floop_2",
     added.dependencies[0].id,
   );
 
@@ -505,52 +505,52 @@ test("store adds and removes ticket dependencies with projected detail", () => {
 test("store updates repo metadata and keeps a single primary repo", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const created = store.createRepo("project_pool", {
-    slug: "pool-docs",
-    name: "pool-docs",
-    localPath: "/workspace/pool/docs",
+  const created = store.createRepo("project_floop", {
+    slug: "floop-docs",
+    name: "floop-docs",
+    localPath: "/workspace/floop/docs",
     defaultBranch: "main",
     isPrimary: false,
   });
 
-  const updated = store.updateRepo("project_pool", created.id, {
-    name: "pool-docs-site",
-    localPath: "/workspace/pool/site",
-    remoteUrl: "https://example.com/pool-docs.git",
+  const updated = store.updateRepo("project_floop", created.id, {
+    name: "floop-docs-site",
+    localPath: "/workspace/floop/site",
+    remoteUrl: "https://example.com/floop-docs.git",
     defaultBranch: "develop",
     isPrimary: true,
   });
 
-  assert.equal(updated.name, "pool-docs-site");
-  assert.equal(updated.localPath, "/workspace/pool/site");
-  assert.equal(updated.remoteUrl, "https://example.com/pool-docs.git");
+  assert.equal(updated.name, "floop-docs-site");
+  assert.equal(updated.localPath, "/workspace/floop/site");
+  assert.equal(updated.remoteUrl, "https://example.com/floop-docs.git");
   assert.equal(updated.defaultBranch, "develop");
   assert.equal(updated.isPrimary, true);
 
-  const repos = store.listRepos("project_pool");
+  const repos = store.listRepos("project_floop");
   assert.equal(repos.filter((repo) => repo.isPrimary).length, 1);
-  assert.equal(repos.find((repo) => repo.id === "repo_project_pool_pool").isPrimary, false);
-  assert.equal(store.listEvents("project_pool").at(-1).type, "repo.updated");
+  assert.equal(repos.find((repo) => repo.id === "repo_project_floop_floop").isPrimary, false);
+  assert.equal(store.listEvents("project_floop").at(-1).type, "repo.updated");
   store.close();
 });
 
 test("store persists execution history and routes ticket state from outcomes", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const started = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const started = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Start implementation on the contract surface.",
   });
 
   assert.equal(started.iteration, 1);
   assert.equal(started.status, "running");
-  assert.equal(started.agentProfileId, "profile_project_pool_developer");
+  assert.equal(started.agentProfileId, "profile_project_floop_developer");
   assert.equal(started.worktrees.length, 1);
-  assert.equal(started.worktrees[0].repoSlug, "pool");
-  assert.match(started.worktrees[0].path, /\/\.pool\/worktrees\/floop-2\/pool\/iter-1$/);
+  assert.equal(started.worktrees[0].repoSlug, "floop");
+  assert.match(started.worktrees[0].path, /\/\.floop\/worktrees\/floop-2\/floop\/iter-1$/);
   assert.equal(started.worktrees[0].status, "active");
 
-  const completed = store.completeExecution("project_pool", started.id, {
+  const completed = store.completeExecution("project_floop", started.id, {
     outcome: "completed",
     summaryMd: "Execution landed the shared contract changes.",
   });
@@ -559,7 +559,7 @@ test("store persists execution history and routes ticket state from outcomes", (
   assert.equal(completed.outcome, "completed");
   assert.equal(completed.worktrees[0].status, "ready_for_review");
 
-  const ticketAfterComplete = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticketAfterComplete = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticketAfterComplete.state, "REVIEWING");
   assert.equal(ticketAfterComplete.executions.length, 2);
   assert.equal(ticketAfterComplete.executions.some((execution) => execution.id === started.id), true);
@@ -571,70 +571,70 @@ test("store persists execution history and routes ticket state from outcomes", (
   assert.equal(ticketAfterComplete.worktrees.some((worktree) => worktree.executionId === started.id), true);
   assert.equal(ticketAfterComplete.events.some((event) => event.type === "worktree.created"), true);
 
-  const listedWorktrees = store.listWorktrees("project_pool", {
-    ticketId: "ticket_project_pool_2",
+  const listedWorktrees = store.listWorktrees("project_floop", {
+    ticketId: "ticket_project_floop_2",
     status: "ready_for_review",
   });
   assert.equal(listedWorktrees.length, 1);
   assert.equal(listedWorktrees[0].executionId, started.id);
 
-  const cleaned = store.cleanWorktree("project_pool", started.worktrees[0].id, {
+  const cleaned = store.cleanWorktree("project_floop", started.worktrees[0].id, {
     reason: "Operator cleaned the completed contract worktree.",
   });
   assert.equal(cleaned.status, "cleaned");
   assert.ok(cleaned.cleanedAt);
-  assert.equal(store.listEvents("project_pool").at(-1).type, "worktree.cleaned");
+  assert.equal(store.listEvents("project_floop").at(-1).type, "worktree.cleaned");
 
-  const continuedSeed = store.createExecution("project_pool", "ticket_project_pool_1", {
+  const continuedSeed = store.createExecution("project_floop", "ticket_project_floop_1", {
     role: "developer",
-    agentProfileId: "profile_project_pool_developer",
+    agentProfileId: "profile_project_floop_developer",
     reason: "Resume the API skeleton execution.",
   });
-  const continued = store.continueExecution("project_pool", continuedSeed.id, {
+  const continued = store.continueExecution("project_floop", continuedSeed.id, {
     reason: "Carry the remaining work into a bounded continuation.",
   });
 
   assert.equal(continued.iteration, 2);
   assert.equal(continued.status, "running");
   assert.equal(continued.worktrees[0].status, "active");
-  assert.match(continued.worktrees[0].path, /\/\.pool\/worktrees\/floop-1\/pool\/iter-2$/);
+  assert.match(continued.worktrees[0].path, /\/\.floop\/worktrees\/floop-1\/floop\/iter-2$/);
 
   const priorIteration = store
-    .listExecutions("project_pool", "ticket_project_pool_1")
+    .listExecutions("project_floop", "ticket_project_floop_1")
     .find((execution) => execution.id === continuedSeed.id);
   assert.equal(priorIteration.outcome, "needs_continue");
 
-  const priorIterationDetail = store.getExecution("project_pool", continuedSeed.id);
+  const priorIterationDetail = store.getExecution("project_floop", continuedSeed.id);
   assert.equal(priorIterationDetail.worktrees[0].status, "needs_continue");
 
   assert.throws(
-    () => store.cleanWorktree("project_pool", continued.worktrees[0].id),
+    () => store.cleanWorktree("project_floop", continued.worktrees[0].id),
     /Cannot clean an active worktree/,
   );
 
-  const cancelled = store.cancelExecution("project_pool", continued.id, {
+  const cancelled = store.cancelExecution("project_floop", continued.id, {
     reason: "Operator cancelled the stale continuation.",
   });
   assert.equal(cancelled.status, "cancelled");
   assert.equal(cancelled.failureKind, "cancelled");
   assert.equal(cancelled.worktrees[0].status, "cancelled");
-  assert.equal(store.listEvents("project_pool").at(-1).type, "execution.completed");
+  assert.equal(store.listEvents("project_floop").at(-1).type, "execution.completed");
 
   store.close();
 });
 
 test("store completes follow-up parent tickets and gates child readiness by refinement mode", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     refinementMode: "user_approved",
     agentCreatedTicketDefaultState: "READY",
   });
 
-  const started = store.createExecution("project_pool", "ticket_project_pool_1", {
+  const started = store.createExecution("project_floop", "ticket_project_floop_1", {
     role: "architect",
     reason: "Refine the Floop project into follow-up tickets.",
   });
-  store.completeExecution("project_pool", started.id, {
+  store.completeExecution("project_floop", started.id, {
     outcome: "followup_created",
     summaryMd: "Created implementation follow-ups.",
     followupTickets: [
@@ -647,29 +647,29 @@ test("store completes follow-up parent tickets and gates child readiness by refi
     ],
   });
 
-  const parent = store.getTicket("project_pool", "ticket_project_pool_1");
-  const child = store.listTickets("project_pool", { parentTicketId: parent.id }).at(-1);
+  const parent = store.getTicket("project_floop", "ticket_project_floop_1");
+  const child = store.listTickets("project_floop", { parentTicketId: parent.id }).at(-1);
 
   assert.equal(parent.state, "DONE");
   assert.equal(started.worktrees[0].status, "active");
-  assert.equal(store.getExecution("project_pool", started.id).worktrees[0].status, "handoff");
+  assert.equal(store.getExecution("project_floop", started.id).worktrees[0].status, "handoff");
   assert.equal(child.state, "PROPOSED");
 
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     refinementMode: "autonomous",
     agentCreatedTicketDefaultState: "READY",
   });
-  const autonomousParent = store.createTicket("project_pool", {
+  const autonomousParent = store.createTicket("project_floop", {
     title: "Autonomous refinement parent",
     brief: "Creates ready child tickets automatically.",
     assignedRole: "architect",
     state: "READY",
   });
-  const autonomousExecution = store.createExecution("project_pool", autonomousParent.id, {
+  const autonomousExecution = store.createExecution("project_floop", autonomousParent.id, {
     role: "architect",
     reason: "Autonomous refinement.",
   });
-  store.completeExecution("project_pool", autonomousExecution.id, {
+  store.completeExecution("project_floop", autonomousExecution.id, {
     outcome: "followup_created",
     summaryMd: "Created an autonomous follow-up.",
     followupTickets: [
@@ -681,9 +681,9 @@ test("store completes follow-up parent tickets and gates child readiness by refi
     ],
   });
 
-  const autonomousTicket = store.getTicket("project_pool", autonomousParent.id);
+  const autonomousTicket = store.getTicket("project_floop", autonomousParent.id);
   assert.equal(autonomousTicket.state, "DONE");
-  assert.equal(store.listTickets("project_pool", { parentTicketId: autonomousParent.id }).at(-1).state, "READY");
+  assert.equal(store.listTickets("project_floop", { parentTicketId: autonomousParent.id }).at(-1).state, "READY");
 
   store.close();
 });
@@ -691,16 +691,16 @@ test("store completes follow-up parent tickets and gates child readiness by refi
 test("store persists review and validation evidence and advances the ticket loop", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const started = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const started = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Complete the contract implementation lane.",
   });
-  store.completeExecution("project_pool", started.id, {
+  store.completeExecution("project_floop", started.id, {
     outcome: "completed",
     summaryMd: "Implementation is ready for reviewer evidence.",
   });
 
-  const review = store.createReview("project_pool", "ticket_project_pool_2", {
+  const review = store.createReview("project_floop", "ticket_project_floop_2", {
     executionId: started.id,
     verdict: "passed",
     summaryMd: "Reviewer found no blocking issues.",
@@ -708,38 +708,38 @@ test("store persists review and validation evidence and advances the ticket loop
   assert.equal(review.verdict, "passed");
   assert.equal(review.findingsCount, 0);
 
-  const ticketAfterReview = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticketAfterReview = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticketAfterReview.state, "VALIDATING");
   assert.equal(ticketAfterReview.reviews.length, 1);
   assert.equal(ticketAfterReview.events.some((event) => event.type === "review.completed"), true);
 
-  const validations = store.createValidation("project_pool", "ticket_project_pool_2", {
+  const validations = store.createValidation("project_floop", "ticket_project_floop_2", {
     executionId: started.id,
-    repoIds: ["repo_project_pool_pool"],
+    repoIds: ["repo_project_floop_floop"],
     commandProfile: "ci",
     commands: ["npm test", "npm run lint"],
     verdict: "passed",
     summaryMd: "Validation passed for the targeted repo.",
   });
   assert.equal(validations.length, 1);
-  assert.equal(validations[0].repoSlug, "pool");
+  assert.equal(validations[0].repoSlug, "floop");
   assert.deepEqual(validations[0].commands, ["npm test", "npm run lint"]);
 
-  const ticketAfterValidation = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticketAfterValidation = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticketAfterValidation.state, "READY_TO_MERGE");
   assert.equal(ticketAfterValidation.validations.length, 1);
   assert.equal(ticketAfterValidation.events.at(-1).type, "validation.completed");
 
   const listedTicket = store
-    .listTickets("project_pool", { states: ["READY_TO_MERGE"] })
-    .find((ticket) => ticket.id === "ticket_project_pool_2");
+    .listTickets("project_floop", { states: ["READY_TO_MERGE"] })
+    .find((ticket) => ticket.id === "ticket_project_floop_2");
   assert.equal(listedTicket.latestReviewVerdict, "passed");
   assert.equal(listedTicket.latestValidationVerdict, "passed");
 
   const boardTicket = store
-    .getProjectBoard("project_pool")
+    .getProjectBoard("project_floop")
     .columns.find((column) => column.state === "READY_TO_MERGE")
-    .tickets.find((ticket) => ticket.id === "ticket_project_pool_2");
+    .tickets.find((ticket) => ticket.id === "ticket_project_floop_2");
   assert.equal(boardTicket.latestReviewVerdict, "passed");
   assert.equal(boardTicket.latestValidationVerdict, "passed");
 
@@ -749,16 +749,16 @@ test("store persists review and validation evidence and advances the ticket loop
 test("store auto-routes next execution lanes after implementation and review completion", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const implementation = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Finish implementation and let Floop route review.",
   });
-  store.completeExecution("project_pool", implementation.id, {
+  store.completeExecution("project_floop", implementation.id, {
     outcome: "completed",
     summaryMd: "Implementation finished for autonomous review routing.",
   });
 
-  const ticketAfterImplementation = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticketAfterImplementation = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticketAfterImplementation.state, "REVIEWING");
   assert.equal(ticketAfterImplementation.executions.some((execution) => execution.role === "reviewer"), true);
   assert.equal(
@@ -766,14 +766,14 @@ test("store auto-routes next execution lanes after implementation and review com
     "running",
   );
 
-  const review = store.createReview("project_pool", "ticket_project_pool_2", {
+  const review = store.createReview("project_floop", "ticket_project_floop_2", {
     executionId: implementation.id,
     verdict: "passed",
     summaryMd: "Reviewer approved the implementation.",
   });
   assert.equal(review.verdict, "passed");
 
-  const ticketAfterReview = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticketAfterReview = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticketAfterReview.state, "VALIDATING");
   assert.equal(ticketAfterReview.executions.some((execution) => execution.role === "validator"), true);
   assert.equal(
@@ -787,21 +787,21 @@ test("store auto-routes next execution lanes after implementation and review com
 test("store can persist a review directly from reviewer execution completion", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const implementation = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Finish implementation and auto-route review.",
   });
-  store.completeExecution("project_pool", implementation.id, {
+  store.completeExecution("project_floop", implementation.id, {
     outcome: "completed",
     summaryMd: "Implementation finished for embedded reviewer evidence.",
   });
 
   const reviewerExecution = store
-    .getTicket("project_pool", "ticket_project_pool_2")
+    .getTicket("project_floop", "ticket_project_floop_2")
     .executions.find((execution) => execution.role === "reviewer");
   assert.ok(reviewerExecution);
 
-  store.completeExecution("project_pool", reviewerExecution.id, {
+  store.completeExecution("project_floop", reviewerExecution.id, {
     outcome: "completed",
     summaryMd: "Reviewer execution finished.",
     review: {
@@ -812,7 +812,7 @@ test("store can persist a review directly from reviewer execution completion", (
     },
   });
 
-  const ticketAfterReview = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticketAfterReview = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticketAfterReview.state, "VALIDATING");
   assert.equal(ticketAfterReview.reviews.length, 1);
   assert.equal(ticketAfterReview.reviews[0].artifacts[0].label, "Reviewer notes");
@@ -823,26 +823,26 @@ test("store can persist a review directly from reviewer execution completion", (
 
 test("store can persist validation directly from validator execution completion", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: true,
   });
 
-  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const implementation = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Finish implementation and auto-route validation.",
   });
-  store.completeExecution("project_pool", implementation.id, {
+  store.completeExecution("project_floop", implementation.id, {
     outcome: "completed",
     summaryMd: "Implementation finished for embedded validator evidence.",
   });
 
   const validatorExecution = store
-    .getTicket("project_pool", "ticket_project_pool_2")
+    .getTicket("project_floop", "ticket_project_floop_2")
     .executions.find((execution) => execution.role === "validator");
   assert.ok(validatorExecution);
 
-  store.completeExecution("project_pool", validatorExecution.id, {
+  store.completeExecution("project_floop", validatorExecution.id, {
     outcome: "completed",
     summaryMd: "Validator execution finished.",
     validation: {
@@ -850,12 +850,12 @@ test("store can persist validation directly from validator execution completion"
       commandProfile: "ci",
       commands: ["npm test"],
       artifacts: [{ kind: "log", label: "Validation output", uri: "file:///tmp/validation.log" }],
-      repoIds: ["repo_project_pool_pool"],
+      repoIds: ["repo_project_floop_floop"],
       summaryMd: "Validation checks passed.",
     },
   });
 
-  const ticketAfterValidation = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticketAfterValidation = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticketAfterValidation.state, "READY_TO_MERGE");
   assert.equal(ticketAfterValidation.validations.length, 1);
   assert.equal(ticketAfterValidation.validations[0].artifacts[0].label, "Validation output");
@@ -866,43 +866,43 @@ test("store can persist validation directly from validator execution completion"
 test("store enforces review and validation sequencing", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
 
-  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Start implementation before evidence lanes.",
   });
 
   assert.throws(
     () =>
-      store.createReview("project_pool", "ticket_project_pool_2", {
+      store.createReview("project_floop", "ticket_project_floop_2", {
         executionId: execution.id,
         verdict: "passed",
       }),
     new RegExp(`Execution ${execution.id} must be finished before review`),
   );
 
-  store.completeExecution("project_pool", execution.id, {
+  store.completeExecution("project_floop", execution.id, {
     outcome: "completed",
     summaryMd: "Implementation finished and ready for review.",
   });
 
   assert.throws(
     () =>
-      store.createValidation("project_pool", "ticket_project_pool_2", {
+      store.createValidation("project_floop", "ticket_project_floop_2", {
         executionId: execution.id,
-        repoIds: ["repo_project_pool_pool"],
+        repoIds: ["repo_project_floop_floop"],
         verdict: "passed",
       }),
     /Ticket FLOOP-2 is not ready for validation/,
   );
 
-  store.createReview("project_pool", "ticket_project_pool_2", {
+  store.createReview("project_floop", "ticket_project_floop_2", {
     executionId: execution.id,
     verdict: "passed",
   });
 
   assert.throws(
     () =>
-      store.createReview("project_pool", "ticket_project_pool_2", {
+      store.createReview("project_floop", "ticket_project_floop_2", {
         executionId: execution.id,
         verdict: "passed",
       }),
@@ -914,58 +914,58 @@ test("store enforces review and validation sequencing", () => {
 
 test("store respects review and validation policy skips after execution completion", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: true,
   });
 
-  const execution = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const execution = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Finish the implementation without a reviewer lane.",
   });
-  store.completeExecution("project_pool", execution.id, {
+  store.completeExecution("project_floop", execution.id, {
     outcome: "completed",
     summaryMd: "Implementation completed under relaxed review policy.",
   });
 
-  assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").state, "VALIDATING");
+  assert.equal(store.getTicket("project_floop", "ticket_project_floop_2").state, "VALIDATING");
 
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: false,
   });
-  const secondExecution = store.createExecution("project_pool", "ticket_project_pool_1", {
+  const secondExecution = store.createExecution("project_floop", "ticket_project_floop_1", {
     role: "developer",
     reason: "Finish a ticket with all gates disabled.",
   });
-  store.completeExecution("project_pool", secondExecution.id, {
+  store.completeExecution("project_floop", secondExecution.id, {
     outcome: "completed",
     summaryMd: "Implementation completed with direct merge readiness.",
   });
 
-  assert.equal(store.getTicket("project_pool", "ticket_project_pool_1").state, "READY_TO_MERGE");
+  assert.equal(store.getTicket("project_floop", "ticket_project_floop_1").state, "READY_TO_MERGE");
 
   store.close();
 });
 
 test("store persists merge runs and closes merge-ready tickets", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: false,
     requireHumanApprovalBeforeMerge: true,
   });
-  store.transitionTicket("project_pool", "ticket_project_pool_2", {
+  store.transitionTicket("project_floop", "ticket_project_floop_2", {
     targetState: "READY_TO_MERGE",
     reason: "All evidence is in and the ticket can merge.",
   });
 
-  const queue = store.listMergeQueue("project_pool");
+  const queue = store.listMergeQueue("project_floop");
   assert.equal(queue.length, 1);
   assert.equal(queue[0].key, "FLOOP-2");
   assert.equal(queue[0].mergeStatus.canMerge, true);
 
-  const mergeStatus = store.mergeTicket("project_pool", "ticket_project_pool_2", {
+  const mergeStatus = store.mergeTicket("project_floop", "ticket_project_floop_2", {
     strategy: "squash",
     approvedByKind: "human",
     approvedByRef: "jacob",
@@ -978,18 +978,18 @@ test("store persists merge runs and closes merge-ready tickets", () => {
   assert.equal(mergeStatus.latestRun.strategy, "squash");
   assert.equal(mergeStatus.latestRun.approvedByRef, "jacob");
 
-  const ticket = store.getTicket("project_pool", "ticket_project_pool_2");
+  const ticket = store.getTicket("project_floop", "ticket_project_floop_2");
   assert.equal(ticket.state, "DONE");
   assert.equal(ticket.mergeStatus.latestRun.status, "completed");
   assert.equal(ticket.events.at(-2).type, "merge.started");
   assert.equal(ticket.events.at(-1).type, "merge.completed");
-  assert.equal(store.listMergeQueue("project_pool").length, 0);
+  assert.equal(store.listMergeQueue("project_floop").length, 0);
   store.close();
 });
 
 test("store migrates legacy merge runs to allow active claims", () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-legacy-merge-runs-"));
-  const filename = join(fixtureDir, "pool.sqlite");
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-legacy-merge-runs-"));
+  const filename = join(fixtureDir, "floop.sqlite");
   const database = new DatabaseSync(filename);
   database.exec(`
     create table merge_runs (
@@ -1027,17 +1027,17 @@ test("store migrates legacy merge runs to allow active claims", () => {
   database.close();
 
   const store = createStore({ filename, seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: false,
     requireHumanApprovalBeforeMerge: false,
   });
-  store.transitionTicket("project_pool", "ticket_project_pool_2", {
+  store.transitionTicket("project_floop", "ticket_project_floop_2", {
     targetState: "READY_TO_MERGE",
     reason: "Exercise legacy merge run migration.",
   });
 
-  const started = store.startMergeRun("project_pool", "ticket_project_pool_2", {
+  const started = store.startMergeRun("project_floop", "ticket_project_floop_2", {
     strategy: "squash",
     approvedByKind: "system",
     approvedByRef: "floop-auto",
@@ -1046,7 +1046,7 @@ test("store migrates legacy merge runs to allow active claims", () => {
 
   assert.equal(started.status, "running");
   assert.equal(started.finishedAt, null);
-  const completed = store.completeMergeRun("project_pool", started.id, {
+  const completed = store.completeMergeRun("project_floop", started.id, {
     status: "completed",
     summaryMd: "Legacy merge run completed.",
     artifacts: [{ kind: "report", label: "legacy merge artifact", uri: "file:///tmp/legacy-merge.md" }],
@@ -1059,24 +1059,24 @@ test("store migrates legacy merge runs to allow active claims", () => {
 
 test("store enforces merge readiness and approval policy", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: false,
   });
-  store.transitionTicket("project_pool", "ticket_project_pool_2", {
+  store.transitionTicket("project_floop", "ticket_project_floop_2", {
     targetState: "READY_TO_MERGE",
     reason: "Ready for merge policy checks.",
   });
 
   assert.throws(
     () =>
-      store.mergeTicket("project_pool", "ticket_project_pool_2", {
+      store.mergeTicket("project_floop", "ticket_project_floop_2", {
         strategy: "merge_commit",
       }),
     /FLOOP-2 requires human approval before merge/,
   );
 
-  const blocked = store.mergeTicket("project_pool", "ticket_project_pool_2", {
+  const blocked = store.mergeTicket("project_floop", "ticket_project_floop_2", {
     strategy: "merge_commit",
     status: "blocked",
     summaryMd: "Repo branch protection is still preventing integration.",
@@ -1086,7 +1086,7 @@ test("store enforces merge readiness and approval policy", () => {
 
   assert.throws(
     () =>
-      store.mergeTicket("project_pool", "ticket_project_pool_1", {
+      store.mergeTicket("project_floop", "ticket_project_floop_1", {
         strategy: "squash",
         approvedByKind: "human",
         approvedByRef: "jacob",
@@ -1099,38 +1099,38 @@ test("store enforces merge readiness and approval policy", () => {
 
 test("store enforces merge validation-profile policy before merge", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     requireReviewer: false,
     requireValidator: true,
     requireHumanApprovalBeforeMerge: false,
     requiredValidationCommandProfileForMerge: "ci",
   });
 
-  const implementation = store.createExecution("project_pool", "ticket_project_pool_2", {
+  const implementation = store.createExecution("project_floop", "ticket_project_floop_2", {
     role: "developer",
     reason: "Prepare merge policy validation test.",
   });
-  store.completeExecution("project_pool", implementation.id, {
+  store.completeExecution("project_floop", implementation.id, {
     outcome: "completed",
     summaryMd: "Implementation completed for merge policy test.",
   });
 
   const validatorExecution = store
-    .getTicket("project_pool", "ticket_project_pool_2")
+    .getTicket("project_floop", "ticket_project_floop_2")
     .executions.find((execution) => execution.role === "validator");
-  store.completeExecution("project_pool", validatorExecution.id, {
+  store.completeExecution("project_floop", validatorExecution.id, {
     outcome: "completed",
     summaryMd: "Validation completed with non-ci profile.",
     validation: {
       verdict: "passed",
       commandProfile: "smoke",
       commands: ["npm test"],
-      repoIds: ["repo_project_pool_pool"],
+      repoIds: ["repo_project_floop_floop"],
       summaryMd: "Validation passed but under the wrong profile.",
     },
   });
 
-  const mergeStatus = store.getMergeStatus("project_pool", "ticket_project_pool_2");
+  const mergeStatus = store.getMergeStatus("project_floop", "ticket_project_floop_2");
   assert.equal(mergeStatus.ticketState, "READY_TO_MERGE");
   assert.equal(mergeStatus.canMerge, false);
   assert.equal(mergeStatus.readiness, "waiting");
@@ -1138,12 +1138,12 @@ test("store enforces merge validation-profile policy before merge", () => {
   assert.equal(mergeStatus.blockingReasons[0].source, "validation");
   assert.equal(mergeStatus.approval.required, false);
   assert.match(mergeStatus.statusSummary, /Latest validation must use ci profile before merge/);
-  assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").events.at(-1).reasonCode, "validation_profile_required");
-  assert.equal(store.getTicket("project_pool", "ticket_project_pool_2").events.at(-1).reasonSource, "validation");
+  assert.equal(store.getTicket("project_floop", "ticket_project_floop_2").events.at(-1).reasonCode, "validation_profile_required");
+  assert.equal(store.getTicket("project_floop", "ticket_project_floop_2").events.at(-1).reasonSource, "validation");
 
   assert.throws(
     () =>
-      store.mergeTicket("project_pool", "ticket_project_pool_2", {
+      store.mergeTicket("project_floop", "ticket_project_floop_2", {
         strategy: "squash",
         approvedByKind: "human",
         approvedByRef: "jacob",
@@ -1156,11 +1156,11 @@ test("store enforces merge validation-profile policy before merge", () => {
 
 test("store enforces project execution concurrency limits", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     maxParallelExecutions: 1,
   });
 
-  const started = store.createExecution("project_pool", "ticket_project_pool_1", {
+  const started = store.createExecution("project_floop", "ticket_project_floop_1", {
     role: "developer",
     reason: "Use the single active execution slot.",
   });
@@ -1168,7 +1168,7 @@ test("store enforces project execution concurrency limits", () => {
   assert.equal(started.status, "running");
   assert.throws(
     () =>
-      store.createExecution("project_pool", "ticket_project_pool_2", {
+      store.createExecution("project_floop", "ticket_project_floop_2", {
         role: "reviewer",
         reason: "This second run should be rejected by project policy.",
       }),
@@ -1179,22 +1179,22 @@ test("store enforces project execution concurrency limits", () => {
 });
 
 test("store restarts tickets by cancelling runs and deleting worktrees", () => {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "pool-restart-ticket-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "floop-restart-ticket-"));
   const workspaceRoot = join(fixtureDir, "workspace");
   const store = createStore({ filename: ":memory:", seedDemo: true, workspaceRoot });
 
   try {
-    const started = store.createExecution("project_pool", "ticket_project_pool_1", {
+    const started = store.createExecution("project_floop", "ticket_project_floop_1", {
       role: "developer",
       reason: "Start work that will be restarted.",
     });
     const worktreePath = started.worktrees[0].path;
     mkdirSync(worktreePath, { recursive: true });
 
-    const restarted = store.restartTicket("project_pool", "ticket_project_pool_1", {
+    const restarted = store.restartTicket("project_floop", "ticket_project_floop_1", {
       reason: "Operator restart from test.",
     });
-    const execution = store.getExecution("project_pool", started.id);
+    const execution = store.getExecution("project_floop", started.id);
     const cleanedWorktree = restarted.worktrees.find((worktree) => worktree.id === started.worktrees[0].id);
 
     assert.equal(restarted.state, "READY");
@@ -1212,15 +1212,15 @@ test("store restarts tickets by cancelling runs and deleting worktrees", () => {
 
 test("store enforces continuation budgets before mutating the active run", () => {
   const store = createStore({ filename: ":memory:", seedDemo: true });
-  store.updateProjectPolicy("project_pool", {
+  store.updateProjectPolicy("project_floop", {
     maxAutoContinueIterations: 1,
   });
 
-  const started = store.createExecution("project_pool", "ticket_project_pool_1", {
+  const started = store.createExecution("project_floop", "ticket_project_floop_1", {
     role: "developer",
     reason: "Start the bounded continuation lane.",
   });
-  const continued = store.continueExecution("project_pool", started.id, {
+  const continued = store.continueExecution("project_floop", started.id, {
     reason: "Spend the only continuation budget.",
   });
 
@@ -1228,12 +1228,12 @@ test("store enforces continuation budgets before mutating the active run", () =>
   assert.equal(continued.status, "running");
   assert.throws(
     () =>
-      store.continueExecution("project_pool", continued.id, {
+      store.continueExecution("project_floop", continued.id, {
         reason: "Attempt to exceed the continuation limit.",
       }),
     /FLOOP-1 reached the continuation limit of 1 iterations/,
   );
-  assert.equal(store.getExecution("project_pool", continued.id).status, "running");
+  assert.equal(store.getExecution("project_floop", continued.id).status, "running");
 
   store.close();
 });

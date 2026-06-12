@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("poolDesktop", {
+contextBridge.exposeInMainWorld("floopDesktop", {
   platform: process.platform,
   desktop: true,
-  pickDirectory: () => ipcRenderer.invoke("pool:pick-directory"),
+  pickDirectory: () => ipcRenderer.invoke("floop:pick-directory"),
 });
