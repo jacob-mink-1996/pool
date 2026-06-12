@@ -28,6 +28,7 @@ export function createMergeCommands({
   requiredProjectPolicy,
   requiredText,
   withTransaction,
+  assertAutomaticTicketTransition,
 }) {
   const commands = {
     listMergeQueue(projectId) {
@@ -217,6 +218,12 @@ export function createMergeCommands({
         summaryMd ||
         `${ticket.key} merge ${status === "completed" ? "completed" : status === "blocked" ? "blocked" : "needs rework"}`;
       const nextState = deriveTicketStateForMergeStatus(status);
+      const transitionReason = deriveMergeEventReason(status, failureKind);
+      assertAutomaticTicketTransition({
+        fromState: ticket.state,
+        toState: nextState,
+        reasonCode: transitionReason.reasonCode || "merge_completed",
+      });
       const approvalDetail =
         mergeRun.approved_by_kind && mergeRun.approved_by_ref
           ? `Approved by ${mergeRun.approved_by_kind}:${mergeRun.approved_by_ref}`
@@ -252,7 +259,7 @@ export function createMergeCommands({
           type: "merge.completed",
           summary: `${ticket.key} merge ${status}`,
           detail: summaryMd || `${mergeRun.strategy} · ${approvalDetail}`,
-          ...deriveMergeEventReason(status, failureKind),
+          ...transitionReason,
         });
       });
 

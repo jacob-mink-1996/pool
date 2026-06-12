@@ -593,6 +593,7 @@ export function parseTicketTransitionInput(body) {
   return compactObject({
     targetState,
     reason: optionalString(body, "reason"),
+    reasonCode: requiredString(body, "reasonCode"),
   });
 }
 

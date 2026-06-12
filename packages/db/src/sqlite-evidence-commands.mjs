@@ -26,6 +26,7 @@ export function createEvidenceCommands({
   listProjectArtifacts,
   startAutoRoutedLaneExecution,
   getStore,
+  assertAutomaticTicketTransition,
 }) {
   const commands = {
     listArtifacts(projectId, filters = {}) {
@@ -83,6 +84,12 @@ export function createEvidenceCommands({
         createdAt: timestamp,
       };
       const nextState = deriveTicketStateForReviewVerdict(policy, verdict);
+      const transitionReason = deriveReviewEventReason(review);
+      assertAutomaticTicketTransition({
+        fromState: ticket.state,
+        toState: nextState,
+        reasonCode: transitionReason.reasonCode || "review_completed",
+      });
       const ticketSummary =
         review.summaryMd ||
         `${ticket.key} review ${verdict === "passed" ? "passed" : verdict === "rework" ? "requested rework" : "blocked"}`;
@@ -149,7 +156,7 @@ export function createEvidenceCommands({
           type: "review.completed",
           summary: `${ticket.key} review ${verdict}`,
           detail: review.summaryMd || `${findings.length} finding${findings.length === 1 ? "" : "s"}`,
-          ...deriveReviewEventReason(review),
+          ...transitionReason,
         });
       });
 
@@ -220,6 +227,16 @@ export function createEvidenceCommands({
               command_profile: commandProfile,
             })
           : [];
+      const transitionReason = deriveValidationEventReason({
+        verdict,
+        blockedKind: optionalText(input.blockedKind),
+        mergePolicyBlock: mergePolicyBlocks[0] || null,
+      });
+      assertAutomaticTicketTransition({
+        fromState: ticket.state,
+        toState: nextState,
+        reasonCode: transitionReason.reasonCode || "validation_completed",
+      });
 
       withTransaction(database, () => {
         for (const repoId of repoIds) {
@@ -274,11 +291,7 @@ export function createEvidenceCommands({
           detail:
             summaryMd ||
             `${repoIds.length} repo target${repoIds.length === 1 ? "" : "s"} · ${commandList.length} command${commandList.length === 1 ? "" : "s"}`,
-          ...deriveValidationEventReason({
-            verdict,
-            blockedKind: optionalText(input.blockedKind),
-            mergePolicyBlock: mergePolicyBlocks[0] || null,
-          }),
+          ...transitionReason,
         });
       });
 

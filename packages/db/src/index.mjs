@@ -3,7 +3,11 @@ import { rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { defaultCeremonyAutomation } from "../../config/src/index.mjs";
-import { isRefinementMode } from "../../domain/src/index.mjs";
+import {
+  assertAutomaticTicketTransition,
+  assertOperatorTicketOverride,
+  isRefinementMode,
+} from "../../domain/src/index.mjs";
 import { sqliteSchema, migrateSchema } from "./sqlite-schema.mjs";
 import {
   mapArtifact,
@@ -160,6 +164,8 @@ export function createSqliteStore(options = {}) {
     repoTargetsEqual,
     syncTicketRepoTargets,
     deleteWorktreePath,
+    assertAutomaticTicketTransition,
+    assertOperatorTicketOverride,
   });
 
   const executionCommands = createExecutionCommands({
@@ -191,6 +197,7 @@ export function createSqliteStore(options = {}) {
     getArtifactsByExecutionId,
     getWorktreesByExecutionId,
     listWorktreeRows,
+    assertAutomaticTicketTransition,
   });
 
   const evidenceCommands = createEvidenceCommands({
@@ -218,6 +225,7 @@ export function createSqliteStore(options = {}) {
     listProjectArtifacts,
     startAutoRoutedLaneExecution,
     getStore: () => store,
+    assertAutomaticTicketTransition,
   });
 
   const mergeCommands = createMergeCommands({
@@ -247,6 +255,7 @@ export function createSqliteStore(options = {}) {
     requiredProjectPolicy,
     requiredText,
     withTransaction,
+    assertAutomaticTicketTransition,
   });
 
   const ceremonyCommands = createCeremonyCommands({

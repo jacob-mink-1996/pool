@@ -40,6 +40,8 @@ export function createTicketCommands({
   repoTargetsEqual,
   syncTicketRepoTargets,
   deleteWorktreePath,
+  assertAutomaticTicketTransition,
+  assertOperatorTicketOverride,
 }) {
   const commands = {
     listTickets(projectId, filters = {}) {
@@ -393,7 +395,7 @@ export function createTicketCommands({
       }
 
       const existing = database
-        .prepare("select key from tickets where project_id = ? and id = ?")
+        .prepare("select key, state from tickets where project_id = ? and id = ?")
         .get(projectId, ticketId);
       if (!existing) {
         return null;
@@ -401,6 +403,22 @@ export function createTicketCommands({
 
       const timestamp = now();
       const detail = optionalText(input.reason, `Transitioned to ${nextState}`);
+      const reasonCode = requiredText(input.reasonCode, "reasonCode");
+      const reasonSource = optionalText(input.reasonSource, "operator");
+      const mode = optionalText(input.mode, "operator_override");
+      if (mode === "automatic") {
+        assertAutomaticTicketTransition({
+          fromState: existing.state,
+          toState: nextState,
+          reasonCode,
+        });
+      } else {
+        assertOperatorTicketOverride({
+          fromState: existing.state,
+          toState: nextState,
+          reasonCode,
+        });
+      }
       withTransaction(database, () => {
         database
           .prepare("update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?")
@@ -412,6 +430,8 @@ export function createTicketCommands({
           type: "ticket.transitioned",
           summary: `${existing.key} -> ${nextState}`,
           detail,
+          reasonCode,
+          reasonSource,
         });
       });
 
@@ -430,6 +450,11 @@ export function createTicketCommands({
       if (!isTicketState(targetState)) {
         throw new Error(`Invalid ticket state: ${targetState}`);
       }
+      assertOperatorTicketOverride({
+        fromState: ticket.state,
+        toState: targetState,
+        reasonCode: "ticket_restarted",
+      });
 
       const runningExecutions = database
         .prepare("select * from executions where project_id = ? and ticket_id = ? and status = 'running'")

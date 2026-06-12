@@ -642,6 +642,7 @@ test("review and validation endpoints persist evidence and advance ticket state"
       body: JSON.stringify({
         targetState: "VALIDATING",
         reason: "Rework landed and validation can begin.",
+        reasonCode: "operator_validation_ready",
       }),
     });
 
@@ -857,6 +858,7 @@ test("ticket creation and transition flow works end-to-end", async () => {
         body: JSON.stringify({
           targetState: "WORKING",
           reason: "Developer lane started.",
+          reasonCode: "operator_started_work",
         }),
       },
     );
@@ -1066,6 +1068,7 @@ test("API exposes a live SSE event stream for project activity", async () => {
       body: JSON.stringify({
         targetState: "WORKING",
         reason: "Drive a live event for the stream.",
+        reasonCode: "operator_started_work",
       }),
     });
 

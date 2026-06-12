@@ -32,8 +32,8 @@ Steps:
 5. Execution/evidence command extraction - complete.
 6. Merge command extraction - complete.
 7. Extract ceremony commands - complete.
-8. Transition policy layer - next.
-9. Versioned migrations - pending.
+8. Transition policy layer - complete.
+9. Versioned migrations - next.
 10. Artifact durability contract - pending.
 11. Local trust/auth model - pending.
 12. Decision queue UI - pending.
@@ -41,10 +41,9 @@ Steps:
 
 Immediate next work:
 
-- move to the transition policy layer
-- define legal automatic workflow transitions
-- separate operator overrides from automatic state movement
-- require reason codes for manual overrides
+- move inline schema evolution into ordered migration files
+- keep the current SQLite MVP behavior unchanged
+- leave room for later Postgres migration parity
 
 ## Phase 9: Rebrand Consolidation
 

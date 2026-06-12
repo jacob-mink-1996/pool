@@ -215,6 +215,7 @@ test("merge driver retries blocked runs and records already-applied source branc
     store.transitionTicket("project_floop", "ticket_project_floop_2", {
       targetState: "READY_TO_MERGE",
       reason: "Retry interrupted merge after confirming target ref was published.",
+      reasonCode: "operator_merge_retry",
     });
 
     const mergeDriver = createMergeDriver({ store, logger: silentLogger() });

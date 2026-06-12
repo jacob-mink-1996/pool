@@ -30,6 +30,7 @@ export function createExecutionCommands({
   getArtifactsByExecutionId,
   getWorktreesByExecutionId,
   listWorktreeRows,
+  assertAutomaticTicketTransition,
 }) {
   const commands = {
     listExecutions(projectId, ticketId) {
@@ -207,6 +208,12 @@ export function createExecutionCommands({
         updatedAt: timestamp,
       };
       const worktrees = planExecutionWorktrees(database, projectId, ticket, execution, timestamp);
+      const nextTicketState = deriveTicketStateForExecutionStart(role);
+      assertAutomaticTicketTransition({
+        fromState: ticket.state,
+        toState: nextTicketState,
+        reasonCode: "execution_started",
+      });
 
       withTransaction(database, () => {
         database
@@ -268,7 +275,7 @@ export function createExecutionCommands({
           .prepare(
             "update tickets set state = ?, latest_summary = ?, updated_at = ? where project_id = ? and id = ?",
           )
-          .run(deriveTicketStateForExecutionStart(role), reason, timestamp, projectId, ticketId);
+          .run(nextTicketState, reason, timestamp, projectId, ticketId);
 
         insertEvent(database, {
           projectId,
@@ -324,6 +331,12 @@ export function createExecutionCommands({
         policy,
         execution.role,
       );
+      const transitionReason = deriveExecutionEventReason({ outcome, failureKind, blockedKind });
+      assertAutomaticTicketTransition({
+        fromState: ticket.state,
+        toState: nextState,
+        reasonCode: transitionReason.reasonCode || "execution_completed",
+      });
       const ticketSummary =
         summaryMd ||
         remainingWorkMd ||
@@ -379,7 +392,7 @@ export function createExecutionCommands({
           type: "execution.completed",
           summary: `${ticket.key} ${execution.role} iteration ${execution.iteration} ${outcome}`,
           detail: summaryMd || remainingWorkMd || failureKind || blockedKind || "",
-          ...deriveExecutionEventReason({ outcome, failureKind, blockedKind }),
+          ...transitionReason,
         });
       });
 

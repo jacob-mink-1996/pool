@@ -557,6 +557,7 @@ test("API exposes merge readiness and merge completion flows", async () => {
       body: JSON.stringify({
         targetState: "READY_TO_MERGE",
         reason: "All evidence is already recorded for the merge lane.",
+        reasonCode: "operator_merge_ready",
       }),
     });
 

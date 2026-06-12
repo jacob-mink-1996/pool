@@ -758,6 +758,9 @@ function applyCeremonyProposal(store, projectId, proposalRow, payload) {
       store.transitionTicket(projectId, requiredText(payload.ticketId, "ticketId"), {
         targetState: payload.targetState,
         reason: payload.reason || proposalRow.summary,
+        reasonCode: payload.reasonCode || "ceremony_transition",
+        reasonSource: "ceremony",
+        mode: "automatic",
       });
       return payload.ticketId;
     case "dependency":

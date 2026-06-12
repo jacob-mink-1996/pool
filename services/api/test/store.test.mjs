@@ -35,6 +35,7 @@ test("SQLite store persists ticket state and board aggregates across reopen", ()
     store.transitionTicket("project_floop", createdTicket.id, {
       targetState: "WORKING",
       reason: "Picked up for the next MVP implementation pass.",
+      reasonCode: "operator_started_work",
     });
 
     const execution = store.createExecution("project_floop", createdTicket.id, {

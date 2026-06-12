@@ -160,6 +160,7 @@ test("store transitions tickets and records events", () => {
   const transitioned = store.transitionTicket("project_floop", created.id, {
     targetState: "WORKING",
     reason: "Developer picked it up.",
+    reasonCode: "operator_started_work",
   });
 
   assert.equal(transitioned.state, "WORKING");
@@ -167,7 +168,51 @@ test("store transitions tickets and records events", () => {
   assert.equal(transitioned.events.at(-1).family, "ticket");
   assert.equal(transitioned.events.at(-1).action, "transitioned");
   assert.equal(transitioned.events.at(-1).lane, "ticket");
+  assert.equal(transitioned.events.at(-1).reasonCode, "operator_started_work");
+  assert.equal(transitioned.events.at(-1).reasonSource, "operator");
   assert.match(transitioned.events.at(-1).cursor, /:/);
+  store.close();
+});
+
+test("store requires reason codes for manual ticket overrides", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  const created = store.createTicket("project_floop", {
+    title: "Override reason audit",
+    brief: "Require a reason code for operator state changes.",
+    assignedRole: "developer",
+    state: "READY",
+  });
+
+  assert.throws(
+    () =>
+      store.transitionTicket("project_floop", created.id, {
+        targetState: "WORKING",
+        reason: "Missing structured reason code.",
+      }),
+    /reasonCode/,
+  );
+  store.close();
+});
+
+test("store rejects illegal automatic ticket transitions", () => {
+  const store = createStore({ filename: ":memory:", seedDemo: true });
+  const created = store.createTicket("project_floop", {
+    title: "Illegal automatic transition",
+    brief: "Automatic transitions must follow the workflow graph.",
+    assignedRole: "developer",
+    state: "DONE",
+  });
+
+  assert.throws(
+    () =>
+      store.transitionTicket("project_floop", created.id, {
+        targetState: "WORKING",
+        reason: "A worker cannot reopen done work automatically.",
+        reasonCode: "execution_started",
+        mode: "automatic",
+      }),
+    /Illegal automatic ticket transition/,
+  );
   store.close();
 });
 
@@ -958,6 +1003,7 @@ test("store persists merge runs and closes merge-ready tickets", () => {
   store.transitionTicket("project_floop", "ticket_project_floop_2", {
     targetState: "READY_TO_MERGE",
     reason: "All evidence is in and the ticket can merge.",
+    reasonCode: "operator_merge_ready",
   });
 
   const queue = store.listMergeQueue("project_floop");
@@ -1035,6 +1081,7 @@ test("store migrates legacy merge runs to allow active claims", () => {
   store.transitionTicket("project_floop", "ticket_project_floop_2", {
     targetState: "READY_TO_MERGE",
     reason: "Exercise legacy merge run migration.",
+    reasonCode: "operator_merge_ready",
   });
 
   const started = store.startMergeRun("project_floop", "ticket_project_floop_2", {
@@ -1066,6 +1113,7 @@ test("store enforces merge readiness and approval policy", () => {
   store.transitionTicket("project_floop", "ticket_project_floop_2", {
     targetState: "READY_TO_MERGE",
     reason: "Ready for merge policy checks.",
+    reasonCode: "operator_merge_ready",
   });
 
   assert.throws(
