@@ -4,6 +4,7 @@ import { isTicketState } from "../../domain/src/index.mjs";
 
 export function createTicketCommands({
   database,
+  getTicketRow,
   getProjectRow,
   insertEvent,
   withTransaction,
@@ -12,8 +13,10 @@ export function createTicketCommands({
   optionalText,
   slugify,
   mapTicket,
+  mapWorktree,
   applyTicketTextPatch,
   applyParentTicketPatch,
+  assertDeletableWorktreePath,
   assertNoDependencyCycle,
   buildMergeStatus,
   getArtifactsByExecutionId,
@@ -30,11 +33,13 @@ export function createTicketCommands({
   groupWorktreesByExecutionId,
   listProjectEvents,
   listTicketRows,
+  listWorktreeRows,
   listTicketRepoTargetRows,
   normalizeRepoTargets,
   insertTicketRepoTarget,
   repoTargetsEqual,
   syncTicketRepoTargets,
+  deleteWorktreePath,
 }) {
   const commands = {
     listTickets(projectId, filters = {}) {
@@ -409,6 +414,96 @@ export function createTicketCommands({
           detail,
         });
       });
+
+      return commands.getTicket(projectId, ticketId);
+    },
+
+    restartTicket(projectId, ticketId, input = {}) {
+      const ticket = getTicketRow(database, projectId, ticketId);
+      if (!ticket) {
+        return null;
+      }
+
+      const timestamp = now();
+      const reason = optionalText(input.reason, `Restart requested for ${ticket.key}`);
+      const targetState = optionalText(input.targetState, "READY");
+      if (!isTicketState(targetState)) {
+        throw new Error(`Invalid ticket state: ${targetState}`);
+      }
+
+      const runningExecutions = database
+        .prepare("select * from executions where project_id = ? and ticket_id = ? and status = 'running'")
+        .all(projectId, ticketId);
+      const worktrees = listWorktreeRows(database, projectId, { ticketId }).map(mapWorktree);
+      const worktreesToDelete = worktrees.filter((worktree) => worktree.status !== "cleaned");
+      for (const worktree of worktreesToDelete) {
+        assertDeletableWorktreePath(worktree.path);
+      }
+
+      withTransaction(database, () => {
+        for (const execution of runningExecutions) {
+          database
+            .prepare(
+              `update executions
+               set status = ?, outcome = ?, summary_md = ?, failure_kind = ?, claim_token = '', claim_expires_at = null, finished_at = ?, updated_at = ?
+               where project_id = ? and id = ?`,
+            )
+            .run("cancelled", "failed", reason, "restart_cancelled", timestamp, timestamp, projectId, execution.id);
+
+          insertEvent(database, {
+            projectId,
+            ticketId,
+            type: "execution.completed",
+            summary: `${ticket.key} ${execution.role} iteration ${execution.iteration} cancelled for restart`,
+            detail: reason,
+            reasonCode: "restart_cancelled",
+            reasonSource: "execution",
+          });
+        }
+
+        for (const worktree of worktreesToDelete) {
+          database
+            .prepare(
+              `update worktrees
+               set status = ?, cleaned_at = ?, updated_at = ?
+               where project_id = ? and id = ?`,
+            )
+            .run("cleaned", timestamp, timestamp, projectId, worktree.id);
+
+          insertEvent(database, {
+            projectId,
+            repoId: worktree.repoId,
+            ticketId,
+            type: "worktree.cleaned",
+            summary: `${ticket.key} worktree deleted for ${worktree.repoName}`,
+            detail: `${reason}\n${worktree.path}`,
+            reasonCode: "restart_deleted",
+            reasonSource: "worktree",
+          });
+        }
+
+        database
+          .prepare(
+            `update tickets
+             set state = ?, latest_summary = ?, updated_at = ?
+             where project_id = ? and id = ?`,
+          )
+          .run(targetState, reason, timestamp, projectId, ticketId);
+
+        insertEvent(database, {
+          projectId,
+          ticketId,
+          type: "ticket.updated",
+          summary: `${ticket.key} restarted`,
+          detail: reason,
+          reasonCode: "ticket_restarted",
+          reasonSource: "operator",
+        });
+      });
+
+      for (const worktree of worktreesToDelete) {
+        deleteWorktreePath(worktree.path);
+      }
 
       return commands.getTicket(projectId, ticketId);
     },
