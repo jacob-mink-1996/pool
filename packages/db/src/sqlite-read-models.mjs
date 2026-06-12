@@ -1,5 +1,12 @@
-import { artifactDto, eventDto } from "../../contracts/src/index.mjs";
-import { mapArtifact, mapExecution, mapReview, mapValidationRun, mapWorktree } from "./sqlite-row-mappers.mjs";
+import { artifactDto, eventDto, mergeRunDto } from "../../contracts/src/index.mjs";
+import {
+  mapArtifact,
+  mapExecution,
+  mapMergeRun,
+  mapReview,
+  mapValidationRun,
+  mapWorktree,
+} from "./sqlite-row-mappers.mjs";
 
 export function listTicketRows(database, projectId, filters = {}) {
   const clauses = ["project_id = ?"];
@@ -593,6 +600,231 @@ export function getValidationRunsByTicketId(database, projectId, ticketIds) {
   }
 
   return byTicketId;
+}
+
+export function getLatestMergeRunRow(database, projectId, ticketId) {
+  return database
+    .prepare(
+      `select *
+       from merge_runs
+       where project_id = ? and ticket_id = ?
+       order by started_at desc
+       limit 1`,
+    )
+    .get(projectId, ticketId);
+}
+
+export function groupWorktreesByExecutionId(worktrees) {
+  const byExecutionId = new Map();
+  for (const worktree of worktrees) {
+    const items = byExecutionId.get(worktree.executionId) || [];
+    items.push(worktree);
+    byExecutionId.set(worktree.executionId, items);
+  }
+  return byExecutionId;
+}
+
+export function buildBoardSummary(tickets) {
+  const summary = {};
+  for (const ticket of tickets) {
+    const boardState = mapTicketStateToBoardState(ticket.state);
+    summary[boardState] = (summary[boardState] || 0) + 1;
+  }
+  return summary;
+}
+
+export function buildMergeStatus(database, ticket, worktrees = []) {
+  const policy = requiredProjectPolicy(database, ticket.projectId);
+  const latestRun = getLatestMergeRunRow(database, ticket.projectId, ticket.id);
+  const latestReview = getLatestReviewRow(database, ticket.projectId, ticket.id);
+  const latestValidation = getLatestValidationRunRow(database, ticket.projectId, ticket.id);
+  const latestRunArtifacts =
+    latestRun ? getArtifactsByMergeRunId(database, [latestRun.id]).get(latestRun.id) || [] : [];
+  const requiresHumanApproval = readPolicyBoolean(
+    policy,
+    "requireHumanApprovalBeforeMerge",
+    "require_human_approval_before_merge",
+  );
+  const mergePolicyBlocks = buildMergePolicyBlocks(policy, latestReview, latestValidation);
+  const mergePolicyBlock = mergePolicyBlocks[0]?.message || "";
+  const mergeable = ticket.state === "READY_TO_MERGE" && !mergePolicyBlock;
+  const uncleanedWorktreeCount = worktrees.filter((worktree) => worktree.status !== "cleaned").length;
+  const approval = {
+    required: requiresHumanApproval,
+    satisfied: !requiresHumanApproval,
+    approvedByKind: latestRun?.approved_by_kind || "",
+    approvedByRef: latestRun?.approved_by_ref || "",
+  };
+
+  if (approval.required && approval.approvedByKind && approval.approvedByRef) {
+    approval.satisfied = true;
+  }
+
+  if (latestRun?.status === "completed" || ticket.state === "DONE") {
+    return {
+      projectId: ticket.projectId,
+      ticketId: ticket.id,
+      ticketKey: ticket.key,
+      ticketTitle: ticket.title,
+      ticketState: ticket.state,
+      requiresHumanApproval,
+      approval,
+      canMerge: false,
+      readiness: "closed",
+      statusSummary: "Merge recorded and ticket closed.",
+      blockingReasons: [],
+      uncleanedWorktreeCount,
+      latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
+    };
+  }
+
+  if (latestRun?.status === "running" && !latestRun?.finished_at) {
+    return {
+      projectId: ticket.projectId,
+      ticketId: ticket.id,
+      ticketKey: ticket.key,
+      ticketTitle: ticket.title,
+      ticketState: ticket.state,
+      requiresHumanApproval,
+      approval,
+      canMerge: false,
+      readiness: "running",
+      statusSummary: "Merge run in progress.",
+      blockingReasons: [],
+      uncleanedWorktreeCount,
+      latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
+    };
+  }
+
+  if (latestRun?.status === "blocked") {
+    return {
+      projectId: ticket.projectId,
+      ticketId: ticket.id,
+      ticketKey: ticket.key,
+      ticketTitle: ticket.title,
+      ticketState: ticket.state,
+      requiresHumanApproval,
+      approval,
+      canMerge: mergeable,
+      readiness: "blocked",
+      statusSummary: latestRun.summary_md || "Latest merge attempt is blocked.",
+      blockingReasons: [],
+      uncleanedWorktreeCount,
+      latestRun: mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }),
+    };
+  }
+
+  if (latestRun?.status === "rework") {
+    return {
+      projectId: ticket.projectId,
+      ticketId: ticket.id,
+      ticketKey: ticket.key,
+      ticketTitle: ticket.title,
+      ticketState: ticket.state,
+      requiresHumanApproval,
+      approval,
+      canMerge: mergeable,
+      readiness: "rework",
+      statusSummary: latestRun.summary_md || "Latest merge attempt requires rework.",
+      blockingReasons: [],
+      uncleanedWorktreeCount,
+      latestRun: mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }),
+    };
+  }
+
+  const blockingReasons = [];
+  if (ticket.state !== "READY_TO_MERGE") {
+    blockingReasons.push({
+      code: "ticket_not_ready",
+      source: "ticket",
+      message: "Ticket must reach READY_TO_MERGE before merge can start.",
+    });
+  }
+  blockingReasons.push(...mergePolicyBlocks);
+
+  return {
+    projectId: ticket.projectId,
+    ticketId: ticket.id,
+    ticketKey: ticket.key,
+    ticketTitle: ticket.title,
+    ticketState: ticket.state,
+    requiresHumanApproval,
+    approval,
+    canMerge: mergeable,
+    readiness: mergeable ? (requiresHumanApproval ? "approval_required" : "ready") : "waiting",
+    statusSummary: mergeable
+      ? requiresHumanApproval
+        ? "Ready to merge after operator approval is recorded."
+        : "Ready to merge."
+      : mergePolicyBlock || "Ticket must reach READY_TO_MERGE before merge can start.",
+    blockingReasons,
+    uncleanedWorktreeCount,
+    latestRun: latestRun ? mergeRunDto({ ...mapMergeRun(latestRun), artifacts: latestRunArtifacts }) : null,
+  };
+}
+
+export function mapTicketStateToBoardState(ticketState) {
+  if (ticketState === "DRAFT") return "PROPOSED";
+  if (ticketState === "MERGING") return "READY_TO_MERGE";
+  if (ticketState === "CANCELLED") return "DONE";
+  return ticketState;
+}
+
+export function buildMergePolicyBlocks(policy, latestReview, latestValidation) {
+  const requireReviewer = readPolicyBoolean(policy, "requireReviewer", "require_reviewer");
+  const requireValidator = readPolicyBoolean(policy, "requireValidator", "require_validator");
+  const requiredValidationCommandProfile = optionalPolicyText(
+    policy.requiredValidationCommandProfileForMerge || policy.required_validation_command_profile_for_merge,
+  );
+  const blocks = [];
+
+  if (requireReviewer && latestReview?.verdict !== "passed") {
+    blocks.push({
+      code: "review_required",
+      source: "review",
+      message: "Latest review must pass before merge",
+    });
+  }
+  if (requireValidator && latestValidation?.verdict !== "passed") {
+    blocks.push({
+      code: "validation_required",
+      source: "validation",
+      message: "Latest validation must pass before merge",
+    });
+  }
+  if (requiredValidationCommandProfile && latestValidation?.command_profile !== requiredValidationCommandProfile) {
+    blocks.push({
+      code: "validation_profile_required",
+      source: "validation",
+      message: `Latest validation must use ${requiredValidationCommandProfile} profile before merge`,
+      requiredCommandProfile: requiredValidationCommandProfile,
+      actualCommandProfile: latestValidation?.command_profile || "",
+    });
+  }
+
+  return blocks;
+}
+
+function requiredProjectPolicy(database, projectId) {
+  const policy = database.prepare("select * from project_policies where project_id = ?").get(projectId);
+  if (!policy) {
+    throw new Error(`Missing project policy for ${projectId}`);
+  }
+  return policy;
+}
+
+function readPolicyBoolean(policy, mappedKey, rawKey) {
+  if (Object.prototype.hasOwnProperty.call(policy, mappedKey)) {
+    return Boolean(policy[mappedKey]);
+  }
+  return Boolean(policy[rawKey]);
+}
+
+function optionalPolicyText(value, fallback = "") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  return value.trim() || fallback;
 }
 
 export function listProjectEvents(database, projectId, filters = {}) {
