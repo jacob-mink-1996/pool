@@ -78,6 +78,24 @@ export function createMergeCommands({
       return rows.map((row) => commands.getMergeRun(row.project_id, row.id)).filter(Boolean);
     },
 
+    listMergeRuns(projectId, options = {}) {
+      if (!getProjectRow(database, projectId)) {
+        return null;
+      }
+      const limit = boundedLimit(options.limit, 20, 100);
+      return database
+        .prepare(
+          `select project_id, id
+           from merge_runs
+           where project_id = ?
+           order by coalesce(nullif(finished_at, ''), started_at) desc, started_at desc
+           limit ?`,
+        )
+        .all(projectId, limit)
+        .map((row) => commands.getMergeRun(row.project_id, row.id))
+        .filter(Boolean);
+    },
+
     getMergeRun(projectId, mergeRunId) {
       const row = database.prepare("select * from merge_runs where project_id = ? and id = ?").get(projectId, mergeRunId);
       if (!row) {
@@ -366,4 +384,8 @@ export function createMergeCommands({
   };
 
   return commands;
+}
+
+function boundedLimit(value, defaultLimit, maxLimit) {
+  return Number.isInteger(value) && value > 0 ? Math.min(value, maxLimit) : defaultLimit;
 }

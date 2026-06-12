@@ -18,6 +18,7 @@ import type {
   RepoUpdateInput,
   RoleProfile,
   RoleName,
+  RunObservability,
   TicketDetail,
   TicketState,
   Worktree,
@@ -180,6 +181,13 @@ export async function listArtifacts(projectId: string, limit = 10): Promise<Arti
     `/api/v1/projects/${projectId}/artifacts?limit=${limit}`,
   );
   return payload.artifacts;
+}
+
+export async function getRunObservability(projectId: string, limit = 20): Promise<RunObservability> {
+  const payload = await fetchJson<{ observability: RunObservability }>(
+    `/api/v1/projects/${projectId}/runs?limit=${limit}`,
+  );
+  return payload.observability;
 }
 
 export async function updateProject(projectId: string, input: ProjectUpdateInput): Promise<Project> {

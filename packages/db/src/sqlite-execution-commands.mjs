@@ -48,6 +48,21 @@ export function createExecutionCommands({
         .map((row) => commands.getExecution(projectId, row.id));
     },
 
+    listProjectExecutions(projectId, options = {}) {
+      const limit = boundedLimit(options.limit, 20, 100);
+      return database
+        .prepare(
+          `select project_id, id
+           from executions
+           where project_id = ?
+           order by coalesce(nullif(finished_at, ''), started_at) desc, started_at desc, iteration desc
+           limit ?`,
+        )
+        .all(projectId, limit)
+        .map((row) => commands.getExecution(row.project_id, row.id))
+        .filter(Boolean);
+    },
+
     getExecution(projectId, executionId) {
       const execution = getExecutionRow(database, projectId, executionId);
       if (!execution) {
@@ -570,4 +585,8 @@ export function createExecutionCommands({
   };
 
   return commands;
+}
+
+function boundedLimit(value, defaultLimit, maxLimit) {
+  return Number.isInteger(value) && value > 0 ? Math.min(value, maxLimit) : defaultLimit;
 }

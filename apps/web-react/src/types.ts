@@ -221,6 +221,39 @@ export type Artifact = {
   createdAt: string;
 };
 
+export type RunObservabilityItem = {
+  id: string;
+  runId: string;
+  kind: "execution" | "merge" | "ceremony";
+  status: string;
+  outcome: string;
+  label: string;
+  summary: string;
+  ticketId: string;
+  ticketKey: string;
+  ticketTitle: string;
+  role: string;
+  failureKind: string;
+  startedAt: string;
+  finishedAt: string;
+  artifactCount: number;
+  worktreeCount: number;
+  needsAttention: boolean;
+  pendingProposalCount?: number;
+  participantCount?: number;
+};
+
+export type RunObservability = {
+  generatedAt: string;
+  summary: {
+    total: number;
+    running: number;
+    needsAttention: number;
+    failed: number;
+  };
+  runs: RunObservabilityItem[];
+};
+
 export type MergeStatus = {
   readiness: string;
   canMerge: boolean;

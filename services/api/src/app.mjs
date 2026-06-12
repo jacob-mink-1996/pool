@@ -459,6 +459,7 @@ function matchRoute(method, pathname) {
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)\/complete$/, name: "executionComplete", keys: ["projectId", "executionId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)\/continue$/, name: "executionContinue", keys: ["projectId", "executionId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/executions\/([^/]+)\/cancel$/, name: "executionCancel", keys: ["projectId", "executionId"] },
+    { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/runs$/, name: "runs", keys: ["projectId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/worktrees$/, name: "worktrees", keys: ["projectId"] },
     { method: "POST", pattern: /^\/api\/v1\/projects\/([^/]+)\/worktrees\/([^/]+)\/clean$/, name: "worktreeClean", keys: ["projectId", "worktreeId"] },
     { method: "GET", pattern: /^\/api\/v1\/projects\/([^/]+)\/events$/, name: "events", keys: ["projectId"] },

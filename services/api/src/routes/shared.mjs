@@ -142,6 +142,19 @@ export function parseArtifactFilters(url) {
   return filters;
 }
 
+export function parseRunFilters(url) {
+  const filters = {};
+  const limit = url.searchParams.get("limit");
+  if (limit) {
+    const parsedLimit = Number.parseInt(limit, 10);
+    if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+      throw new RequestError(400, `Invalid run limit filter: ${limit}`);
+    }
+    filters.limit = parsedLimit;
+  }
+  return filters;
+}
+
 export function currentMergeReasonCode(mergeStatus) {
   if (!mergeStatus) {
     return "merge_conflict";

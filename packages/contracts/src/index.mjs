@@ -176,6 +176,7 @@ export function mergeRunDto(mergeRun) {
     approvedByKind: mergeRun.approvedByKind,
     approvedByRef: mergeRun.approvedByRef,
     summaryMd: mergeRun.summaryMd,
+    failureKind: mergeRun.failureKind || "",
     startedAt: mergeRun.startedAt,
     finishedAt: mergeRun.finishedAt,
     artifacts: (mergeRun.artifacts || []).map(artifactDto),

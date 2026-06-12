@@ -634,6 +634,99 @@ h3 {
   background: var(--panel-warm);
 }
 
+.run-observability {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 12px;
+  background: var(--panel-warm);
+}
+
+.run-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.run-list {
+  display: grid;
+  gap: 8px;
+}
+
+.run-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+
+.run-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.run-item.needs-attention .run-marker {
+  border-color: rgba(155, 81, 62, .42);
+  color: var(--danger);
+}
+
+.run-marker {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-soft);
+  color: var(--teal);
+  font-weight: 900;
+}
+
+.run-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.run-copy span,
+.run-copy p,
+.run-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.run-copy > span,
+.run-meta {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.run-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.run-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.inline-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  cursor: pointer;
+}
+
 .decision-list {
   display: grid;
   gap: 8px;
@@ -1848,6 +1941,7 @@ textarea {
   .summary-strip,
   .form-grid,
   .ops-panel,
+  .run-metrics,
   .decision-queue,
   .ceremonies-panel,
   .action-grid,

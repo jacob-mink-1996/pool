@@ -21,6 +21,7 @@ import {
   deleteProject,
   getBoard,
   getProject,
+  getRunObservability,
   getTicket,
   listArtifacts,
   listCeremonies,
@@ -58,6 +59,7 @@ import type {
   Repo,
   RepoInput,
   RoleName,
+  RunObservability,
   TicketDetail,
   TicketState,
 } from "./types";
@@ -97,6 +99,7 @@ function App() {
   const [ceremonies, setCeremonies] = useState<CeremonyRun[]>([]);
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [runObservability, setRunObservability] = useState<RunObservability | null>(null);
   const [selectedTicketId, setSelectedTicketId] = useState("");
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -154,8 +157,9 @@ function App() {
       listCeremonies(projectId),
       listEvents(projectId),
       listArtifacts(projectId),
+      getRunObservability(projectId),
     ])
-      .then(([nextProject, nextBoard, nextRepos, nextMergeQueue, nextCeremonies, nextEvents, nextArtifacts]) => {
+      .then(([nextProject, nextBoard, nextRepos, nextMergeQueue, nextCeremonies, nextEvents, nextArtifacts, nextRunObservability]) => {
         if (cancelled) return;
         setProject(nextProject);
         setBoard(nextBoard);
@@ -164,6 +168,7 @@ function App() {
         setCeremonies(nextCeremonies);
         setEvents(nextEvents);
         setArtifacts(nextArtifacts);
+        setRunObservability(nextRunObservability);
         setLoadState("ready");
         setMessage("");
         window.history.replaceState(null, "", `#${projectId}`);
@@ -253,7 +258,7 @@ function App() {
 
   const refresh = async () => {
     if (!projectId) return;
-    const [nextProject, nextBoard, nextRepos, nextMergeQueue, nextCeremonies, nextEvents, nextArtifacts] = await Promise.all([
+    const [nextProject, nextBoard, nextRepos, nextMergeQueue, nextCeremonies, nextEvents, nextArtifacts, nextRunObservability] = await Promise.all([
       getProject(projectId),
       getBoard(projectId),
       listRepos(projectId),
@@ -261,6 +266,7 @@ function App() {
       listCeremonies(projectId),
       listEvents(projectId),
       listArtifacts(projectId),
+      getRunObservability(projectId),
     ]);
     setProject(nextProject);
     setBoard(nextBoard);
@@ -269,6 +275,7 @@ function App() {
     setCeremonies(nextCeremonies);
     setEvents(nextEvents);
     setArtifacts(nextArtifacts);
+    setRunObservability(nextRunObservability);
     setMessage("");
     if (selectedTicketId && nextBoard.columns.some((column) => column.tickets.some((item) => item.id === selectedTicketId))) {
       setTicket(await getTicket(projectId, selectedTicketId));
@@ -342,9 +349,14 @@ function App() {
     setMessage("");
     try {
       await createCeremony(projectId, { type, ...input });
-      const [nextCeremonies, nextEvents] = await Promise.all([listCeremonies(projectId), listEvents(projectId)]);
+      const [nextCeremonies, nextEvents, nextRunObservability] = await Promise.all([
+        listCeremonies(projectId),
+        listEvents(projectId),
+        getRunObservability(projectId),
+      ]);
       setCeremonies(nextCeremonies);
       setEvents(nextEvents);
+      setRunObservability(nextRunObservability);
     } catch (ceremonyError) {
       setMessage(ceremonyError instanceof Error ? ceremonyError.message : String(ceremonyError));
     }
@@ -392,6 +404,7 @@ function App() {
     setCeremonies([]);
     setEvents([]);
     setArtifacts([]);
+    setRunObservability(null);
     setSelectedTicketId("");
     setTicket(null);
     setDetailOpen(false);
@@ -495,6 +508,7 @@ function App() {
               ceremonies={ceremonies}
               events={events}
               artifacts={artifacts}
+              runObservability={runObservability}
               onSelectTicket={selectTicket}
               onApplyCeremony={handleApplyCeremony}
               onOpenCeremonies={() => setActiveView("ceremonies")}
@@ -664,6 +678,7 @@ function OpsPanel({
   ceremonies,
   events,
   artifacts,
+  runObservability,
   onSelectTicket,
   onApplyCeremony,
   onOpenCeremonies,
@@ -673,6 +688,7 @@ function OpsPanel({
   ceremonies: CeremonyRun[];
   events: EventRecord[];
   artifacts: Artifact[];
+  runObservability: RunObservability | null;
   onSelectTicket: (id: string) => void;
   onApplyCeremony: (runId: string, proposalIds?: string[]) => Promise<void>;
   onOpenCeremonies: () => void;
@@ -704,6 +720,45 @@ function OpsPanel({
 
   return (
     <section className="ops-panel" aria-label="Operations overview">
+      <div className="run-observability">
+        <div className="section-heading">
+          <h3>Run Observability</h3>
+          <span>{runObservability ? formatDate(runObservability.generatedAt) : "Loading"}</span>
+        </div>
+        <div className="run-metrics">
+          <Metric label="Runs" value={String(runObservability?.summary.total || 0)} />
+          <Metric label="Running" value={String(runObservability?.summary.running || 0)} />
+          <Metric label="Attention" value={String(runObservability?.summary.needsAttention || 0)} />
+          <Metric label="Failed" value={String(runObservability?.summary.failed || 0)} />
+        </div>
+        <div className="run-list">
+          {!runObservability || runObservability.runs.length === 0 ? <p className="lane-empty">No worker runs recorded yet.</p> : null}
+          {runObservability?.runs.slice(0, 8).map((run) => (
+            <article key={run.id} className={`run-item run-${run.kind} ${run.needsAttention ? "needs-attention" : ""}`}>
+              <div className="run-marker">
+                <span>{run.kind.slice(0, 1).toUpperCase()}</span>
+              </div>
+              <div className="run-copy">
+                <span>{prettyState(run.kind)} · {prettyState(run.status)} · {formatDate(run.finishedAt || run.startedAt)}</span>
+                <strong>{run.label}</strong>
+                <p>{run.summary}</p>
+                <div className="run-meta">
+                  {run.ticketId ? (
+                    <button className="inline-link" type="button" onClick={() => onSelectTicket(run.ticketId)}>
+                      {run.ticketKey || "Open ticket"}
+                    </button>
+                  ) : null}
+                  {run.role ? <span>{prettyRole(run.role as RoleName)}</span> : null}
+                  {run.failureKind ? <span>{prettyState(run.failureKind)}</span> : null}
+                  {run.artifactCount ? <span>{run.artifactCount} artifact(s)</span> : null}
+                  {run.worktreeCount ? <span>{run.worktreeCount} worktree(s)</span> : null}
+                  {run.pendingProposalCount ? <span>{run.pendingProposalCount} proposal(s)</span> : null}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
       <div className="decision-queue">
         <div className="section-heading">
           <h3>Decision Queue</h3>

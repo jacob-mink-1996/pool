@@ -498,6 +498,39 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
   });
 });
 
+test("run observability endpoint combines execution and ceremony runs", async () => {
+  await withServer(async (baseUrl) => {
+    const executionResponse = await fetch(
+      `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          role: "developer",
+          reason: "Expose execution in run observability.",
+        }),
+      },
+    );
+    const executionBody = await executionResponse.json();
+    assert.equal(executionResponse.status, 201);
+
+    const ceremonyResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/ceremonies`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "daily_triage" }),
+    });
+    assert.equal(ceremonyResponse.status, 201);
+
+    const runsResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/runs?limit=10`);
+    const runsBody = await runsResponse.json();
+
+    assert.equal(runsResponse.status, 200);
+    assert.equal(runsBody.observability.summary.total >= 2, true);
+    assert.equal(runsBody.observability.runs.some((run) => run.id === `execution:${executionBody.execution.id}`), true);
+    assert.equal(runsBody.observability.runs.some((run) => run.kind === "ceremony" && run.needsAttention), true);
+  });
+});
+
 test("API surfaces merge-policy blocks when validation profile does not satisfy policy", async () => {
   await withServer(async (baseUrl) => {
     await fetch(`${baseUrl}/api/v1/projects/project_floop/policy`, {
