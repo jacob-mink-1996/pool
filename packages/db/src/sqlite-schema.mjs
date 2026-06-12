@@ -1,3 +1,5 @@
+import { latestSqliteMigrationVersion, sqliteMigrations } from "./sqlite-migrations/index.mjs";
+
 export const sqliteSchema = `
 pragma foreign_keys = on;
 
@@ -303,176 +305,17 @@ create index if not exists idx_ceremony_participants_status on ceremony_particip
 `;
 
 export function migrateSchema(database) {
-  const policyColumns = new Set(
-    database.prepare("pragma table_info(project_policies)").all().map((row) => row.name),
-  );
-  if (!policyColumns.has("required_validation_command_profile_for_merge")) {
-    database.exec(
-      "alter table project_policies add column required_validation_command_profile_for_merge text not null default ''",
-    );
-  }
-  if (!policyColumns.has("max_parallel_merges")) {
-    database.exec("alter table project_policies add column max_parallel_merges integer not null default 1");
-  }
-  if (!policyColumns.has("refinement_mode")) {
-    database.exec("alter table project_policies add column refinement_mode text not null default 'user_approved'");
-  }
-  if (!policyColumns.has("ceremony_automation_json")) {
-    database.exec("alter table project_policies add column ceremony_automation_json text not null default '{}'");
+  const currentVersion = Number(database.prepare("pragma user_version").get().user_version || 0);
+  for (const migration of sqliteMigrations) {
+    if (migration.version <= currentVersion) {
+      continue;
+    }
+    migration.up(database);
+    database.exec(`pragma user_version = ${migration.version}`);
   }
 
-  database.exec(`
-    create table if not exists ceremony_participants (
-      id text primary key,
-      project_id text not null references projects(id) on delete cascade,
-      run_id text not null references ceremony_runs(id) on delete cascade,
-      role text not null,
-      status text not null,
-      outcome text not null default '',
-      summary_md text not null default '',
-      questions_md text not null default '',
-      risk_md text not null default '',
-      payload_json text not null default '{}',
-      started_at text,
-      finished_at text,
-      created_at text not null,
-      updated_at text not null,
-      unique (run_id, role)
-    );
-    create index if not exists idx_ceremony_participants_status on ceremony_participants(status);
-  `);
-
-  const eventColumns = new Set(database.prepare("pragma table_info(events)").all().map((row) => row.name));
-  if (!eventColumns.has("reason_code")) {
-    database.exec("alter table events add column reason_code text not null default ''");
-  }
-  if (!eventColumns.has("reason_source")) {
-    database.exec("alter table events add column reason_source text not null default ''");
-  }
-
-  const executionColumns = new Set(database.prepare("pragma table_info(executions)").all().map((row) => row.name));
-  if (!executionColumns.has("claim_token")) {
-    database.exec("alter table executions add column claim_token text not null default ''");
-  }
-  if (!executionColumns.has("claim_expires_at")) {
-    database.exec("alter table executions add column claim_expires_at text");
-  }
-
-  let mergeRunInfo = database.prepare("pragma table_info(merge_runs)").all();
-  let mergeRunColumns = new Set(mergeRunInfo.map((row) => row.name));
-  if (!mergeRunColumns.has("failure_kind")) {
-    database.exec("alter table merge_runs add column failure_kind text not null default ''");
-  }
-  if (!mergeRunColumns.has("claim_token")) {
-    database.exec("alter table merge_runs add column claim_token text not null default ''");
-  }
-  if (!mergeRunColumns.has("claim_expires_at")) {
-    database.exec("alter table merge_runs add column claim_expires_at text");
-  }
-  mergeRunInfo = database.prepare("pragma table_info(merge_runs)").all();
-  if (mergeRunInfo.find((row) => row.name === "finished_at")?.notnull) {
-    migrateMergeRunsFinishedAtNullable(database);
-  }
-  const artifactForeignKeys = database.prepare("pragma foreign_key_list(artifacts)").all();
-  if (artifactForeignKeys.some((row) => row.from === "merge_run_id" && row.table !== "merge_runs")) {
-    migrateArtifactsMergeRunReference(database);
+  const finalVersion = Number(database.prepare("pragma user_version").get().user_version || 0);
+  if (finalVersion < latestSqliteMigrationVersion) {
+    throw new Error(`SQLite migrations stopped at version ${finalVersion}; expected ${latestSqliteMigrationVersion}`);
   }
 }
-
-function migrateMergeRunsFinishedAtNullable(database) {
-  database.exec("pragma foreign_keys = off");
-  database.exec("pragma legacy_alter_table = on");
-  try {
-    database.exec("begin");
-    database.exec("alter table merge_runs rename to merge_runs_legacy_notnull_finished_at");
-    database.exec(`
-      create table merge_runs (
-        id text primary key,
-        project_id text not null references projects(id) on delete cascade,
-        ticket_id text not null references tickets(id) on delete cascade,
-        status text not null,
-        strategy text not null,
-        approved_by_kind text not null default '',
-        approved_by_ref text not null default '',
-        summary_md text not null default '',
-        failure_kind text not null default '',
-        claim_token text not null default '',
-        claim_expires_at text,
-        started_at text not null,
-        finished_at text
-      )
-    `);
-    database.exec(`
-      insert into merge_runs (
-        id, project_id, ticket_id, status, strategy, approved_by_kind,
-        approved_by_ref, summary_md, failure_kind, claim_token,
-        claim_expires_at, started_at, finished_at
-      )
-      select
-        id, project_id, ticket_id, status, strategy, approved_by_kind,
-        approved_by_ref, summary_md, failure_kind, claim_token,
-        claim_expires_at, started_at, finished_at
-      from merge_runs_legacy_notnull_finished_at
-    `);
-    database.exec("drop table merge_runs_legacy_notnull_finished_at");
-    database.exec("create index if not exists idx_merge_runs_project_id on merge_runs(project_id)");
-    database.exec("create index if not exists idx_merge_runs_ticket_id on merge_runs(ticket_id)");
-    database.exec("commit");
-  } catch (error) {
-    database.exec("rollback");
-    throw error;
-  } finally {
-    database.exec("pragma legacy_alter_table = off");
-    database.exec("pragma foreign_keys = on");
-  }
-}
-
-function migrateArtifactsMergeRunReference(database) {
-  database.exec("pragma foreign_keys = off");
-  database.exec("pragma legacy_alter_table = on");
-  try {
-    database.exec("begin");
-    database.exec("alter table artifacts rename to artifacts_legacy_merge_run_fk");
-    database.exec(`
-      create table artifacts (
-        id text primary key,
-        project_id text not null references projects(id) on delete cascade,
-        ticket_id text not null references tickets(id) on delete cascade,
-        execution_id text references executions(id) on delete cascade,
-        review_id text references reviews(id) on delete cascade,
-        validation_run_id text references validation_runs(id) on delete cascade,
-        merge_run_id text references merge_runs(id) on delete cascade,
-        kind text not null,
-        label text not null,
-        uri text not null,
-        metadata_json text not null default '{}',
-        created_at text not null
-      )
-    `);
-    database.exec(`
-      insert into artifacts (
-        id, project_id, ticket_id, execution_id, review_id, validation_run_id,
-        merge_run_id, kind, label, uri, metadata_json, created_at
-      )
-      select
-        id, project_id, ticket_id, execution_id, review_id, validation_run_id,
-        merge_run_id, kind, label, uri, metadata_json, created_at
-      from artifacts_legacy_merge_run_fk
-    `);
-    database.exec("drop table artifacts_legacy_merge_run_fk");
-    database.exec("create index if not exists idx_artifacts_project_id on artifacts(project_id)");
-    database.exec("create index if not exists idx_artifacts_ticket_id on artifacts(ticket_id)");
-    database.exec("create index if not exists idx_artifacts_execution_id on artifacts(execution_id)");
-    database.exec("create index if not exists idx_artifacts_review_id on artifacts(review_id)");
-    database.exec("create index if not exists idx_artifacts_validation_run_id on artifacts(validation_run_id)");
-    database.exec("create index if not exists idx_artifacts_merge_run_id on artifacts(merge_run_id)");
-    database.exec("commit");
-  } catch (error) {
-    database.exec("rollback");
-    throw error;
-  } finally {
-    database.exec("pragma legacy_alter_table = off");
-    database.exec("pragma foreign_keys = on");
-  }
-}
-

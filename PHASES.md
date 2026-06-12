@@ -33,17 +33,17 @@ Steps:
 6. Merge command extraction - complete.
 7. Extract ceremony commands - complete.
 8. Transition policy layer - complete.
-9. Versioned migrations - next.
-10. Artifact durability contract - pending.
+9. Versioned migrations - complete.
+10. Artifact durability contract - next.
 11. Local trust/auth model - pending.
 12. Decision queue UI - pending.
 13. Push/PR hygiene - pending.
 
 Immediate next work:
 
-- move inline schema evolution into ordered migration files
-- keep the current SQLite MVP behavior unchanged
-- leave room for later Postgres migration parity
+- decide which artifacts remain URI references versus copied local files
+- standardize artifact roots and cleanup rules
+- document and enforce the durability behavior in store/API tests
 
 ## Phase 9: Rebrand Consolidation
 
