@@ -35,6 +35,7 @@ create table if not exists project_policies (
   max_auto_continue_iterations integer not null default 3,
   refinement_mode text not null default 'user_approved',
   agent_created_ticket_default_state text not null,
+  ceremony_automation_json jsonb not null default '{}'::jsonb,
   created_at timestamptz not null,
   updated_at timestamptz not null
 );
@@ -130,4 +131,22 @@ create table if not exists ceremony_proposals (
   applied_at timestamptz,
   created_at timestamptz not null,
   updated_at timestamptz not null
+);
+
+create table if not exists ceremony_participants (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  run_id text not null references ceremony_runs(id) on delete cascade,
+  role text not null,
+  status text not null,
+  outcome text not null default '',
+  summary_md text not null default '',
+  questions_md text not null default '',
+  risk_md text not null default '',
+  payload_json jsonb not null default '{}'::jsonb,
+  started_at timestamptz,
+  finished_at timestamptz,
+  created_at timestamptz not null,
+  updated_at timestamptz not null,
+  unique (run_id, role)
 );

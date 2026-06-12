@@ -353,6 +353,18 @@ test("project policy and role profiles can be patched through the API", async ()
         maxParallelMerges: 2,
         maxAutoContinueIterations: 9,
         agentCreatedTicketDefaultState: "READY",
+        ceremonyAutomation: {
+          enabled: true,
+          mode: "operator_approved",
+          triggers: {
+            daily_triage: {
+              enabled: true,
+              minIntervalMinutes: 120,
+              participantRoles: ["product_manager", "developer", "reviewer"],
+              deciderRole: "product_manager",
+            },
+          },
+        },
       }),
     });
     const updatePolicyBody = await updatePolicyResponse.json();
@@ -382,6 +394,8 @@ test("project policy and role profiles can be patched through the API", async ()
     assert.equal(updatePolicyBody.policy.maxParallelMerges, 2);
     assert.equal(updatePolicyBody.policy.requireReviewer, false);
     assert.equal(updatePolicyBody.policy.requiredValidationCommandProfileForMerge, "ci");
+    assert.equal(updatePolicyBody.policy.ceremonyAutomation.enabled, true);
+    assert.equal(updatePolicyBody.policy.ceremonyAutomation.triggers.daily_triage.minIntervalMinutes, 120);
     assert.equal(updateProfileResponse.status, 200);
     assert.equal(updateProfileBody.profile.role, "developer");
     assert.equal(updateProfileBody.profile.adapter, "codex-cli");
@@ -417,7 +431,12 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
     const runResponse = await fetch(`${baseUrl}/api/v1/projects/project_pool/ceremonies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ type: "refinement" }),
+      body: JSON.stringify({
+        type: "refinement",
+        participantRoles: ["product_manager", "developer", "developer", "reviewer"],
+        deciderRole: "product_manager",
+        consensusPolicy: "decider_synthesizes_objections",
+      }),
     });
     const runBody = await runResponse.json();
     const proposal = runBody.ceremony.proposals.find(
@@ -443,6 +462,9 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
     assert.equal(createTicketResponse.status, 201);
     assert.equal(runResponse.status, 201);
     assert.equal(runBody.ceremony.type, "refinement");
+    assert.deepEqual(runBody.ceremony.participantRoles, ["product_manager", "developer", "reviewer"]);
+    assert.equal(runBody.ceremony.deciderRole, "product_manager");
+    assert.equal(runBody.ceremony.consensusPolicy, "decider_synthesizes_objections");
     assert.ok(proposal);
     assert.equal(listResponse.status, 200);
     assert.equal(listBody.ceremonies[0].id, runBody.ceremony.id);

@@ -49,6 +49,22 @@ export type ProjectPolicy = {
   maxAutoContinueIterations: number;
   refinementMode: RefinementMode;
   agentCreatedTicketDefaultState: TicketState;
+  ceremonyAutomation: CeremonyAutomation;
+};
+
+export type CeremonyAutomation = {
+  enabled: boolean;
+  mode: string;
+  triggers: Record<string, CeremonyAutomationTrigger>;
+};
+
+export type CeremonyAutomationTrigger = {
+  enabled: boolean;
+  minIntervalMinutes?: number;
+  participantRoles?: RoleName[];
+  deciderRole?: RoleName;
+  consensusPolicy?: string;
+  [key: string]: unknown;
 };
 
 export type RoleProfile = {
@@ -79,6 +95,7 @@ export type ProjectPolicyInput = {
   maxAutoContinueIterations: number;
   refinementMode: RefinementMode;
   agentCreatedTicketDefaultState: TicketState;
+  ceremonyAutomation?: CeremonyAutomation;
 };
 
 export type BoardTicket = {
@@ -235,12 +252,32 @@ export type CeremonyProposal = {
   createdAt: string;
 };
 
+export type CeremonyParticipant = {
+  id: string;
+  projectId: string;
+  runId: string;
+  role: RoleName;
+  status: string;
+  outcome: string;
+  summaryMd: string;
+  questionsMd: string;
+  riskMd: string;
+  payload: Record<string, unknown>;
+  startedAt: string;
+  finishedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CeremonyRun = {
   id: string;
   projectId: string;
   type: CeremonyType;
   status: string;
   scope: Record<string, unknown>;
+  participantRoles: RoleName[];
+  deciderRole: RoleName | "";
+  consensusPolicy: string;
   inputSnapshot: Record<string, unknown>;
   summaryMd: string;
   questionsMd: string;
@@ -251,6 +288,7 @@ export type CeremonyRun = {
   finishedAt: string;
   appliedAt: string;
   proposals: CeremonyProposal[];
+  participants: CeremonyParticipant[];
 };
 
 export type TicketDetail = BoardTicket & {

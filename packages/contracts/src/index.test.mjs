@@ -350,6 +350,18 @@ test("request parsers normalize project and ticket payloads", () => {
     maxAutoContinueIterations: 7,
     refinementMode: " user_participant ",
     agentCreatedTicketDefaultState: " READY ",
+    ceremonyAutomation: {
+      enabled: true,
+      mode: "fully_automatic",
+      triggers: {
+        refinement: {
+          enabled: true,
+          minIntervalMinutes: 20,
+          participantRoles: ["product_manager", "developer"],
+          deciderRole: "product_manager",
+        },
+      },
+    },
   });
   const roleProfile = parseUpdateRoleProfileInput({
     adapter: " codex ",
@@ -377,6 +389,18 @@ test("request parsers normalize project and ticket payloads", () => {
     maxAutoContinueIterations: 7,
     refinementMode: "user_participant",
     agentCreatedTicketDefaultState: "READY",
+    ceremonyAutomation: {
+      enabled: true,
+      mode: "fully_automatic",
+      triggers: {
+        refinement: {
+          enabled: true,
+          minIntervalMinutes: 20,
+          participantRoles: ["product_manager", "developer"],
+          deciderRole: "product_manager",
+        },
+      },
+    },
   });
   assert.deepEqual(roleProfile, {
     adapter: "codex",

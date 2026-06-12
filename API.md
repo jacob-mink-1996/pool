@@ -92,9 +92,15 @@ Expected fields:
 
 - `type`
 - `scope`
+- `participantRoles[]`
+- `deciderRole`
+- `consensusPolicy`
 
 Ceremony runs produce reviewable proposals. They do not mutate tickets until an
-operator applies proposals.
+operator applies proposals. When participant roles are configured, Pool also
+creates ceremony participant records; the participant driver runs those role
+profiles in parallel and appends an agent-consensus note proposal after every
+participant completes.
 
 ### `GET /api/v1/projects/:projectId/ceremonies/:runId`
 
@@ -138,6 +144,22 @@ Expected fields:
 - `maxParallelMerges`
 - `maxAutoContinueIterations`
 - `refinementMode`
+- `agentCreatedTicketDefaultState`
+- `ceremonyAutomation`
+
+`ceremonyAutomation` stores operator-configured trigger policy. It supports:
+
+- `enabled`: master switch
+- `mode`: `operator_approved` or `fully_automatic`
+- `triggers`: ceremony keyed trigger config
+
+Default trigger intent:
+
+- `refinement`: draft/proposed tickets or backlog changes
+- `planning`: ready queue changes or execution capacity opens
+- `daily_triage`: blocked, rework, or stale active work
+- `review_demo_prep`: done or merge-ready work appears
+- `retro`: repeated blocked/rework patterns or cycle completion
 - `agentCreatedTicketDefaultState`
 
 ## Repo Endpoints

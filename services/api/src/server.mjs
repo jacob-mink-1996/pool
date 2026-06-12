@@ -1,4 +1,6 @@
 import { createPoolServer } from "./app.mjs";
+import { createCeremonyAutomationDriver } from "./ceremony-automation-driver.mjs";
+import { createCeremonyParticipantDriver } from "./ceremony-participant-driver.mjs";
 import { createExecutionDriver } from "./execution-driver.mjs";
 import { createMergeDriver } from "./merge-driver.mjs";
 import { createStore } from "./store.mjs";
@@ -15,9 +17,20 @@ const mergeDriver = createMergeDriver({
   store,
   pollIntervalMs: Number.parseInt(process.env.POOL_MERGE_POLL_MS || "2000", 10),
 });
+const ceremonyAutomationDriver = createCeremonyAutomationDriver({
+  store,
+  pollIntervalMs: Number.parseInt(process.env.POOL_CEREMONY_POLL_MS || "30000", 10),
+});
+const ceremonyParticipantDriver = createCeremonyParticipantDriver({
+  store,
+  pollIntervalMs: Number.parseInt(process.env.POOL_CEREMONY_PARTICIPANT_POLL_MS || "2000", 10),
+  maxParallel: Number.parseInt(process.env.POOL_CEREMONY_PARTICIPANT_MAX_PARALLEL || "4", 10),
+});
 
 driver.start();
 mergeDriver.start();
+ceremonyAutomationDriver.start();
+ceremonyParticipantDriver.start();
 
 server.listen(port, host, () => {
   console.log(`Pool API listening on http://${host}:${port}`);
@@ -30,5 +43,11 @@ server.on("close", () => {
   });
   mergeDriver.stop().catch((error) => {
     console.error("Pool merge driver stop failed", error);
+  });
+  ceremonyAutomationDriver.stop().catch((error) => {
+    console.error("Pool ceremony automation driver stop failed", error);
+  });
+  ceremonyParticipantDriver.stop().catch((error) => {
+    console.error("Pool ceremony participant driver stop failed", error);
   });
 });

@@ -16,8 +16,8 @@ import type {
   RepoInput,
   RepoMetadata,
   RepoUpdateInput,
-  RoleName,
   RoleProfile,
+  RoleName,
   TicketDetail,
   TicketState,
   Worktree,
@@ -139,7 +139,13 @@ export async function listCeremonies(projectId: string): Promise<CeremonyRun[]> 
 
 export async function createCeremony(
   projectId: string,
-  input: { type: CeremonyType; scope?: Record<string, unknown> },
+  input: {
+    type: CeremonyType;
+    scope?: Record<string, unknown>;
+    participantRoles?: RoleName[];
+    deciderRole?: RoleName | "";
+    consensusPolicy?: string;
+  },
 ): Promise<CeremonyRun> {
   const payload = await fetchJson<{ ceremony: CeremonyRun }>(`/api/v1/projects/${projectId}/ceremonies`, {
     method: "POST",

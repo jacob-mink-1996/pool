@@ -3,7 +3,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { defaultProjectPolicy, defaultRoleProfiles } from "../../config/src/index.mjs";
+import { defaultCeremonyAutomation, defaultProjectPolicy, defaultRoleProfiles } from "../../config/src/index.mjs";
 import {
   artifactDto,
   ceremonyRunDto,
@@ -48,6 +48,7 @@ create table if not exists project_policies (
   max_auto_continue_iterations integer not null default 3,
   refinement_mode text not null default 'user_approved',
   agent_created_ticket_default_state text not null,
+  ceremony_automation_json text not null default '{}',
   created_at text not null,
   updated_at text not null
 );
@@ -278,6 +279,24 @@ create table if not exists ceremony_proposals (
   updated_at text not null
 );
 
+create table if not exists ceremony_participants (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  run_id text not null references ceremony_runs(id) on delete cascade,
+  role text not null,
+  status text not null,
+  outcome text not null default '',
+  summary_md text not null default '',
+  questions_md text not null default '',
+  risk_md text not null default '',
+  payload_json text not null default '{}',
+  started_at text,
+  finished_at text,
+  created_at text not null,
+  updated_at text not null,
+  unique (run_id, role)
+);
+
 create index if not exists idx_repos_project_id on repos(project_id);
 create index if not exists idx_tickets_project_id on tickets(project_id);
 create index if not exists idx_ticket_repo_targets_ticket_id on ticket_repo_targets(ticket_id);
@@ -304,6 +323,7 @@ create index if not exists idx_events_project_id on events(project_id);
 create index if not exists idx_events_ticket_id on events(ticket_id);
 create index if not exists idx_ceremony_runs_project_id on ceremony_runs(project_id);
 create index if not exists idx_ceremony_proposals_run_id on ceremony_proposals(run_id);
+create index if not exists idx_ceremony_participants_status on ceremony_participants(status);
 `;
 
 export function defaultDatabasePath(cwd = process.cwd()) {
@@ -485,6 +505,9 @@ export function createSqliteStore(options = {}) {
       applyTextPatch(updates, changedFields, input, existing, "agentCreatedTicketDefaultState", {
         column: "agent_created_ticket_default_state",
         required: true,
+      });
+      applyJsonObjectPatch(updates, changedFields, input, existing, "ceremonyAutomation", {
+        column: "ceremony_automation_json",
       });
 
       if (changedFields.length === 0) {
@@ -696,7 +719,14 @@ export function createSqliteStore(options = {}) {
         projectId,
         runs.map((run) => run.id),
       );
-      return runs.map((run) => ceremonyRunDto(run, proposalsByRunId.get(run.id) || []));
+      const participantsByRunId = getCeremonyParticipantsByRunId(
+        database,
+        projectId,
+        runs.map((run) => run.id),
+      );
+      return runs.map((run) =>
+        ceremonyRunDto(run, proposalsByRunId.get(run.id) || [], participantsByRunId.get(run.id) || []),
+      );
     },
 
     getCeremonyRun(projectId, runId) {
@@ -707,7 +737,11 @@ export function createSqliteStore(options = {}) {
         return null;
       }
       const run = mapCeremonyRun(row);
-      return ceremonyRunDto(run, getCeremonyProposalsByRunId(database, projectId, [run.id]).get(run.id) || []);
+      return ceremonyRunDto(
+        run,
+        getCeremonyProposalsByRunId(database, projectId, [run.id]).get(run.id) || [],
+        getCeremonyParticipantsByRunId(database, projectId, [run.id]).get(run.id) || [],
+      );
     },
 
     createCeremonyRun(projectId, input) {
@@ -722,14 +756,15 @@ export function createSqliteStore(options = {}) {
       const timestamp = now();
       const runId = `ceremony_${randomUUID()}`;
       const snapshot = buildCeremonyInputSnapshot(database, projectId);
+      const scope = buildCeremonyScope(input.type, input);
       const proposals = buildCeremonyProposals(input.type, snapshot, timestamp);
-      const summary = buildCeremonySummary(input.type, snapshot, proposals);
+      const summary = buildCeremonySummary(input.type, snapshot, proposals, scope);
       const run = {
         id: runId,
         projectId,
         type: input.type,
         status: "proposed",
-        scope: input.scope || {},
+        scope,
         inputSnapshot: snapshot,
         summaryMd: summary.summaryMd,
         questionsMd: summary.questionsMd,
@@ -775,7 +810,7 @@ export function createSqliteStore(options = {}) {
           projectId,
           type: "ceremony.started",
           summary: `${prettyCeremonyType(input.type)} started`,
-          detail: `${snapshot.tickets.length} ticket(s), ${snapshot.repos.length} repo(s) in scope.`,
+          detail: `${snapshot.tickets.length} ticket(s), ${snapshot.repos.length} repo(s) in scope. Participants: ${scope.participantRoles.join(", ")}. Decider: ${scope.deciderRole}.`,
           reasonCode: input.type,
           reasonSource: "ceremony",
         });
@@ -804,6 +839,33 @@ export function createSqliteStore(options = {}) {
             );
         }
 
+        for (const role of scope.participantRoles || []) {
+          database
+            .prepare(
+              `insert into ceremony_participants (
+                id, project_id, run_id, role, status, outcome, summary_md,
+                questions_md, risk_md, payload_json, started_at, finished_at,
+                created_at, updated_at
+              ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .run(
+              `ceremony_participant_${randomUUID()}`,
+              projectId,
+              runId,
+              role,
+              "pending",
+              "",
+              "",
+              "",
+              "",
+              "{}",
+              null,
+              null,
+              timestamp,
+              timestamp,
+            );
+        }
+
         insertEvent(database, {
           projectId,
           type: "ceremony.proposed",
@@ -815,6 +877,72 @@ export function createSqliteStore(options = {}) {
       });
 
       return this.getCeremonyRun(projectId, runId);
+    },
+
+    listPendingCeremonyParticipants() {
+      return database
+        .prepare(
+          `select cp.*, cr.type as ceremony_type
+           from ceremony_participants cp
+           join ceremony_runs cr on cr.id = cp.run_id
+           where cp.status = 'pending'
+           order by cp.created_at asc`,
+        )
+        .all()
+        .map(mapCeremonyParticipant);
+    },
+
+    startCeremonyParticipant(projectId, participantId) {
+      const existing = database
+        .prepare("select * from ceremony_participants where project_id = ? and id = ?")
+        .get(projectId, participantId);
+      if (!existing || existing.status !== "pending") {
+        return existing ? mapCeremonyParticipant(existing) : null;
+      }
+      const timestamp = now();
+      database
+        .prepare(
+          "update ceremony_participants set status = 'running', started_at = ?, updated_at = ? where project_id = ? and id = ?",
+        )
+        .run(timestamp, timestamp, projectId, participantId);
+      database
+        .prepare("update ceremony_runs set status = 'running', updated_at = ? where project_id = ? and id = ? and status = 'proposed'")
+        .run(timestamp, projectId, existing.run_id);
+      return mapCeremonyParticipant(
+        database.prepare("select * from ceremony_participants where project_id = ? and id = ?").get(projectId, participantId),
+      );
+    },
+
+    completeCeremonyParticipant(projectId, participantId, input = {}) {
+      const existing = database
+        .prepare("select * from ceremony_participants where project_id = ? and id = ?")
+        .get(projectId, participantId);
+      if (!existing || existing.status === "completed") {
+        return existing ? mapCeremonyParticipant(existing) : null;
+      }
+      const timestamp = now();
+      database
+        .prepare(
+          `update ceremony_participants
+           set status = 'completed', outcome = ?, summary_md = ?, questions_md = ?,
+               risk_md = ?, payload_json = ?, finished_at = ?, updated_at = ?
+           where project_id = ? and id = ?`,
+        )
+        .run(
+          optionalText(input.outcome, "completed"),
+          optionalText(input.summaryMd, `${existing.role} completed ceremony participation.`),
+          optionalText(input.questionsMd, ""),
+          optionalText(input.riskMd, ""),
+          JSON.stringify(input.payload || {}),
+          timestamp,
+          timestamp,
+          projectId,
+          participantId,
+        );
+      maybeSynthesizeCeremonyParticipants(database, projectId, existing.run_id, timestamp);
+      return mapCeremonyParticipant(
+        database.prepare("select * from ceremony_participants where project_id = ? and id = ?").get(projectId, participantId),
+      );
     },
 
     applyCeremonyRun(projectId, runId, input = {}) {
@@ -3388,6 +3516,27 @@ function mapProjectPolicy(row) {
     maxAutoContinueIterations: Number(row.max_auto_continue_iterations),
     refinementMode: row.refinement_mode || "user_approved",
     agentCreatedTicketDefaultState: row.agent_created_ticket_default_state,
+    ceremonyAutomation: mergeCeremonyAutomation(parseJsonObject(row.ceremony_automation_json, {})),
+  };
+}
+
+function mergeCeremonyAutomation(value = {}) {
+  const defaults = defaultCeremonyAutomation();
+  const triggers = value.triggers && typeof value.triggers === "object" && !Array.isArray(value.triggers)
+    ? value.triggers
+    : {};
+  return {
+    ...defaults,
+    ...value,
+    triggers: Object.fromEntries(
+      Object.entries(defaults.triggers).map(([type, trigger]) => [
+        type,
+        {
+          ...trigger,
+          ...(triggers[type] || {}),
+        },
+      ]),
+    ),
   };
 }
 
@@ -3495,6 +3644,135 @@ function mapCeremonyProposal(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function mapCeremonyParticipant(row) {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    runId: row.run_id,
+    role: row.role,
+    status: row.status,
+    outcome: row.outcome,
+    summaryMd: row.summary_md,
+    questionsMd: row.questions_md,
+    riskMd: row.risk_md,
+    payload: parseJsonObject(row.payload_json, {}),
+    ceremonyType: row.ceremony_type || "",
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function getCeremonyParticipantsByRunId(database, projectId, runIds) {
+  const byRunId = new Map(runIds.map((runId) => [runId, []]));
+  if (runIds.length === 0) {
+    return byRunId;
+  }
+  const placeholders = runIds.map(() => "?").join(", ");
+  const rows = database
+    .prepare(
+      `select *
+       from ceremony_participants
+       where project_id = ? and run_id in (${placeholders})
+       order by created_at asc`,
+    )
+    .all(projectId, ...runIds);
+  for (const row of rows) {
+    byRunId.get(row.run_id)?.push(mapCeremonyParticipant(row));
+  }
+  return byRunId;
+}
+
+function maybeSynthesizeCeremonyParticipants(database, projectId, runId, timestamp) {
+  const participants = database
+    .prepare("select * from ceremony_participants where project_id = ? and run_id = ? order by created_at asc")
+    .all(projectId, runId)
+    .map(mapCeremonyParticipant);
+  if (participants.length === 0 || participants.some((participant) => participant.status !== "completed")) {
+    return;
+  }
+
+  const existingSynthesis = database
+    .prepare(
+      "select id from ceremony_proposals where project_id = ? and run_id = ? and kind = 'note' and summary like 'Agent consensus:%'",
+    )
+    .get(projectId, runId);
+  if (existingSynthesis) {
+    return;
+  }
+
+  const run = mapCeremonyRun(
+    database.prepare("select * from ceremony_runs where project_id = ? and id = ?").get(projectId, runId),
+  );
+  const deciderRole = run.scope?.deciderRole || "operator";
+  const participantSummary = participants
+    .map((participant) => `${participant.role}: ${participant.summaryMd || participant.outcome || "completed"}`)
+    .join("\n");
+  const unresolvedQuestions = participants
+    .map((participant) => participant.questionsMd)
+    .filter(Boolean)
+    .join("\n");
+  const risks = participants
+    .map((participant) => participant.riskMd)
+    .filter(Boolean)
+    .join("\n");
+  const summary = `Agent consensus: ${deciderRole} synthesized ${participants.length} participant contribution(s).`;
+
+  database
+    .prepare(
+      `insert into ceremony_proposals (
+        id, project_id, run_id, kind, status, summary, ticket_id,
+        payload_json, applied_ticket_id, applied_at, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      `ceremony_proposal_${randomUUID()}`,
+      projectId,
+      runId,
+      "note",
+      "pending",
+      summary,
+      null,
+      JSON.stringify({
+        note: summary,
+        deciderRole,
+        participantSummary,
+        unresolvedQuestions,
+        risks,
+      }),
+      null,
+      null,
+      timestamp,
+      timestamp,
+    );
+
+  database
+    .prepare(
+      `update ceremony_runs
+       set status = 'proposed', summary_md = ?, questions_md = ?, risk_md = ?, finished_at = ?, updated_at = ?
+       where project_id = ? and id = ?`,
+    )
+    .run(
+      `${run.summaryMd}\n\n${summary}`,
+      unresolvedQuestions || run.questionsMd,
+      risks || run.riskMd,
+      timestamp,
+      timestamp,
+      projectId,
+      runId,
+    );
+
+  insertEvent(database, {
+    projectId,
+    type: "ceremony.proposed",
+    summary,
+    detail: participantSummary,
+    reasonCode: run.type,
+    reasonSource: "ceremony",
+  });
 }
 
 function getCeremonyProposalRows(database, projectId, runId) {
@@ -3662,12 +3940,89 @@ function buildRetroProposals(snapshot, timestamp) {
   ];
 }
 
-function buildCeremonySummary(type, snapshot, proposals) {
-  const pendingMutations = proposals.filter((item) => item.kind !== "note").length;
+function buildCeremonyScope(type, input = {}) {
+  const defaults = defaultCeremonyFanOut(type);
+  const participantRoles = normalizeRoleList(input.participantRoles, defaults.participantRoles);
+  const deciderRole =
+    typeof input.deciderRole === "string" && input.deciderRole.trim()
+      ? input.deciderRole.trim()
+      : defaults.deciderRole;
+  const consensusPolicy =
+    typeof input.consensusPolicy === "string" && input.consensusPolicy.trim()
+      ? input.consensusPolicy.trim()
+      : defaults.consensusPolicy;
+
   return {
-    summaryMd: `${prettyCeremonyType(type)} reviewed ${snapshot.tickets.length} ticket(s) and produced ${proposals.length} proposal(s), including ${pendingMutations} ticket change(s).`,
-    questionsMd: pendingMutations > 0 ? "Approve the proposals that match your current PO intent; leave the rest pending." : "",
-    riskMd: "Ceremony proposals do not mutate tickets until applied by an operator.",
+    ...(input.scope || {}),
+    participantRoles,
+    deciderRole,
+    consensusPolicy,
+  };
+}
+
+function defaultCeremonyFanOut(type) {
+  switch (type) {
+    case "planning":
+      return {
+        participantRoles: ["product_manager", "architect", "developer", "integrator"],
+        deciderRole: "integrator",
+        consensusPolicy: "decider_synthesizes_objections",
+      };
+    case "daily_triage":
+      return {
+        participantRoles: ["product_manager", "developer", "reviewer", "validator"],
+        deciderRole: "product_manager",
+        consensusPolicy: "blockers_and_stale_work_win",
+      };
+    case "review_demo_prep":
+      return {
+        participantRoles: ["product_manager", "reviewer", "validator", "integrator"],
+        deciderRole: "reviewer",
+        consensusPolicy: "only_evidence_backed_done_work_is_demoable",
+      };
+    case "retro":
+      return {
+        participantRoles: ["product_manager", "architect", "developer", "reviewer", "validator"],
+        deciderRole: "product_manager",
+        consensusPolicy: "recurring_systemic_risk_wins",
+      };
+    case "refinement":
+    default:
+      return {
+        participantRoles: ["product_manager", "architect", "developer", "reviewer"],
+        deciderRole: "product_manager",
+        consensusPolicy: "decider_synthesizes_objections",
+      };
+  }
+}
+
+function normalizeRoleList(value, fallback) {
+  const source = Array.isArray(value) && value.length > 0 ? value : fallback;
+  const roles = [];
+  for (const role of source) {
+    if (typeof role === "string" && role.trim() && !roles.includes(role.trim())) {
+      roles.push(role.trim());
+    }
+  }
+  return roles;
+}
+
+function buildCeremonySummary(type, snapshot, proposals, scope = {}) {
+  const pendingMutations = proposals.filter((item) => item.kind !== "note").length;
+  const participantText =
+    Array.isArray(scope.participantRoles) && scope.participantRoles.length > 0
+      ? scope.participantRoles.join(", ")
+      : "none";
+  const deciderText = scope.deciderRole || "operator";
+  const consensusText = scope.consensusPolicy || "decider_synthesizes_objections";
+  return {
+    summaryMd: `${prettyCeremonyType(type)} reviewed ${snapshot.tickets.length} ticket(s) with ${participantText}. ${deciderText} is the decider and consensus policy is ${consensusText}. The run produced ${proposals.length} proposal(s), including ${pendingMutations} ticket change(s).`,
+    questionsMd:
+      pendingMutations > 0
+        ? "Approve the proposals that match your current PO intent; leave the rest pending. Agent objections should remain visible when the decider synthesizes consensus."
+        : "No ticket mutation is proposed. Use comments or direct chat follow-up to resolve open questions before asking implementation agents to work.",
+    riskMd:
+      "Fan-out participants advise the ceremony. The decider synthesizes consensus, but proposals do not mutate tickets until applied by an operator.",
   };
 }
 
@@ -4555,8 +4910,9 @@ function insertProjectPolicy(database, projectId, policy, timestamp) {
         id, project_id, require_reviewer, require_validator,
         require_human_approval_before_merge, required_validation_command_profile_for_merge,
         max_parallel_executions, max_parallel_merges, max_auto_continue_iterations,
-        refinement_mode, agent_created_ticket_default_state, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        refinement_mode, agent_created_ticket_default_state, ceremony_automation_json,
+        created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       `policy_${slugify(projectId)}`,
@@ -4570,6 +4926,7 @@ function insertProjectPolicy(database, projectId, policy, timestamp) {
       policy.maxAutoContinueIterations,
       policy.refinementMode || "user_approved",
       policy.agentCreatedTicketDefaultState,
+      JSON.stringify(policy.ceremonyAutomation || defaultCeremonyAutomation()),
       timestamp,
       timestamp,
     );
@@ -4864,6 +5221,26 @@ function applyPositiveIntegerPatch(updates, changedFields, input, existing, fiel
   changedFields.push(field);
 }
 
+function applyJsonObjectPatch(updates, changedFields, input, existing, field, options = {}) {
+  if (!hasOwn(input, field)) {
+    return;
+  }
+
+  const value = input[field];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`Field ${field} must be a JSON object`);
+  }
+
+  const column = options.column || camelToSnake(field);
+  const serialized = JSON.stringify(value);
+  if ((existing[column] || "{}") === serialized) {
+    return;
+  }
+
+  updates[column] = serialized;
+  changedFields.push(field);
+}
+
 function applyRefinementModePatch(updates, changedFields, input, existing) {
   if (!hasOwn(input, "refinementMode")) {
     return;
@@ -4913,6 +5290,30 @@ function migrateSchema(database) {
   if (!policyColumns.has("refinement_mode")) {
     database.exec("alter table project_policies add column refinement_mode text not null default 'user_approved'");
   }
+  if (!policyColumns.has("ceremony_automation_json")) {
+    database.exec("alter table project_policies add column ceremony_automation_json text not null default '{}'");
+  }
+
+  database.exec(`
+    create table if not exists ceremony_participants (
+      id text primary key,
+      project_id text not null references projects(id) on delete cascade,
+      run_id text not null references ceremony_runs(id) on delete cascade,
+      role text not null,
+      status text not null,
+      outcome text not null default '',
+      summary_md text not null default '',
+      questions_md text not null default '',
+      risk_md text not null default '',
+      payload_json text not null default '{}',
+      started_at text,
+      finished_at text,
+      created_at text not null,
+      updated_at text not null,
+      unique (run_id, role)
+    );
+    create index if not exists idx_ceremony_participants_status on ceremony_participants(status);
+  `);
 
   const eventColumns = new Set(database.prepare("pragma table_info(events)").all().map((row) => row.name));
   if (!eventColumns.has("reason_code")) {

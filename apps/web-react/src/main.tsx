@@ -320,11 +320,14 @@ function App() {
     setDetailOpen(true);
   };
 
-  const handleRunCeremony = async (type: CeremonyType) => {
+  const handleRunCeremony = async (
+    type: CeremonyType,
+    input: { participantRoles?: RoleName[]; deciderRole?: RoleName | ""; consensusPolicy?: string } = {},
+  ) => {
     if (!projectId) return;
     setMessage("");
     try {
-      await createCeremony(projectId, { type });
+      await createCeremony(projectId, { type, ...input });
       const [nextCeremonies, nextEvents] = await Promise.all([listCeremonies(projectId), listEvents(projectId)]);
       setCeremonies(nextCeremonies);
       setEvents(nextEvents);
@@ -698,16 +701,54 @@ const ceremonyOptions: Array<{ type: CeremonyType; label: string; detail: string
   { type: "retro", label: "Retro", detail: "Turn repeated stalls into process-improvement work." },
 ];
 
+const defaultCeremonyFanOut: Record<
+  CeremonyType,
+  { participantRoles: RoleName[]; deciderRole: RoleName; consensusPolicy: string }
+> = {
+  refinement: {
+    participantRoles: ["product_manager", "architect", "developer", "reviewer"],
+    deciderRole: "product_manager",
+    consensusPolicy: "decider_synthesizes_objections",
+  },
+  planning: {
+    participantRoles: ["product_manager", "architect", "developer", "integrator"],
+    deciderRole: "integrator",
+    consensusPolicy: "decider_synthesizes_objections",
+  },
+  daily_triage: {
+    participantRoles: ["product_manager", "developer", "reviewer", "validator"],
+    deciderRole: "product_manager",
+    consensusPolicy: "blockers_and_stale_work_win",
+  },
+  review_demo_prep: {
+    participantRoles: ["product_manager", "reviewer", "validator", "integrator"],
+    deciderRole: "reviewer",
+    consensusPolicy: "only_evidence_backed_done_work_is_demoable",
+  },
+  retro: {
+    participantRoles: ["product_manager", "architect", "developer", "reviewer", "validator"],
+    deciderRole: "product_manager",
+    consensusPolicy: "recurring_systemic_risk_wins",
+  },
+};
+
 function CeremoniesPanel({
   ceremonies,
   onRun,
   onApply,
 }: {
   ceremonies: CeremonyRun[];
-  onRun: (type: CeremonyType) => Promise<void>;
+  onRun: (
+    type: CeremonyType,
+    input: { participantRoles?: RoleName[]; deciderRole?: RoleName | ""; consensusPolicy?: string },
+  ) => Promise<void>;
   onApply: (runId: string, proposalIds?: string[]) => Promise<void>;
 }) {
   const [busy, setBusy] = useState("");
+  const [selectedType, setSelectedType] = useState<CeremonyType>("refinement");
+  const [participantRoles, setParticipantRoles] = useState<RoleName[]>(defaultCeremonyFanOut.refinement.participantRoles);
+  const [deciderRole, setDeciderRole] = useState<RoleName>(defaultCeremonyFanOut.refinement.deciderRole);
+  const [consensusPolicy, setConsensusPolicy] = useState(defaultCeremonyFanOut.refinement.consensusPolicy);
   const latest = ceremonies[0] || null;
   const pending = latest?.proposals.filter((proposal) => proposal.status === "pending") || [];
 
@@ -720,16 +761,35 @@ function CeremoniesPanel({
     }
   }
 
+  function selectCeremonyType(type: CeremonyType) {
+    const defaults = defaultCeremonyFanOut[type];
+    setSelectedType(type);
+    setParticipantRoles(defaults.participantRoles);
+    setDeciderRole(defaults.deciderRole);
+    setConsensusPolicy(defaults.consensusPolicy);
+  }
+
+  function toggleParticipant(role: RoleName) {
+    setParticipantRoles((current) => {
+      if (current.includes(role)) {
+        return current.filter((item) => item !== role);
+      }
+      return [...current, role];
+    });
+  }
+
+  const deciderOptions = participantRoles.includes(deciderRole) ? participantRoles : [deciderRole, ...participantRoles];
+
   return (
     <section className="ceremonies-panel" aria-label="Agent ceremonies">
       <div className="ceremony-picker">
         {ceremonyOptions.map((option) => (
           <button
             key={option.type}
-            className="ceremony-option"
+            className={`ceremony-option ${selectedType === option.type ? "is-selected" : ""}`}
             type="button"
             disabled={Boolean(busy)}
-            onClick={() => runWithBusy(option.label, () => onRun(option.type))}
+            onClick={() => selectCeremonyType(option.type)}
           >
             <Sparkles size={17} />
             <strong>{option.label}</strong>
@@ -750,6 +810,12 @@ function CeremoniesPanel({
             <article className="ceremony-summary">
               <strong>{prettyCeremony(latest.type)}</strong>
               <p>{latest.summaryMd}</p>
+              {latest.participantRoles.length > 0 ? (
+                <span>
+                  Participants: {latest.participantRoles.map(prettyRole).join(", ")} · Decider:{" "}
+                  {latest.deciderRole ? prettyRole(latest.deciderRole) : "operator"}
+                </span>
+              ) : null}
               {latest.riskMd ? <span>{latest.riskMd}</span> : null}
             </article>
             <div className="proposal-toolbar">
@@ -763,6 +829,20 @@ function CeremoniesPanel({
                 Apply pending
               </button>
             </div>
+            {latest.participants.length > 0 ? (
+              <div className="proposal-list">
+                {latest.participants.map((participant) => (
+                  <article key={participant.id} className={`proposal-item proposal-${participant.status}`}>
+                    <div>
+                      <span>{prettyRole(participant.role)} · {prettyState(participant.status)}</span>
+                      <strong>{participant.summaryMd || "Waiting for participant output"}</strong>
+                      <code>{participant.outcome || "pending"}</code>
+                    </div>
+                    <span className="badge">{prettyState(participant.status)}</span>
+                  </article>
+                ))}
+              </div>
+            ) : null}
             <div className="proposal-list">
               {latest.proposals.map((proposal) => (
                 <article key={proposal.id} className={`proposal-item proposal-${proposal.status}`}>
@@ -794,6 +874,57 @@ function CeremoniesPanel({
         <div className="section-heading">
           <h3>History</h3>
           <span>{ceremonies.length}</span>
+        </div>
+        <div className="ceremony-controls">
+          <div className="section-heading">
+            <h3>{ceremonyOptions.find((option) => option.type === selectedType)?.label}</h3>
+            <span>Fan-out</span>
+          </div>
+          <div className="role-toggle-grid">
+            {roles.map((role) => {
+              const typedRole = role as RoleName;
+              return (
+              <label key={role} className="check-row">
+                <input
+                  type="checkbox"
+                  checked={participantRoles.includes(typedRole)}
+                  onChange={() => toggleParticipant(typedRole)}
+                />
+                {prettyRole(typedRole)}
+              </label>
+            );
+            })}
+          </div>
+          <label>
+            <span>Decider</span>
+            <select value={deciderRole} onChange={(event) => setDeciderRole(event.currentTarget.value as RoleName)}>
+              {deciderOptions.map((role) => (
+                <option key={role} value={role}>
+                  {prettyRole(role)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Consensus policy</span>
+            <input value={consensusPolicy} onChange={(event) => setConsensusPolicy(event.currentTarget.value)} />
+          </label>
+          <button
+            className="primary-button"
+            type="button"
+            disabled={Boolean(busy) || participantRoles.length === 0}
+            onClick={() =>
+              runWithBusy("Run ceremony", () =>
+                onRun(selectedType, {
+                  participantRoles,
+                  deciderRole,
+                  consensusPolicy,
+                }),
+              )
+            }
+          >
+            Run fan-out
+          </button>
         </div>
         <div className="compact-list">
           {ceremonies.slice(0, 6).map((run) => (
