@@ -133,11 +133,15 @@ try {
 
   await clickText("Show profiles");
   await setProfileConfig("developer", "{bad json");
-  await clickProfileSave("developer");
+  await waitForProfileConfig("developer", "{bad json");
+  await clickProfileTest("developer");
   await waitForText("Config must be valid JSON");
-  await setProfileConfig("developer", '{"temperature":0}');
+  await clickProfilePreset("developer", "Shell");
+  await setProfileConfig("developer", '{"command":"node --version"}');
+  await waitForProfileConfig("developer", '{"command":"node --version"}');
+  await clickProfileTest("developer");
+  await waitForText("Profile test passed");
   await clickProfileSave("developer");
-  await waitForTextGone("Config must be valid JSON");
 
   await clickSelector(".settings-drawer .drawer-heading button");
   await waitForScript("document.querySelector('.settings-drawer') === null");
@@ -387,9 +391,34 @@ async function clickSelector(selector) {
 async function clickProfileSave(role) {
   const element = await elementFromScript(`
     const role = arguments[0];
-    const card = Array.from(document.querySelectorAll(".profile-card")).find((item) => item.innerText.includes(role));
-    return card ? card.querySelector("button") : null;
+    const card = document.querySelector(\`.profile-card[data-role="\${role}"]\`);
+    const field = card?.querySelector('textarea[name="config"]') || document.querySelector('textarea[name="config"]');
+    return field?.closest("form")?.querySelector('button[type="submit"]') || null;
   `, [role]);
+  await clickElement(element);
+}
+
+async function clickProfileTest(role) {
+  const element = await elementFromScript(`
+    const role = arguments[0];
+    const card = document.querySelector(\`.profile-card[data-role="\${role}"]\`);
+    const form = card || document.querySelector('textarea[name="config"]')?.closest("form");
+    if (!form) return null;
+    form.scrollIntoView({ block: "center", inline: "center" });
+    return Array.from(form.querySelectorAll("button")).find((button) => button.innerText.includes("Test profile")) || null;
+  `, [role]);
+  await clickElement(element);
+}
+
+async function clickProfilePreset(role, label) {
+  const element = await elementFromScript(`
+    const role = arguments[0];
+    const label = arguments[1];
+    const card = document.querySelector(\`.profile-card[data-role="\${role}"]\`);
+    if (!card) return null;
+    card.scrollIntoView({ block: "center", inline: "center" });
+    return Array.from(card.querySelectorAll("button")).find((button) => button.innerText.trim() === label) || null;
+  `, [role, label]);
   await clickElement(element);
 }
 
@@ -467,18 +496,23 @@ async function setFirstSelectOption(submitText, fieldName) {
 }
 
 async function setProfileConfig(role, value) {
-  const ok = await execute(`
+  const element = await elementFromScript(`
     const role = arguments[0];
-    const value = arguments[1];
-    const card = Array.from(document.querySelectorAll(".profile-card")).find((item) => item.innerText.includes(role));
-    const field = card ? card.querySelector("textarea") : null;
-    if (!field) return false;
-    field.value = value;
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
-  `, [role, value]);
-  assert.equal(ok, true, `Unable to set ${role} profile config`);
+    const card = document.querySelector(\`.profile-card[data-role="\${role}"]\`);
+    const field = card ? card.querySelector('textarea[name="config"]') : null;
+    if (!field) return null;
+    field.scrollIntoView({ block: "center", inline: "center" });
+    return field;
+  `, [role]);
+  await webdriver("POST", `/session/${sessionId}/element/${elementId(element)}/clear`, {});
+  await webdriver("POST", `/session/${sessionId}/element/${elementId(element)}/value`, { text: value });
+}
+
+async function waitForProfileConfig(role, value) {
+  await waitForScript(
+    `document.querySelector(\`.profile-card[data-role="\${arguments[0]}"] textarea[name="config"]\`)?.value === arguments[1]`,
+    [role, value],
+  );
 }
 
 async function assertNoUiErrors() {

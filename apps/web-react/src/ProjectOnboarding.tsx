@@ -52,7 +52,8 @@ export function ProjectOnboardingDialog({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setBusy(true);
     setError("");
     try {
@@ -84,7 +85,7 @@ export function ProjectOnboardingDialog({
         },
         repo,
       });
-      event.currentTarget.reset();
+      formElement.reset();
       resetProjectDetails();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : String(createError));

@@ -1566,7 +1566,8 @@ function ScopeSection({
 
   async function addRepoTarget(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const repoId = String(form.get("repoId") || "");
     const repo = repos.find((candidate) => candidate.id === repoId);
     if (!repo) return;
@@ -1582,7 +1583,7 @@ function ScopeSection({
       ],
     });
     await onRefresh(ticket.id);
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   async function removeRepoTarget(repoId: string) {
@@ -1594,12 +1595,13 @@ function ScopeSection({
 
   async function addBlocker(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const blockingTicketId = String(form.get("blockingTicketId") || "");
     if (!blockingTicketId) return;
     await addDependency(projectId, ticket.id, { blockingTicketId });
     await onRefresh(ticket.id);
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   async function removeBlocker(dependencyId: string) {
@@ -2052,7 +2054,8 @@ function TicketComposer({
     event.preventDefault();
     setBusy(true);
     setError("");
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await onSubmit({
         title: String(form.get("title") || ""),
@@ -2062,7 +2065,7 @@ function TicketComposer({
         assignedRole: String(form.get("assignedRole") || "developer"),
         repoId: String(form.get("repoId") || ""),
       });
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : String(submitError));
     } finally {

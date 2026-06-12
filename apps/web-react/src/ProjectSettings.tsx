@@ -40,6 +40,43 @@ const ceremonyLabels: Record<CeremonyType, string> = {
   retro: "Retro",
 };
 
+type AdapterKind = "codex" | "shell" | "mock";
+type ProfileDraft = {
+  adapter: AdapterKind;
+  model: string;
+  configText: string;
+};
+
+const adapterPresets: Record<AdapterKind, { label: string; model: string; config: Record<string, unknown> }> = {
+  codex: {
+    label: "Codex",
+    model: "codex-latest",
+    config: {
+      executable: "codex",
+      sandbox: "workspace-write",
+      approvalPolicy: "never",
+      promptPreamble: "",
+    },
+  },
+  shell: {
+    label: "Shell",
+    model: "local-shell-agent",
+    config: {
+      command: "",
+    },
+  },
+  mock: {
+    label: "Mock",
+    model: "fixture",
+    config: {
+      result: {
+        outcome: "completed",
+        summaryMd: "Mock profile completed.",
+      },
+    },
+  },
+};
+
 const defaultCeremonyAutomation: CeremonyAutomation = {
   enabled: false,
   mode: "operator_approved",
@@ -485,7 +522,8 @@ function RepoRegistry({
 }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const localPath = String(form.get("localPath") || "").trim();
     const fallbackName = repoNameFromPath(localPath);
     const name = String(form.get("name") || fallbackName).trim();
@@ -497,7 +535,7 @@ function RepoRegistry({
       defaultBranch: String(form.get("defaultBranch") || "main").trim(),
       isPrimary: form.get("isPrimary") === "on",
     });
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   return (
@@ -631,36 +669,267 @@ function RoleProfileForm({
   onSubmit: (role: RoleName, input: { adapter: string; model: string; config: Record<string, unknown> }) => Promise<void>;
 }) {
   const [configError, setConfigError] = useState("");
+  const [testStatus, setTestStatus] = useState("");
+  const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(profile));
+
+  function updateConfig(key: string, value: unknown) {
+    const current = parseConfigText(draft.configText);
+    const next = current.ok ? { ...current.config, [key]: value } : { [key]: value };
+    setDraft((existing) => ({ ...existing, configText: stringifyConfig(next) }));
+    setConfigError("");
+    setTestStatus("");
+  }
+
+  function applyPreset(adapter: AdapterKind) {
+    const preset = adapterPresets[adapter];
+    setDraft({
+      adapter,
+      model: preset.model,
+      configText: stringifyConfig(preset.config),
+    });
+    setConfigError("");
+    setTestStatus("");
+  }
+
+  function validateDraft() {
+    const parsed = parseConfigText(draft.configText);
+    if (!parsed.ok) {
+      setConfigError("Config must be valid JSON");
+      setTestStatus("");
+      return null;
+    }
+    const validation = validateProfileDraft(draft, parsed.config);
+    if (validation) {
+      setConfigError(validation);
+      setTestStatus("");
+      return null;
+    }
+    setConfigError("");
+    setTestStatus("Profile test passed");
+    return parsed.config;
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const configText = String(form.get("config") || "");
-    let config: Record<string, unknown> = {};
-    try {
-      config = configText.trim() ? JSON.parse(configText) : {};
-      setConfigError("");
-    } catch {
-      setConfigError("Config must be valid JSON");
-      return;
-    }
+    const config = validateDraft();
+    if (!config) return;
     await onSubmit(profile.role, {
-      adapter: String(form.get("adapter") || profile.adapter),
-      model: String(form.get("model") || profile.model),
+      adapter: draft.adapter,
+      model: draft.model,
       config,
     });
   }
+
+  const parsedConfig = parseConfigText(draft.configText);
+  const config = parsedConfig.ok ? parsedConfig.config : {};
+
   return (
-    <form className="profile-card" onSubmit={handleSubmit}>
-      <strong>{prettyRole(profile.role)}</strong>
+    <form className="profile-card" data-role={profile.role} onSubmit={handleSubmit}>
+      <div className="profile-card-heading">
+        <strong>{prettyRole(profile.role)}</strong>
+        <span className="badge">{adapterPresets[draft.adapter].label}</span>
+      </div>
       {configError ? <span className="field-error">{configError}</span> : null}
-      <label><span>Adapter</span><input name="adapter" defaultValue={profile.adapter} required /></label>
-      <label><span>Model</span><input name="model" defaultValue={profile.model} required /></label>
-      <label><span>Config JSON</span><textarea name="config" defaultValue={JSON.stringify(profile.config || {}, null, 2)} rows={4} /></label>
-      <button className="quiet-button" type="submit" disabled={Boolean(busy)}>
-        Save profile
-      </button>
+      {testStatus ? <span className="status is-success">{testStatus}</span> : null}
+      <div className="profile-preset-row" aria-label={`${profile.role} profile presets`}>
+        {(Object.keys(adapterPresets) as AdapterKind[]).map((adapter) => (
+          <button
+            key={adapter}
+            className={draft.adapter === adapter ? "quiet-button is-active" : "quiet-button"}
+            type="button"
+            onClick={() => applyPreset(adapter)}
+          >
+            {adapterPresets[adapter].label}
+          </button>
+        ))}
+      </div>
+      <div className="action-grid">
+        <label>
+          <span>Adapter</span>
+          <select
+            name="adapter"
+            value={draft.adapter}
+            onChange={(event) => applyPreset(event.currentTarget.value as AdapterKind)}
+          >
+            {(Object.keys(adapterPresets) as AdapterKind[]).map((adapter) => (
+              <option key={adapter} value={adapter}>{adapterPresets[adapter].label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Model</span>
+          <input
+            name="model"
+            value={draft.model}
+            required
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setDraft((existing) => ({ ...existing, model: value }));
+              setTestStatus("");
+            }}
+          />
+        </label>
+      </div>
+      <ProfileConfigFields adapter={draft.adapter} config={config} onChange={updateConfig} />
+      <label>
+        <span>Advanced config JSON</span>
+        <textarea
+          name="config"
+          value={draft.configText}
+          rows={5}
+          spellCheck={false}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            setDraft((existing) => ({ ...existing, configText: value }));
+            setConfigError("");
+            setTestStatus("");
+          }}
+        />
+      </label>
+      <div className="composer-actions">
+        <button className="quiet-button" type="button" disabled={Boolean(busy)} onClick={validateDraft}>
+          Test profile
+        </button>
+        <button className="quiet-button" type="submit" disabled={Boolean(busy)}>
+          Save profile
+        </button>
+      </div>
     </form>
   );
+}
+
+function ProfileConfigFields({
+  adapter,
+  config,
+  onChange,
+}: {
+  adapter: AdapterKind;
+  config: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  if (adapter === "shell") {
+    return (
+      <label>
+        <span>Command</span>
+        <textarea
+          name="command"
+          value={stringConfig(config, "command")}
+          rows={3}
+          onChange={(event) => onChange("command", event.currentTarget.value)}
+        />
+      </label>
+    );
+  }
+
+  if (adapter === "mock") {
+    return (
+      <label>
+        <span>Result JSON</span>
+        <textarea
+          name="result"
+          value={stringifyConfig(objectConfig(config, "result"))}
+          rows={4}
+          onChange={(event) => {
+            const parsed = parseConfigText(event.currentTarget.value);
+            onChange("result", parsed.ok ? parsed.config : event.currentTarget.value);
+          }}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <div className="action-grid">
+      <label>
+        <span>Executable</span>
+        <input
+          name="executable"
+          value={stringConfig(config, "executable") || "codex"}
+          onChange={(event) => onChange("executable", event.currentTarget.value)}
+        />
+      </label>
+      <label>
+        <span>Sandbox</span>
+        <select
+          name="sandbox"
+          value={stringConfig(config, "sandbox") || "workspace-write"}
+          onChange={(event) => onChange("sandbox", event.currentTarget.value)}
+        >
+          <option value="workspace-write">workspace-write</option>
+          <option value="read-only">read-only</option>
+          <option value="danger-full-access">danger-full-access</option>
+        </select>
+      </label>
+      <label>
+        <span>Approval policy</span>
+        <select
+          name="approvalPolicy"
+          value={stringConfig(config, "approvalPolicy") || "never"}
+          onChange={(event) => onChange("approvalPolicy", event.currentTarget.value)}
+        >
+          <option value="never">never</option>
+          <option value="on-request">on-request</option>
+          <option value="on-failure">on-failure</option>
+          <option value="untrusted">untrusted</option>
+        </select>
+      </label>
+      <label className="wide-field">
+        <span>Prompt preamble</span>
+        <textarea
+          name="promptPreamble"
+          value={stringConfig(config, "promptPreamble")}
+          rows={3}
+          onChange={(event) => onChange("promptPreamble", event.currentTarget.value)}
+        />
+      </label>
+    </div>
+  );
+}
+
+function draftFromProfile(profile: RoleProfile): ProfileDraft {
+  const adapter = isAdapterKind(profile.adapter) ? profile.adapter : "shell";
+  return {
+    adapter,
+    model: profile.model || adapterPresets[adapter].model,
+    configText: stringifyConfig(profile.config || adapterPresets[adapter].config),
+  };
+}
+
+function isAdapterKind(value: string): value is AdapterKind {
+  return value === "codex" || value === "shell" || value === "mock";
+}
+
+function parseConfigText(value: string): { ok: true; config: Record<string, unknown> } | { ok: false } {
+  try {
+    const parsed = value.trim() ? JSON.parse(value) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { ok: false };
+    }
+    return { ok: true, config: parsed as Record<string, unknown> };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function validateProfileDraft(draft: ProfileDraft, config: Record<string, unknown>) {
+  if (!draft.model.trim()) return "Model is required";
+  if (draft.adapter === "shell" && !stringConfig(config, "command").trim()) return "Command is required";
+  if (draft.adapter === "codex" && !stringConfig(config, "executable").trim()) return "Executable is required";
+  if (draft.adapter === "mock" && typeof config.result !== "object") return "Mock result must be an object";
+  return "";
+}
+
+function stringifyConfig(config: Record<string, unknown>) {
+  return JSON.stringify(config, null, 2);
+}
+
+function stringConfig(config: Record<string, unknown>, key: string) {
+  return typeof config[key] === "string" ? config[key] : "";
+}
+
+function objectConfig(config: Record<string, unknown>, key: string) {
+  const value = config[key];
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function slugify(value: string) {
