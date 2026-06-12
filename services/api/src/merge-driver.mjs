@@ -156,7 +156,11 @@ class MergeDriver {
     let lastError = null;
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       try {
-        return await mergeTicketRepos(ticket, repos, mergeRuntime);
+        const outcome = await mergeTicketRepos(ticket, repos, mergeRuntime);
+        if (attempt > 1) {
+          outcome.summaryMd = appendRetrySummary(outcome.summaryMd, attempt, "completed");
+        }
+        return outcome;
       } catch (error) {
         lastError = error;
         if (isRetryableMergeError(error) && attempt < this.maxAttempts) {
@@ -168,6 +172,11 @@ class MergeDriver {
     }
     throw lastError || new Error("Merge driver exhausted retries");
   }
+}
+
+function appendRetrySummary(summaryMd, attempts, outcome) {
+  const label = outcome === "exhausted" ? "exhausted" : "completed";
+  return `${summaryMd || "Merge finished."}\n\nFloop ${label} after ${attempts} attempt(s).`;
 }
 
 function isAutoMergeCandidate(item) {

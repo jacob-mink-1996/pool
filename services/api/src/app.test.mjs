@@ -24,7 +24,7 @@ async function withServer(run, options = {}) {
   const address = server.address();
 
   try {
-    await run(`http://127.0.0.1:${address.port}`);
+    await run(`http://127.0.0.1:${address.port}`, store);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     store.close();
@@ -499,7 +499,7 @@ test("ceremony endpoints create proposal runs and apply approved proposals", asy
 });
 
 test("run observability endpoint combines execution and ceremony runs", async () => {
-  await withServer(async (baseUrl) => {
+  await withServer(async (baseUrl, store) => {
     const executionResponse = await fetch(
       `${baseUrl}/api/v1/projects/project_floop/tickets/ticket_project_floop_2/executions`,
       {
@@ -513,6 +513,10 @@ test("run observability endpoint combines execution and ceremony runs", async ()
     );
     const executionBody = await executionResponse.json();
     assert.equal(executionResponse.status, 201);
+    store.claimExecution("project_floop", executionBody.execution.id, {
+      claimToken: "test-worker",
+      leaseMs: 60_000,
+    });
 
     const ceremonyResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/ceremonies`, {
       method: "POST",
@@ -523,10 +527,15 @@ test("run observability endpoint combines execution and ceremony runs", async ()
 
     const runsResponse = await fetch(`${baseUrl}/api/v1/projects/project_floop/runs?limit=10`);
     const runsBody = await runsResponse.json();
+    const executionRun = runsBody.observability.runs.find((run) => run.id === `execution:${executionBody.execution.id}`);
 
     assert.equal(runsResponse.status, 200);
     assert.equal(runsBody.observability.summary.total >= 2, true);
-    assert.equal(runsBody.observability.runs.some((run) => run.id === `execution:${executionBody.execution.id}`), true);
+    assert.equal(Boolean(executionRun), true);
+    assert.equal(executionRun.claimStatus, "claimed");
+    assert.equal(executionRun.retryAttemptCount, 1);
+    assert.equal(executionRun.worktreePaths.length > 0, true);
+    assert.equal(Boolean(executionRun.movementReason.summary), true);
     assert.equal(runsBody.observability.runs.some((run) => run.kind === "ceremony" && run.needsAttention), true);
   });
 });

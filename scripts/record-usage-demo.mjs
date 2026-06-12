@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import {
   copyFileSync,
@@ -25,6 +25,7 @@ import { createStore } from "../services/api/src/store.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const mode = process.argv.includes("--record") ? "record" : "proof";
+const openAfterRecord = process.argv.includes("--open");
 const outputRoot = resolve(process.env.FLOOP_DEMO_OUTPUT_DIR || join(repoRoot, "demo-recordings"));
 const fixtureRoot = mkdtempSync(join(tmpdir(), `floop-usage-demo-${mode}-`));
 const workspaceRoot = join(fixtureRoot, "workspace");
@@ -123,6 +124,9 @@ try {
     );
     console.log(`Recorded Floop usage demo: ${videoPath}`);
     console.log(`Proof bundle: ${join(recordingDir, "proof.json")}`);
+    if (openAfterRecord) {
+      openRecording(videoPath);
+    }
   } else {
     console.log("Playwright usage proof passed");
     console.log(`Project: ${proof.projects[0].name}`);
@@ -692,6 +696,26 @@ function finalizeVideo(dir) {
   renameSync(source, target);
   copyFileSync(target, resolve(outputRoot, "floop-usage-demo-latest.webm"));
   return target;
+}
+
+function openRecording(videoPath) {
+  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", videoPath] : [videoPath];
+  try {
+    const child = spawn(opener, args, {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.on("error", (error) => {
+      console.warn(`Could not open recording automatically: ${error.message}`);
+      console.log(`Recording ready: ${videoPath}`);
+    });
+    child.unref();
+    console.log(`Opened recording: ${videoPath}`);
+  } catch (error) {
+    console.log(`Recording ready: ${videoPath}`);
+    console.warn(`Could not open recording automatically: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function initializeTargetRepo(repoPath) {

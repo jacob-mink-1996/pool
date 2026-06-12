@@ -171,6 +171,9 @@ To record the walkthrough:
 npm run demo:record
 ```
 
+Use `npm run demo:proof:keep` to keep the temporary fixture for inspection, or
+`npm run demo:record:open` to record and ask the OS to open the latest `.webm`.
+
 Recordings are written under `demo-recordings/` by default and ignored by git.
 Set `FLOOP_DEMO_OUTPUT_DIR=/path/to/output` to write them elsewhere. Set
 `FLOOP_DEMO_KEEP_FIXTURE=true` only when you need to inspect the temporary

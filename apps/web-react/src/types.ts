@@ -234,6 +234,21 @@ export type RunObservabilityItem = {
   ticketTitle: string;
   role: string;
   failureKind: string;
+  claimStatus: string;
+  claimExpiresAt: string;
+  retryAttemptCount: number;
+  stdoutArtifactUri: string;
+  stderrArtifactUri: string;
+  worktreePaths: string[];
+  movementReason: {
+    eventId: string;
+    type: string;
+    summary: string;
+    detail: string;
+    reasonCode: string;
+    reasonSource: string;
+    createdAt: string;
+  } | null;
   startedAt: string;
   finishedAt: string;
   artifactCount: number;

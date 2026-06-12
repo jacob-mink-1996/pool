@@ -692,7 +692,9 @@ h3 {
 
 .run-copy span,
 .run-copy p,
-.run-copy strong {
+.run-copy strong,
+.run-copy code,
+.run-copy small {
   overflow-wrap: anywhere;
 }
 
@@ -709,6 +711,13 @@ h3 {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.run-copy code,
+.run-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .run-meta {

@@ -749,11 +749,21 @@ function OpsPanel({
                     </button>
                   ) : null}
                   {run.role ? <span>{prettyRole(run.role as RoleName)}</span> : null}
+                  {run.claimStatus !== "not_applicable" ? <span>{prettyState(run.claimStatus)}</span> : null}
+                  {run.retryAttemptCount > 1 ? <span>{run.retryAttemptCount} attempts</span> : null}
                   {run.failureKind ? <span>{prettyState(run.failureKind)}</span> : null}
+                  {run.stdoutArtifactUri ? <span>stdout</span> : null}
+                  {run.stderrArtifactUri ? <span>stderr</span> : null}
                   {run.artifactCount ? <span>{run.artifactCount} artifact(s)</span> : null}
                   {run.worktreeCount ? <span>{run.worktreeCount} worktree(s)</span> : null}
                   {run.pendingProposalCount ? <span>{run.pendingProposalCount} proposal(s)</span> : null}
                 </div>
+                {run.worktreePaths.length > 0 ? (
+                  <code>{run.worktreePaths[0]}</code>
+                ) : null}
+                {run.movementReason ? (
+                  <small>{run.movementReason.reasonCode || run.movementReason.summary}</small>
+                ) : null}
               </div>
             </article>
           ))}

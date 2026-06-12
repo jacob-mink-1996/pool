@@ -40,7 +40,7 @@ function buildRunFeed(store, projectId, filters = {}) {
   const mergeRuns = store.listMergeRuns(projectId, { limit }) || [];
   const ceremonies = store.listCeremonyRuns(projectId) || [];
   const runs = [
-    ...executions.map(executionRunItem),
+    ...executions.map((execution) => executionRunItem(store, projectId, execution)),
     ...mergeRuns.map((run) => mergeRunItem(store, projectId, run)),
     ...ceremonies.map(ceremonyRunItem),
   ]
@@ -54,7 +54,9 @@ function buildRunFeed(store, projectId, filters = {}) {
   };
 }
 
-function executionRunItem(execution) {
+function executionRunItem(store, projectId, execution) {
+  const artifacts = execution.artifacts || [];
+  const movementReason = latestTicketMovementReason(store, projectId, execution.ticketId);
   return {
     id: `execution:${execution.id}`,
     runId: execution.id,
@@ -68,9 +70,16 @@ function executionRunItem(execution) {
     ticketTitle: execution.ticketTitle || "",
     role: execution.role,
     failureKind: execution.failureKind || execution.blockedKind || "",
+    claimStatus: claimStatus(execution),
+    claimExpiresAt: execution.claimExpiresAt || "",
+    retryAttemptCount: retryAttemptCount(execution.summaryMd),
+    stdoutArtifactUri: findArtifactUri(artifacts, "stdout"),
+    stderrArtifactUri: findArtifactUri(artifacts, "stderr"),
+    worktreePaths: (execution.worktrees || []).map((worktree) => worktree.path).filter(Boolean),
+    movementReason,
     startedAt: execution.startedAt,
     finishedAt: execution.finishedAt || "",
-    artifactCount: execution.artifacts?.length || 0,
+    artifactCount: artifacts.length,
     worktreeCount: execution.worktrees?.length || 0,
     needsAttention: execution.status === "needs_continue" || ["failed", "blocked"].includes(execution.outcome),
   };
@@ -78,6 +87,8 @@ function executionRunItem(execution) {
 
 function mergeRunItem(store, projectId, run) {
   const ticket = run.ticketId ? store.getTicket(projectId, run.ticketId) : null;
+  const artifacts = run.artifacts || [];
+  const movementReason = run.ticketId ? latestTicketMovementReason(store, projectId, run.ticketId) : null;
   return {
     id: `merge:${run.id}`,
     runId: run.id,
@@ -91,9 +102,16 @@ function mergeRunItem(store, projectId, run) {
     ticketTitle: ticket?.title || "",
     role: "integrator",
     failureKind: run.failureKind || "",
+    claimStatus: claimStatus(run),
+    claimExpiresAt: run.claimExpiresAt || "",
+    retryAttemptCount: retryAttemptCount(run.summaryMd),
+    stdoutArtifactUri: findArtifactUri(artifacts, "stdout"),
+    stderrArtifactUri: findArtifactUri(artifacts, "stderr"),
+    worktreePaths: [],
+    movementReason,
     startedAt: run.startedAt,
     finishedAt: run.finishedAt || "",
-    artifactCount: run.artifacts?.length || 0,
+    artifactCount: artifacts.length,
     worktreeCount: 0,
     needsAttention: ["blocked", "failed"].includes(run.status),
   };
@@ -115,6 +133,13 @@ function ceremonyRunItem(run) {
     ticketTitle: "",
     role: run.deciderRole || "",
     failureKind: failedParticipants ? "participant_attention" : "",
+    claimStatus: "not_applicable",
+    claimExpiresAt: "",
+    retryAttemptCount: 1,
+    stdoutArtifactUri: "",
+    stderrArtifactUri: "",
+    worktreePaths: [],
+    movementReason: null,
     startedAt: run.startedAt,
     finishedAt: run.finishedAt || "",
     artifactCount: 0,
@@ -136,4 +161,49 @@ function summarizeRuns(runs) {
 
 function runSortDate(run) {
   return run.finishedAt || run.startedAt || "";
+}
+
+function claimStatus(run) {
+  if (!run.claimed) {
+    return "unclaimed";
+  }
+  if (!run.claimExpiresAt) {
+    return "claimed";
+  }
+  const expiresAt = Date.parse(run.claimExpiresAt);
+  if (Number.isFinite(expiresAt) && expiresAt < Date.now()) {
+    return "expired";
+  }
+  return "claimed";
+}
+
+function retryAttemptCount(summary = "") {
+  const match = String(summary || "").match(/Floop (?:completed|exhausted) after (\d+) attempt\(s\)/);
+  const parsed = Number.parseInt(match?.[1] || match?.[2] || "1", 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function findArtifactUri(artifacts, stream) {
+  const artifact = artifacts.find((item) => item.label?.toLowerCase().includes(stream));
+  return artifact?.uri || "";
+}
+
+function latestTicketMovementReason(store, projectId, ticketId) {
+  if (!ticketId) {
+    return null;
+  }
+  const events = store.listEvents(projectId, { ticketId, order: "desc", limit: 12 }) || [];
+  const event = events.find((candidate) => candidate.type === "ticket.transitioned") || events[0];
+  if (!event) {
+    return null;
+  }
+  return {
+    eventId: event.id,
+    type: event.type,
+    summary: event.summary,
+    detail: event.detail,
+    reasonCode: event.reasonCode || "",
+    reasonSource: event.reasonSource || "",
+    createdAt: event.createdAt,
+  };
 }

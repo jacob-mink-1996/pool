@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -182,8 +182,10 @@ class ExecutionDriver {
           isRetryableExecutionFailure(completion.failureKind) &&
           attempt === this.maxAttempts
         ) {
-          completion.summaryMd = `${completion.summaryMd}\n\nFloop exhausted ${this.maxAttempts} retry attempt(s) before failing this lane.`;
+          completion.summaryMd = appendRetrySummary(completion.summaryMd, this.maxAttempts, "exhausted");
           completion.failureKind = "driver_retries_exhausted";
+        } else if (attempt > 1) {
+          completion.summaryMd = appendRetrySummary(completion.summaryMd, attempt, "completed");
         }
 
         this.store.completeExecution(execution.projectId, execution.id, completion);
@@ -209,6 +211,11 @@ class ExecutionDriver {
 
 function isRetryableExecutionFailure(failureKind) {
   return failureKind === "transient" || failureKind === "temporary" || failureKind === "driver_error";
+}
+
+function appendRetrySummary(summaryMd, attempts, outcome) {
+  const label = outcome === "exhausted" ? "exhausted" : "completed";
+  return `${summaryMd || "Execution finished."}\n\nFloop ${label} after ${attempts} attempt(s).`;
 }
 
 function isRetryableExecutionError(error) {
@@ -444,21 +451,25 @@ async function executeAdapterRun(adapterRun, options) {
       cwd: options.cwd,
       env: options.env,
       stdin: prompt,
+      stdoutPath: options.runtime.stdoutPath,
+      stderrPath: options.runtime.stderrPath,
     });
   }
 
   return runShellCommand(adapterRun.command, options);
 }
 
-function runShellCommand(command, { cwd, env }) {
+function runShellCommand(command, { cwd, env, runtime }) {
   return runProcess(command, [], {
     cwd,
     env,
     shell: true,
+    stdoutPath: runtime.stdoutPath,
+    stderrPath: runtime.stderrPath,
   });
 }
 
-function runProcess(command, args, { cwd, env, shell = false, stdin = "" }) {
+function runProcess(command, args, { cwd, env, shell = false, stdin = "", stdoutPath = "", stderrPath = "" }) {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(command, args, {
       cwd,
@@ -469,24 +480,34 @@ function runProcess(command, args, { cwd, env, shell = false, stdin = "" }) {
 
     let stdout = "";
     let stderr = "";
+    let stdoutWrite = stdoutPath ? writeFile(stdoutPath, "", "utf8") : Promise.resolve();
+    let stderrWrite = stderrPath ? writeFile(stderrPath, "", "utf8") : Promise.resolve();
 
     if (stdin) {
       child.stdin?.end(stdin);
     }
 
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      const text = chunk.toString();
+      stdout += text;
+      if (stdoutPath) stdoutWrite = stdoutWrite.then(() => appendFile(stdoutPath, text, "utf8"));
     });
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      const text = chunk.toString();
+      stderr += text;
+      if (stderrPath) stderrWrite = stderrWrite.then(() => appendFile(stderrPath, text, "utf8"));
     });
     child.on("error", rejectPromise);
     child.on("close", (code) => {
-      resolvePromise({
-        exitCode: code ?? 1,
-        stdout,
-        stderr,
-      });
+      Promise.all([stdoutWrite, stderrWrite])
+        .then(() => {
+          resolvePromise({
+            exitCode: code ?? 1,
+            stdout,
+            stderr,
+          });
+        })
+        .catch(rejectPromise);
     });
   });
 }

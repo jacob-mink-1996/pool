@@ -510,7 +510,8 @@ test("execution driver retries transient adapter failures before succeeding", as
 
     const completed = store.getExecution("project_floop", execution.id);
     assert.equal(completed.outcome, "completed");
-    assert.equal(completed.summaryMd, "Succeeded after retry.");
+    assert.match(completed.summaryMd, /Succeeded after retry\./);
+    assert.match(completed.summaryMd, /Floop completed after 2 attempt\(s\)\./);
     assert.equal(readFileSync(attemptPath, "utf8"), "2");
   } finally {
     store.close();
