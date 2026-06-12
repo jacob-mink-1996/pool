@@ -25,3 +25,7 @@ directory as `floop.sqlite`.
 Set `FLOOP_DB_PATH` to force a specific database path. The desktop app tries
 `FLOOP_PORT` when it is set; otherwise it starts on `4318` and falls back to a
 free loopback port if that port is already occupied.
+
+The desktop shell is a loopback-only trust boundary by default. If you override
+the API host to a non-loopback address for LAN or Tailscale access, set
+`FLOOP_AUTH_TOKEN` and pass that token from any external client.

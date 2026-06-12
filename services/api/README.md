@@ -17,6 +17,8 @@ Useful environment variables:
 - `FLOOP_MERGE_POLL_MS` to tune background merge polling
 - `FLOOP_CEREMONY_POLL_MS` to tune ceremony automation polling
 - `FLOOP_CEREMONY_PARTICIPANT_POLL_MS` to tune ceremony participant polling
+- `FLOOP_HOST` defaults to `127.0.0.1`; non-loopback hosts require `FLOOP_AUTH_TOKEN`
+- `FLOOP_AUTH_TOKEN` is accepted as `Authorization: Bearer <token>` or `x-floop-auth`
 
 Execution driver notes:
 

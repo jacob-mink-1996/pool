@@ -104,6 +104,10 @@ Optional environment variables:
 
 - `FLOOP_DB_PATH` to override the SQLite database file location
 - `FLOOP_SEED_DEMO=false` to boot without the seeded demo project
+- `FLOOP_HOST` defaults to `127.0.0.1`; setting a non-loopback host requires
+  `FLOOP_AUTH_TOKEN`
+- `FLOOP_AUTH_TOKEN` protects LAN or Tailscale access via bearer token or
+  `x-floop-auth`
 
 ### Bootstrap A Real Local Project
 

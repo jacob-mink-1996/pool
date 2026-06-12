@@ -25,10 +25,15 @@ import {
   parseUpdateTicketInput,
 } from "../../../packages/contracts/src/index.mjs";
 import { createStore } from "./store.mjs";
+import { createLocalTrustConfig, isAuthorizedRequest } from "./local-trust.mjs";
 
 const webAssets = loadWebAssets();
 
 export function createFloopServer(options = {}) {
+  const trustConfig = createLocalTrustConfig({
+    host: options.host || "127.0.0.1",
+    authToken: options.authToken || "",
+  });
   const store = options.store || createStore();
 
   return http.createServer(async (request, response) => {
@@ -36,6 +41,14 @@ export function createFloopServer(options = {}) {
       if (request.method === "OPTIONS") {
         response.writeHead(204, corsHeaders());
         response.end();
+        return;
+      }
+
+      if (!isAuthorizedRequest(request, trustConfig)) {
+        sendJson(response, 401, {
+          error: "unauthorized",
+          message: "Floop API requires a valid local trust token",
+        });
         return;
       }
 
@@ -752,7 +765,7 @@ function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "authorization,content-type,x-floop-auth",
   };
 }
 

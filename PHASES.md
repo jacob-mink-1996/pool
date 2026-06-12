@@ -35,14 +35,14 @@ Steps:
 8. Transition policy layer - complete.
 9. Versioned migrations - complete.
 10. Artifact durability contract - complete.
-11. Local trust/auth model - next.
-12. Decision queue UI - pending.
+11. Local trust/auth model - complete.
+12. Decision queue UI - next.
 13. Push/PR hygiene - pending.
 
 Immediate next work:
 
-- clarify loopback, LAN, Tailscale, and Electron access assumptions
-- add basic protection before non-loopback use
+- surface approvals, blocked work, failed validations, stale active runs, merge
+  readiness, and pending ceremony proposals in one operator queue
 
 ## Phase 9: Rebrand Consolidation
 

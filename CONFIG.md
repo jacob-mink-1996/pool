@@ -42,6 +42,15 @@ Floop-managed driver evidence is written below the project workspace at
 Artifacts supplied by adapters, reviewers, validators, or merge integrations are
 URI references unless they already point inside that managed root. Floop records
 those references but does not copy or clean them.
+
+## Local Trust
+
+Default API access is loopback-only: `FLOOP_HOST` defaults to `127.0.0.1`, which
+is suitable for the web MVP and Electron.
+
+Binding to a non-loopback host for LAN or Tailscale access requires
+`FLOOP_AUTH_TOKEN`. Clients must send either `Authorization: Bearer <token>` or
+`x-floop-auth: <token>`. Do not expose non-loopback Floop without that token.
 - concurrency rules
 - ticket defaults
 - allowed roles

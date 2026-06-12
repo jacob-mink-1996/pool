@@ -15,7 +15,11 @@ async function withServer(run, options = {}) {
     seedDemo: options.seedDemo ?? true,
     workspaceRoot: options.workspaceRoot || "/workspace/floop",
   });
-  const server = createFloopServer({ store });
+  const server = createFloopServer({
+    store,
+    host: options.host || "127.0.0.1",
+    authToken: options.authToken || "",
+  });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
 
@@ -37,6 +41,26 @@ test("health endpoint responds successfully", async () => {
     assert.equal(body.ok, true);
     assert.equal(body.service, "floop-api");
   });
+});
+
+test("non-loopback API mode requires a local trust token", async () => {
+  assert.throws(
+    () => createFloopServer({ host: "0.0.0.0" }),
+    /FLOOP_AUTH_TOKEN/,
+  );
+
+  await withServer(
+    async (baseUrl) => {
+      const rejected = await fetch(`${baseUrl}/api/v1/health`);
+      assert.equal(rejected.status, 401);
+
+      const accepted = await fetch(`${baseUrl}/api/v1/health`, {
+        headers: { authorization: "Bearer test-token" },
+      });
+      assert.equal(accepted.status, 200);
+    },
+    { host: "0.0.0.0", authToken: "test-token" },
+  );
 });
 
 test("meta endpoint exposes runtime defaults for the web app", async () => {

@@ -8,7 +8,7 @@ import { createStore } from "./store.mjs";
 const host = process.env.FLOOP_HOST || "127.0.0.1";
 const port = Number.parseInt(process.env.FLOOP_PORT || "4318", 10);
 const store = createStore();
-const server = createFloopServer({ store, host, port });
+const server = createFloopServer({ store, host, port, authToken: process.env.FLOOP_AUTH_TOKEN || "" });
 const driver = createExecutionDriver({
   store,
   pollIntervalMs: Number.parseInt(process.env.FLOOP_EXECUTION_POLL_MS || "2000", 10),
